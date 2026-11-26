@@ -2388,7 +2388,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `${index + 1}번, 안 풂`,
+      name: new RegExp(`^${index + 1}번, .+, 안 풂$`),
       exact: true
     })
     await focusByTab(page, questionControl)
@@ -2435,7 +2435,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '1번, 안 풂',
+    name: /^1번, .+, 안 풂$/,
     exact: true
   })
   await focusByTab(page, firstResultQuestion)

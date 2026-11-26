@@ -35,9 +35,11 @@ export const EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES = [
 ] as const
 
 /**
- * The 888 questions published without a Japanese explanation (#976, #1243):
- * the 500 above plus the add2 and kanji files. The publish command locates
- * each explanation's question in these 20 files.
+ * The files the Japanese explanation file points into: the 888 questions
+ * published without a Japanese explanation (#976, #1243: the 500 above plus
+ * the add2 and kanji files) and B1 to B8 of #1239, whose explanations the
+ * file corrects (B12). The publish command locates each explanation's
+ * question in these 28 files.
  */
 export const EXPLANATION_JA_SET_FILE_NAMES = [
   ...EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES,
@@ -50,12 +52,7 @@ export const EXPLANATION_JA_SET_FILE_NAMES = [
   'n4.kanji.v1.json',
   'n3.kanji.v1.json',
   'n2.kanji.v1.json',
-  'n1.kanji.v1.json'
-] as const
-
-/** The fixed 1413 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
-export const QUESTION_SET_FILE_NAMES = [
-  ...EXPLANATION_JA_SET_FILE_NAMES,
+  'n1.kanji.v1.json',
   'n1.b1.v1.json',
   'n2.b2.v1.json',
   'n3.b3.v1.json',
@@ -63,9 +60,19 @@ export const QUESTION_SET_FILE_NAMES = [
   'n3.b5.v1.json',
   'n4.b6.v1.json',
   'n5.b7.v1.json',
-  'n1.b8.v1.json',
+  'n1.b8.v1.json'
+] as const
+
+/** The fixed 1723 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
+export const QUESTION_SET_FILE_NAMES = [
+  ...EXPLANATION_JA_SET_FILE_NAMES,
   'n4.b9.v1.json',
-  'n5.b10.v1.json'
+  'n5.b10.v1.json',
+  'n5.b11.v1.json',
+  'n4.b11.v1.json',
+  'n3.b11.v1.json',
+  'n2.b11.v1.json',
+  'n1.b11.v1.json'
 ] as const
 
 export interface QuestionSetFile {
@@ -81,7 +88,7 @@ export class QuestionSetInputError extends Error {
 }
 
 /**
- * Reads exactly the named set files (the 30 by default); a missing or extra
+ * Reads exactly the named set files (the 35 by default); a missing or extra
  * file refuses the run.
  */
 export const readQuestionSet = async (

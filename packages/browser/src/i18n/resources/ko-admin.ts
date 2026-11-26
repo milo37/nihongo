@@ -10,6 +10,7 @@ import { koAdminImportResources } from './ko-admin-import'
 import { koAdminListResources } from './ko-admin-list'
 import { koAdminMembersResources } from './ko-admin-members'
 import { koAdminNavResources } from './ko-admin-nav'
+import { koAdminRetentionResources } from './ko-admin-retention'
 import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminQuestionDetailResources } from './ko-admin-question-detail'
 import { koAdminReportResources } from './ko-admin-report'
@@ -32,6 +33,7 @@ export const koAdminResources = {
   questionDetail: koAdminQuestionDetailResources,
   import: koAdminImportResources,
   audit: koAdminAuditResources,
+  retention: koAdminRetentionResources,
   questionReportDialog: learner.questionReportDialog,
   userReport: koAdminReportResources
 } as const

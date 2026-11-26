@@ -31,6 +31,10 @@
       "types": "./dist/admin/audit.d.ts",
       "import": "./dist/admin/audit.js"
     },
+    "./admin/retention": {
+      "types": "./dist/admin/retention.d.ts",
+      "import": "./dist/admin/retention.js"
+    },
     "./report/reports": {
       "types": "./dist/report/reports.d.ts",
       "import": "./dist/report/reports.js"

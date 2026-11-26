@@ -5,5 +5,6 @@ export const koAdminNavResources = {
   import: '가져오기',
   members: '가입자',
   reports: '버그 리포트',
+  retention: '재방문율',
   auditLog: '감사 이력'
 } as const

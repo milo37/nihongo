@@ -10,6 +10,7 @@
     "./api/admin-import-result/index": "./src/api/admin-import-result/index.ts",
     "./api/admin-member/index": "./src/api/admin-member/index.ts",
     "./api/admin-report/index": "./src/api/admin-report/index.ts",
+    "./api/admin-retention/index": "./src/api/admin-retention/index.ts",
     "./api/auth/getCurrentUser/index": "./src/api/auth/getCurrentUser/index.ts",
     "./api/auth/getCurrentUser/schema": "./src/api/auth/getCurrentUser/schema.ts",
     "./api/auth/startAdminReauth/index": "./src/api/auth/startAdminReauth/index.ts",

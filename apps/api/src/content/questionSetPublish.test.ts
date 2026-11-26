@@ -30,31 +30,31 @@ afterEach(async () => {
 })
 
 describe('question set files (JLP-828)', () => {
-  it('names the same 30 files as the question import source', () => {
+  it('names the same 35 files as the question import source', () => {
     expect(QUESTION_SET_FILE_NAMES).toEqual(questionImportFileNames)
   })
 
-  it('reads the 1413 questions with a SHA-256 per file', async () => {
+  it('reads the 1723 questions with a SHA-256 per file', async () => {
     const files = await readQuestionSet(await copySet())
     expect(files.map(({ name }) => name)).toEqual(QUESTION_SET_FILE_NAMES)
     expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
-      1413
+      1723
     )
     for (const file of files) expect(file.sha256).toMatch(/^[0-9a-f]{64}$/u)
   })
 
-  it('reads the 20 files of the Japanese explanation set (#1081, #1243)', async () => {
+  it('reads the 28 files of the Japanese explanation set (#1081, #1243, #1239)', async () => {
     const files = await readQuestionSet(
       await copySet(EXPLANATION_JA_SET_FILE_NAMES),
       EXPLANATION_JA_SET_FILE_NAMES
     )
     expect(files.map(({ name }) => name)).toEqual(EXPLANATION_JA_SET_FILE_NAMES)
     expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
-      888
+      1293
     )
-    // The B files came with their Japanese explanations.
+    // B9 and later came with their Japanese explanations and need no fix.
     for (const file of files)
-      expect(file.name).toMatch(/^n[1-5]\.(v1|add|add2|kanji)/u)
+      expect(file.name).toMatch(/^n[1-5]\.(v1|add|add2|kanji|b[1-8])\./u)
     const previous = await readQuestionSet(
       await copySet(EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES),
       EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES
@@ -62,7 +62,7 @@ describe('question set files (JLP-828)', () => {
     expect(previous.reduce((total, file) => total + file.items.length, 0)).toBe(
       500
     )
-    await expect(readQuestionSet(await copySet())).resolves.toHaveLength(30)
+    await expect(readQuestionSet(await copySet())).resolves.toHaveLength(35)
     await expect(
       readQuestionSet(await copySet(), EXPLANATION_JA_SET_FILE_NAMES)
     ).rejects.toMatchObject({ code: 'QUESTION_SET_FILES_INVALID' })

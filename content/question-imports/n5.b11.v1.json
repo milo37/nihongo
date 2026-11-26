@@ -1,0 +1,2050 @@
+{
+  "items": [
+    {
+      "clientItemId": "n5-b11-vocabulary-01",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「東」の そらが あかるく なりました。「東」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 東 = ひがし(동쪽)\nひかし는 「が」의 탁음을 빠뜨렸고, ひがじ는 「し」에 탁음을 잘못 붙였습니다. にし는 「西」(서쪽)의 읽기입니다.",
+        "explanationJa": "ポイント：東＝ひがし\n「ひかし」は「が」の にごる おとが なく、「ひがじ」は「し」を にごらせた まちがいです。「にし」は「西」の よみかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひかし"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひがじ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にし"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ひがし"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-02",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "あさから 「雨」が ふって います。「雨」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 雨 = あめ(비)\nあね는 「姉」(누나·언니), うめ는 「梅」(매실), ゆき는 「雪」(눈)의 읽기입니다.",
+        "explanationJa": "ポイント：雨＝あめ\n「あね」は「姉」、「うめ」は「梅」、「ゆき」は「雪」の よみかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あめ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あね"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うめ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ゆき"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-03",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "にちようびに 「友だち」と こうえんへ 行きます。「友だち」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 友だち = ともだち(친구)\nともたち는 「だ」의 탁음을 빠뜨렸고, どもだち는 「と」에 탁음을 잘못 붙였습니다. ゆうだち는 「夕立」(소나기)라는 다른 말입니다.",
+        "explanationJa": "ポイント：友だち＝ともだち\n「ともたち」は にごる おとが なく、「どもだち」は「と」を にごらせた まちがいです。「ゆうだち」は べつの ことばです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ともだち"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ともたち"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "どもだち"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ゆうだち"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-04",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「母」は りょうりが じょうずです。「母」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 母 = はは(어머니)\nはわ는 없는 읽기이고, ちち는 「父」(아버지), あに는 「兄」(형·오빠)의 읽기입니다.",
+        "explanationJa": "ポイント：母＝はは\n「はわ」と いう よみかたは ありません。「ちち」は「父」、「あに」は「兄」の よみかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はわ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ちち"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はは"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あに"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-05",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "たくさん あるいて、「足」が いたいです。「足」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 足 = あし(다리, 발)\nあじ는 「味」(맛), あさ는 「朝」(아침), て는 「手」(손)의 읽기입니다.",
+        "explanationJa": "ポイント：足＝あし\n「あじ」は「味」、「あさ」は「朝」、「て」は「手」の よみかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あじ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あさ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "て"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あし"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-06",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "まいあさ パンを 「食べます」。「食べます」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 食べる = たべる(먹다)\nたへます는 탁음을 빠뜨렸고, しょくべます는 「食」의 음독 「しょく」를 잘못 붙인 것, のべます는 「述べます」(말하다)라는 다른 말입니다.",
+        "explanationJa": "ポイント：食べる＝たべる\n「たへます」は にごる おとが なく、「しょくべます」は「食」の「しょく」を まちがえて つかって います。「のべます」は「述べます」で べつの ことばです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たへます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しょくべます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "のべます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たべます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-07",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "くつを ぬいで、へやに 「入ります」。「入ります」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 入る = はいる(들어가다)\nいります는 「要ります」(필요하다), はります는 「貼ります」(붙이다)의 읽기이고, にゅうります는 「入」의 음독을 잘못 붙인 것입니다.",
+        "explanationJa": "ポイント：入る＝はいる\n「いります」「はります」は べつの ことばです。「にゅうります」は「入」の「にゅう」を まちがえて つかって います。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いります"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にゅうります"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はります"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はいります"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-08",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "この ノートは 「百円」です。「百円」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 百円 = ひゃくえん(100엔)\nはくえん은 「ゃ」를 빠뜨렸고, びゃくえん은 탁음을 잘못 붙였습니다. ひゃっえん처럼 「っ」이 되지 않습니다.",
+        "explanationJa": "ポイント：百円＝ひゃくえん\n「はくえん」は「ゃ」が なく、「びゃくえん」は にごる おとが まちがいです。「ひゃっえん」とは なりません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひゃくえん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はくえん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "びゃくえん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ひゃっえん"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-09",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "すみません、いま 「何時」ですか。「何時」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 何時 = なんじ(몇 시)\n시각을 물을 때는 「なんじ」라고 읽습니다. なにじ·いつじ는 없는 읽기이고, なんどき는 옛말이라 이 문장에 맞지 않습니다.",
+        "explanationJa": "ポイント：何時＝なんじ\nじかんを きく ときは「なんじ」と よみます。「なにじ」「いつじ」と いう よみかたは ありません。「なんどき」は ふるい いいかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "なにじ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なんじ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "なんどき"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いつじ"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-10",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "こうえんで 「女の子」が あそんで います。「女の子」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 女の子 = おんなのこ(여자아이)\nおなのこ는 「ん」을 빠뜨렸고, おんなのし는 「子」를 「し」로, じょのこ는 「女」를 음독 「じょ」로 잘못 읽은 것입니다.",
+        "explanationJa": "ポイント：女の子＝おんなのこ\n「おなのこ」は「ん」が なく、「おんなのし」は「子」を「し」と、「じょのこ」は「女」を「じょ」と まちがえて よんで います。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おんなのこ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おなのこ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おんなのし"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じょのこ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-11",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "わたしの へやは 「南」に まどが あります。「南」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 南 = みなみ(남쪽)\nみなま·なみ는 南의 읽기가 아니고, きた는 「北」(북쪽)의 읽기입니다.",
+        "explanationJa": "ポイント：南＝みなみ\n「みなま」「なみ」は「南」の よみかたでは ありません。「きた」は「北」の よみかたです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "みなま"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なみ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みなみ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きた"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-12",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "つくえの 「上」に ほんが あります。「上」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 上 = うえ(위)\nした는 「下」(아래)의 읽기, うい는 없는 읽기입니다. じょう는 「上」의 음독이지만 혼자 쓸 때는 「うえ」라고 읽습니다.",
+        "explanationJa": "ポイント：上＝うえ\n「した」は「下」の よみかたで、「うい」と いう よみかたは ありません。「じょう」も「上」の よみかたですが、ひとつで つかう ときは「うえ」です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "うえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "した"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じょう"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-13",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "きょうは 「そら」が あおいです。「そら」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: そら = 空(하늘)\n究·突·穴은 위에 「穴」 모양이 있어 비슷해 보이는 다른 글자입니다.",
+        "explanationJa": "ポイント：そら＝空\n「究」「突」「穴」は うえの ところが にて いますが、べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "空"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "究"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "突"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "穴"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-14",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "ほこりが 入って、「め」が いたいです。「め」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: め = 目(눈)\n自·日·白은 모양이 비슷하지만 다른 글자입니다. 日은 「ひ」, 白은 「しろ」입니다.",
+        "explanationJa": "ポイント：め＝目\n「自」「日」「白」は かたちが にて いますが、べつの 字です。「日」は「ひ」、「白」は「しろ」です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "自"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "目"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "白"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-15",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "ごはんの まえに 「て」を あらいます。「て」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: て = 手(손)\n毛(털)·午(낮)·牛(소)는 가로획과 세로획이 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：て＝手\n「毛」「午」「牛」は かたちが にて いる べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "毛"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "手"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "午"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "牛"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-16",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "「くち」を 大きく あけて ください。「くち」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: くち = 口(입)\n日·田·四는 네모 모양이 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：くち＝口\n「日」「田」「四」は しかくい かたちが にて いる べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "田"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "口"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "四"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-17",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "あそこに 「おとこ」の 人が たって います。「おとこ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おとこ = 男(남자)\n町·田·思는 「田」이 들어 있어 비슷해 보이는 다른 글자입니다.",
+        "explanationJa": "ポイント：おとこ＝男\n「町」「田」「思」は「田」が 入って いて にて いますが、べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "町"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "田"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "思"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "男"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-18",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "わたしは 「にほんご」を べんきょうして います。「にほんご」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: にほんご = 日本語(일본어)\n話는 「はなす」의 한자, 木은 本과 비슷한 다른 글자, 目은 日과 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：にほんご＝日本語\n「話」は「はなす」の かんじ、「木」は「本」に にた 字、「目」は「日」に にた 字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "日本話"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "日木語"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日本語"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "目本語"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-19",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "あした デパートへ 「いきます」。「いきます」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: いく = 行く(가다)\n待(기다릴 대)·律(법칙 률)·仕(섬길 사)는 왼쪽 모양이 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：いく＝行く\n「待」「律」「仕」は ひだりの ところが にて いる べつの 字です。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "行きます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "待きます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "律きます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "仕きます"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-20",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "しちじに いえを 「でます」。「でます」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: でる = 出る(나가다)\n山·生·牛는 모양이 조금 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：でる＝出る\n「山」「生」「牛」は すこし にて いる べつの 字です。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "山ます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "出ます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "生ます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "牛ます"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-21",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "この まちは 木が 「おおい」です。「おおい」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おおい = 多い(많다)\n夕는 多의 반쪽만 쓴 글자이고, 名·各은 夕 모양이 들어 있는 다른 글자입니다.",
+        "explanationJa": "ポイント：おおい＝多い\n「夕」は「多」の はんぶんだけの 字、「名」「各」は「夕」が 入って いる べつの 字です。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "夕い"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "多い"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "名い"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "各い"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-22",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "えきの 「まえ」で まって います。「まえ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: まえ = 前(앞)\n首(목)·道(길)·背(등)는 모양이 조금 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：まえ＝前\n「首」「道」「背」は すこし にて いる べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "首"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "前"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "道"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "背"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-23",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "つぎの 「きんようび」に あいましょう。「きんようび」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: きんようび = 金曜日(금요일)\n全은 金과 모양이 비슷한 다른 글자, 躍은 曜와 오른쪽이 같은 다른 글자, 今은 「いま」의 한자입니다.",
+        "explanationJa": "ポイント：きんようび＝金曜日\n「全」は「金」に にた 字、「躍」は「曜」と みぎが おなじ べつの 字です。「今」は「いま」の かんじです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "全曜日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "金躍日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "今曜日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "金曜日"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-24",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "はこの 「なか」に りんごが あります。「なか」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: なか = 中(안, 속)\n申·由·虫은 가운데 세로획이 있어 비슷해 보이는 다른 글자입니다.",
+        "explanationJa": "ポイント：なか＝中\n「申」「由」「虫」は まんなかに たての せんが あって にて いますが、べつの 字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "申"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "由"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "中"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "虫"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-25",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "へやが くらいので、「でんき」を つけました。「でんき」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: でんき = 電気(전기, 불)\n雷(우레 뢰)는 電과 비슷한 다른 글자, 汽는 気와 비슷한 다른 글자, 田은 「た」로 읽는 다른 글자입니다.",
+        "explanationJa": "ポイント：でんき＝電気\n「雷」は「電」に、「汽」は「気」に にた べつの 字です。「田」は「た」と よむ 字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "雷気"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "電汽"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "田気"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "電気"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-26",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "さむいので、まどを（　）ください。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: まどを しめる = 창문을 닫다\n추우니까 창문을 닫아 달라는 뜻입니다. あけて(열어)는 반대이고, つけて·けして는 불·전기에 쓰는 말입니다.",
+        "explanationJa": "ポイント：まどを しめる\nさむいので まどを しめて ほしいと いう いみです。「あけて」は はんたい、「つけて」「けして」は でんきに つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あけて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しめて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "つけて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "けして"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-27",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "あたまが いたいので、（　）を のみました。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: くすりを のむ = 약을 먹다\n머리가 아파서 먹은 것은 약입니다. 일본어로 약은 「のむ」를 씁니다. パン·にく·くだもの는 「たべる」를 씁니다.",
+        "explanationJa": "ポイント：くすりを のむ\nあたまが いたい ときに のむのは くすりです。「パン」「にく」「くだもの」は「たべる」を つかいます。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "パン"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "くすり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "くだもの"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-28",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "えきまで とおいですから、（　）に のりましょう。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: タクシーに のる = 택시를 타다\n「のる」(타다)와 맞는 것은 タクシー뿐입니다. テーブル(탁자)·ノート(공책)·シャツ(셔츠)는 탈 수 없습니다.",
+        "explanationJa": "ポイント：タクシーに のる\n「のる」と あうのは「タクシー」だけです。「テーブル」「ノート」「シャツ」には のりません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "テーブル"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ノート"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "タクシー"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "シャツ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-29",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "この へやは（　）ですから、でんきを つけましょう。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: くらい = 어둡다\n불을 켜는 이유는 방이 어둡기 때문입니다. あかるい(밝다)는 반대이고, ひろい(넓다)·あたらしい(새롭다)는 불을 켤 이유가 되지 않습니다.",
+        "explanationJa": "ポイント：くらい\nでんきを つけるのは へやが くらいからです。「あかるい」は はんたい、「ひろい」「あたらしい」は でんきを つける りゆうに なりません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あかるい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひろい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あたらしい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "くらい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-30",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "しゅくだいを（　）、せんせいに だしました。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: しゅくだいを する = 숙제를 하다\n숙제를 하고 선생님께 냈다는 뜻입니다. ねる(자다)·あそぶ(놀다)·すわる(앉다)는 「しゅくだいを」와 함께 쓰지 않습니다.",
+        "explanationJa": "ポイント：しゅくだいを する\nしゅくだいを して、せんせいに だしたと いう いみです。「ねる」「あそぶ」「すわる」は「しゅくだいを」と つかいません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "して"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ねて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あそんで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "すわって"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-31",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "はが いたいので、（　）へ 行きました。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: はいしゃ = 치과\n이가 아파서 간 곳은 치과입니다. ほんや(서점)·ぎんこう(은행)·ゆうびんきょく(우체국)는 이를 고치는 곳이 아닙니다.",
+        "explanationJa": "ポイント：はいしゃ＝はを なおす ところ\nはが いたい ときに 行くのは「はいしゃ」です。「ほんや」「ぎんこう」「ゆうびんきょく」では はを なおしません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ほんや"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぎんこう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はいしゃ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ゆうびんきょく"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-32",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "ドアを（　）から、へやに 入って ください。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ドアを ノックする = 문을 노크하다\n방에 들어가기 전에 하는 것은 노크입니다. たべる·のむ·ならう는 「ドアを」와 맞지 않습니다.",
+        "explanationJa": "ポイント：ドアを ノックする\nへやに 入る まえに する ことは ノックです。「たべる」「のむ」「ならう」は「ドアを」と あいません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たべて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ノックして"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "のんで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ならって"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-33",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "にちようびは がっこうが（　）です。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: がっこうが やすみ = 학교가 쉬는 날\n일요일은 학교가 쉰다는 뜻입니다. しごと(일)·べんきょう(공부)·じゅぎょう(수업)는 「がっこうが」와 이 문장에서 맞지 않습니다.",
+        "explanationJa": "ポイント：がっこうが やすみ\nにちようびは がっこうが ない ひです。「しごと」「べんきょう」「じゅぎょう」は「がっこうが 〜です」と あいません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "やすみ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しごと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "べんきょう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じゅぎょう"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-34",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "（　）で てを あらいます。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: せっけん = 비누\n손을 씻을 때 쓰는 것은 비누입니다. めがね(안경)·さいふ(지갑)·かさ(우산)로는 손을 씻지 않습니다.",
+        "explanationJa": "ポイント：せっけん\nてを あらう ときに つかうのは「せっけん」です。「めがね」「さいふ」「かさ」では てを あらいません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "めがね"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "さいふ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かさ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せっけん"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-35",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "わたしは まいにち えきまで（　）で 行きます。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: じてんしゃで 行く = 자전거로 가다\n역까지 타고 가는 것은 자전거입니다. テレビ·でんわ(전화)·れいぞうこ(냉장고)는 타고 가는 것이 아닙니다.",
+        "explanationJa": "ポイント：じてんしゃで 行く\nえきまで のって 行くのは「じてんしゃ」です。「テレビ」「でんわ」「れいぞうこ」では 行けません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "じてんしゃ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "テレビ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "でんわ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "れいぞうこ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-36",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "あねは うたが とても（　）です。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: うたが じょうず = 노래를 잘한다\n「うたが ~です」에 맞는 것은 じょうず입니다. わかい(젊다)·いそがしい(바쁘다)·おもい(무겁다)는 노래를 설명하는 말이 아닙니다.",
+        "explanationJa": "ポイント：うたが じょうず\n「うたが 〜です」に あうのは「じょうず」です。「わかい」「いそがしい」「おもい」は うたの ことでは ありません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わかい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "じょうず"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "いそがしい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おもい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-37",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "ここは としょかんですから、（　）して ください。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: しずかに する = 조용히 하다\n도서관에서는 조용히 해야 합니다. にぎやかに(떠들썩하게)·うるさく(시끄럽게)는 반대이고, たかく는 뜻이 맞지 않습니다.",
+        "explanationJa": "ポイント：しずかに する\nとしょかんでは しずかに します。「にぎやかに」「うるさく」は はんたいで、「たかく」は いみが あいません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しずかに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にぎやかに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うるさく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たかく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-38",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "この みせは あさ 十時に（　）、よる 八時に しまります。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: みせが あく = 가게가 문을 열다\n아침 10시에 열고 밤 8시에 닫는다는 뜻입니다. しまって는 뒤의 「しまります」와 겹치고, おわって·かえって는 가게 문에 쓰지 않습니다.",
+        "explanationJa": "ポイント：みせが あく\nあさ 十時に あいて、よる 八時に しまると いう いみです。「しまって」は うしろと おなじで、「おわって」「かえって」は あいません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しまって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おわって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あいて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かえって"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-39",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "EASY",
+        "questionText": "「この へやは あかるいです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あかるい ≈ くらく ない(어둡지 않다)\nくらい(어둡다)는 반대이고, ひろい(넓다)·あたらしい(새롭다)는 밝기와 관계없습니다.",
+        "explanationJa": "ポイント：あかるい＝くらく ない\n「くらい」は はんたいの いみです。「ひろい」「あたらしい」は あかるさの ことでは ありません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この へやは くらいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この へやは くらく ないです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この へやは ひろいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この へやは あたらしいです。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-40",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "EASY",
+        "questionText": "「あにの へやは きれいです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: きれい ≈ きたなく ない(더럽지 않다)\nきたない(더럽다)는 반대이고, せまい(좁다)·ひろく ない(넓지 않다)는 크기 이야기입니다.",
+        "explanationJa": "ポイント：きれい＝きたなく ない\n「きたない」は はんたいの いみです。「せまい」「ひろく ない」は へやの 大きさの ことです。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あにの へやは きたないです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あにの へやは せまいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あにの へやは ひろく ないです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あにの へやは きたなく ないです。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-41",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「わたしは バスで がっこうへ 行きます。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: バスで 行く ≈ バスに のって 行く(버스를 타고 가다)\nあるいて(걸어서)는 방법이 다르고, 버스를 기다린다·집에 돌아간다는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：バスで 行く＝バスに のって 行く\n「あるいて」は 行きかたが ちがいます。「バスを まって います」「いえへ かえります」は いみが ちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは バスに のって がっこうへ 行きます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたしは あるいて がっこうへ 行きます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしは バスを まって います。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わたしは バスで いえへ かえります。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-42",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「この ケーキは おいしく ないです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おいしく ない ≈ まずい(맛없다)\nおいしい(맛있다)는 반대이고, たかい(비싸다)·あまい(달다)는 맛있는지 아닌지를 말하지 않습니다.",
+        "explanationJa": "ポイント：おいしく ない＝まずい\n「おいしい」は はんたいです。「たかい」「あまい」は おいしいか どうかの ことでは ありません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この ケーキは おいしいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この ケーキは まずいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この ケーキは たかいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この ケーキは あまいです。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-43",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「きのうは いそがしかったです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: いそがしい ≈ 할 일이 많다\nひま(한가하다)·やすみ(쉬는 날)·ずっと ねて いた(계속 잤다)는 모두 바쁘지 않았다는 뜻입니다.",
+        "explanationJa": "ポイント：いそがしい＝しごとが たくさん ある\n「ひま」「やすみ」「ずっと ねて いた」は どれも いそがしく なかった いみです。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きのうは ひまでした。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きのうは しごとが たくさん ありました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きのうは やすみでした。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きのうは ずっと ねて いました。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-44",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "HARD",
+        "questionText": "「あにが わたしに じしょを くれました。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: Aが わたしに くれる ≈ わたしは Aに もらう(받다)\nあげました는 내가 준 것이라 반대이고, 같이 샀다·잃어버렸다는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：Aが わたしに くれる＝わたしは Aに もらう\n「あげました」は わたしが あげた ことで はんたいです。「かいました」「なくしました」は いみが ちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは あにに じしょを あげました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたしは あにと じしょを かいました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしは あにに じしょを もらいました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わたしは あにの じしょを なくしました。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-45",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「この へんは よる しずかです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: しずか ≈ うるさく ない(시끄럽지 않다)\nにぎやか(북적이다)·人が おおい(사람이 많다)는 반대에 가깝고, あかるい(밝다)는 소리와 관계없습니다.",
+        "explanationJa": "ポイント：しずか＝うるさく ない\n「にぎやか」「人が おおい」は はんたいに ちかく、「あかるい」は おとの ことでは ありません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よる、この へんは にぎやかです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "よる、この へんは あかるいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "よる、この へんは うるさく ないです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よる、この へんは 人が おおいです。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-46",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「きょうは さむく ないです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: さむく ない ≈ あたたかい(따뜻하다)\nさむい(춥다)는 반대이고, 눈이 온다·바람이 차갑다는 추운 날의 모습입니다.",
+        "explanationJa": "ポイント：さむく ない＝あたたかい\n「さむい」は はんたいで、「ゆきが ふって いる」「かぜが つめたい」は さむい ひの ようすです。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きょうは さむいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きょうは ゆきが ふって います。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きょうは あたたかいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きょうは かぜが とても つめたいです。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-47",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「わたしは りょうりが へたです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: へた ≈ じょうずじゃ ない(잘하지 못한다)\nじょうず(잘한다)는 반대이고, すき(좋아한다)·きらい(싫어한다)는 잘하는지가 아니라 좋고 싫음입니다.",
+        "explanationJa": "ポイント：へた＝じょうずじゃ ない\n「じょうず」は はんたいです。「すき」「きらい」は できるか どうかでは なく、すきか どうかです。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは りょうりが じょうずです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたしは りょうりが すきです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしは りょうりが きらいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わたしは りょうりが じょうずじゃ ないです。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-48",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「けさ あさごはんを たべませんでした。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あさごはんを たべない ≈ 아침에 아무것도 먹지 않았다\n많이 먹었다는 반대이고, 만들었다·점심을 안 먹었다는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：あさごはんを たべなかった＝けさは なにも たべなかった\n「たくさん たべました」は はんたい、「つくりました」「ひるごはん」は いみが ちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けさ あさごはんを たくさん たべました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けさ あさごはんを つくりました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きょうは ひるごはんを たべませんでした。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "けさは なにも たべませんでした。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-49",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「ははは だいどころに います。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: だいどころ = 요리하는 방(부엌)\n자는 방·밖·욕실은 부엌이 아닙니다.",
+        "explanationJa": "ポイント：だいどころ＝りょうりを する へや\n「ねる へや」「そと」「おふろ」は だいどころでは ありません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ははは ねる へやに います。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ははは そとに います。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ははは りょうりを する へやに います。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ははは おふろに 入って います。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-50",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "HARD",
+        "questionText": "「えきの まえに ぎんこうが あります。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: えきの まえに ぎんこうが ある ≈ ぎんこうは えきの まえ\nうしろ(뒤)·なか(안)는 위치가 다르고, 역이 은행 앞에 있다는 것은 앞뒤가 바뀐 말입니다.",
+        "explanationJa": "ポイント：えきの まえに ぎんこうが ある＝ぎんこうは えきの まえ\n「うしろ」「なか」は ばしょが ちがいます。「えきは ぎんこうの まえ」は ぎゃくです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぎんこうは えきの まえです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぎんこうは えきの うしろです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぎんこうは えきの なかです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "えきは ぎんこうの まえに あります。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-51",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「あらう」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あらう = 씻다\n식사 전에 손을 씻는 문장이 맞습니다. 사진은 「とる」(찍다), 라디오는 「きく」(듣다), 친구는 「まつ」(기다리다)를 씁니다.",
+        "explanationJa": "ポイント：あらう＝みずで きれいに する\nごはんの まえに てを あらう 文が ただしいです。しゃしんは「とる」、ラジオは「きく」、ともだちは「まつ」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "こうえんで しゃしんを あらいます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まいばん ラジオを あらいます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "えきで ともだちを あらいます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ごはんの まえに てを あらいます。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-52",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「おす」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おす = 누르다, 밀다\n버튼을 누르는 문장이 맞습니다. 우산은 「さす」(쓰다), 셔츠는 「きる」(입다), 편지는 「だす」(부치다)를 씁니다.",
+        "explanationJa": "ポイント：おす\nボタンを おす 文が ただしいです。かさは「さす」、シャツは「きる」、てがみは「だす」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あめなので、かさを おします。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この ボタンを おすと、ドアが あきます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さむいので、シャツを おします。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ゆうびんきょくで てがみを おします。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-53",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「わかい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: わかい = 젊다\n선생님이 아직 젊다는 문장이 맞습니다. 빵이 새것인 것은 「あたらしい」를 쓰고, 방·물에는 「わかい」를 쓰지 않습니다.",
+        "explanationJa": "ポイント：わかい＝としが すくない\nせんせいが まだ わかい 文が ただしいです。パンは「あたらしい」を つかいます。へやや みずには「わかい」を つかいません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けさ かった パンは わかいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この へやは とても わかいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きょうの みずは わかいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わたしの せんせいは まだ わかいです。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-54",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「つくる」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: つくる = 만들다\n어머니가 케이크를 만든 문장이 맞습니다. 사진은 「とる」, 숙제는 「する」, 전화는 「かける」를 씁니다.",
+        "explanationJa": "ポイント：つくる\nははが ケーキを つくった 文が ただしいです。しゃしんは「とる」、しゅくだいは「する」、でんわは「かける」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ははが たんじょうびの ケーキを つくりました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こうえんで しゃしんを つくりました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きのう しゅくだいを つくりました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よる ともだちに でんわを つくりました。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-55",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「おおぜい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おおぜい = (사람이) 많이\n「おおぜい」는 사람에게만 씁니다. 물·돈이 많을 때는 「たくさん」, 매우 재미있는 것은 「とても」를 씁니다.",
+        "explanationJa": "ポイント：おおぜい＝人が たくさん\n「おおぜい」は 人に つかいます。みずや おかねは「たくさん」、とても おもしろいは「とても」です。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "こうえんに 人が おおぜい います。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "コップに みずが おおぜい あります。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この ほんは おおぜい おもしろいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "さいふに おかねが おおぜい 入って います。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-56",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「ぬぐ」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ぬぐ = (옷·신발을) 벗다\n집에 들어가기 전에 신발을 벗는 문장이 맞습니다. 불은 「けす」, 창문은 「しめる」, 안경은 「はずす」를 씁니다.",
+        "explanationJa": "ポイント：ぬぐ\nくつを ぬぐ 文が ただしいです。でんきは「けす」、まどは「しめる」、めがねは「はずす」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "へやを 出る まえに、でんきを ぬぎます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いえに 入る まえに、くつを ぬぎます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さむいので、まどを ぬぎます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ほんを よむ まえに、めがねを ぬぎます。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-57",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「かるい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: かるい = 가볍다\n가방이 가벼워 들기 쉽다는 문장이 맞습니다. 방·하늘이 밝은 것은 「あかるい」, 키가 작은 것은 「ひくい」입니다.",
+        "explanationJa": "ポイント：かるい＝おもく ない\nかばんが かるい 文が ただしいです。へやや そらは「あかるい」、せは「ひくい」を つかいます。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この へやは まどが 大きくて かるいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この かばんは かるいので、もちやすいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あの 人は せが かるいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きょうは そらが かるくて きれいです。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-58",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「すむ」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: すむ = 살다\n도쿄에 살고 있다는 문장이 맞습니다. 의자는 「すわる」(앉다), 버스는 「まつ」(기다리다), 전철은 「のる」(타다)를 씁니다.",
+        "explanationJa": "ポイント：すむ\nとうきょうに すんで いる 文が ただしいです。いすは「すわる」、バスは「まつ」、でんしゃは「のる」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "どうぞ、この いすに すんで ください。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "えきの まえで バスを すんで います。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしは いま とうきょうに すんで います。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まいあさ でんしゃに すみます。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-59",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「あまい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あまい = 달다\n케이크가 달아서 맛있다는 문장이 맞습니다. 옷·방·키에는 「あまい」를 쓰지 않습니다.",
+        "explanationJa": "ポイント：あまい\nケーキが あまい 文が ただしいです。ふく・へや・せには「あまい」を つかいません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この ケーキは あまくて おいしいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きょうは あまい ふくを きます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この へやは とても あまいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あの 人は せが あまいです。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-60",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「おりる」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おりる = (탈것에서) 내리다\n다음 역에서 전철에서 내리는 문장이 맞습니다. 옷은 「ぬぐ」, 비는 「ふる」, 불은 「けす」를 씁니다.",
+        "explanationJa": "ポイント：おりる\nでんしゃを おりる 文が ただしいです。ふくは「ぬぐ」、あめは「ふる」、でんきは「けす」を つかいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いえに かえって、ふくを おりました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あさから あめが おりて います。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ねる まえに でんきを おります。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "つぎの えきで でんしゃを おります。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-61",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「いっしょに」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: いっしょに = 함께\n친구와 함께 영화를 본 문장이 맞습니다. 나이·값·날씨에는 「いっしょに」가 맞지 않습니다(매우는 「とても」).",
+        "explanationJa": "ポイント：いっしょに\nともだちと いっしょに えいがを みた 文が ただしいです。としや ねだん、さむさには あいません（「とても」を つかいます）。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは いっしょに 二十さいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この ペンは いっしょに やすいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ともだちと いっしょに えいがを みました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きょうは いっしょに さむいです。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b11-vocabulary-62",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「ひま」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ひま = 한가하다\n일이 없어 한가하다는 문장이 맞습니다. 방이 넓은 것은 「ひろい」, 천천히 걷는 것은 「ゆっくり」를 쓰고, 케이크에는 「ひま」를 쓰지 않습니다.",
+        "explanationJa": "ポイント：ひま＝する ことが ない\nしごとが なくて ひまな 文が ただしいです。へやは「ひろい」、あるく ようすは「ゆっくり」です。ケーキには つかいません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この へやは ひまで、ベッドが 二つ あります。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きょうは しごとが ないので、ひまです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "もう すこし ひまに あるいて ください。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この ケーキは ひまで おいしいです。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    }
+  ]
+}

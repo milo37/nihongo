@@ -17,6 +17,7 @@ const items: readonly { to: string; key: string; icon: IconName }[] = [
   { to: importPath, key: 'nav.import', icon: 'upload' },
   { to: '/members', key: 'nav.members', icon: 'user-round' },
   { to: '/reports', key: 'nav.reports', icon: 'circle-alert' },
+  { to: '/retention', key: 'nav.retention', icon: 'calendar' },
   { to: '/audit-log', key: 'nav.auditLog', icon: 'history' }
 ]
 

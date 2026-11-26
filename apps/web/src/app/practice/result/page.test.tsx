@@ -249,9 +249,9 @@ describe('approved general result navigation', () => {
     expect(document.getElementById('result-explanations')).toHaveFocus()
     const buttons = within(navigation).getAllByRole('button')
     expect(buttons).toHaveLength(3)
-    expect(buttons[0]).toHaveAccessibleName('1번, 맞음')
-    expect(buttons[1]).toHaveAccessibleName('2번, 틀림')
-    expect(buttons[2]).toHaveAccessibleName('3번, 안 풂')
+    expect(buttons[0]).toHaveAccessibleName(/^1번, .+, 맞음$/)
+    expect(buttons[1]).toHaveAccessibleName(/^2번, .+, 틀림$/)
+    expect(buttons[2]).toHaveAccessibleName(/^3번, .+, 안 풂$/)
     // Shape as well as colour: hollow ○, filled ✕, dashed – (ux2 §2-1).
     expect(
       buttons
@@ -631,7 +631,7 @@ describe('approved general result navigation', () => {
       })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       let selected = within(navigation).getByRole('button', {
-        name: '5번, 안 풂'
+        name: /^5번, .+, 안 풂$/
       })
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
         navigation.getBoundingClientRect().right
@@ -656,7 +656,7 @@ describe('approved general result navigation', () => {
       navigation = await screen.findByRole('navigation', { name: '문제 번호' })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       selected = within(navigation).getByRole('button', {
-        name: '5번, 안 풂'
+        name: /^5번, .+, 안 풂$/
       })
       expect(selected).not.toHaveFocus()
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
@@ -694,7 +694,7 @@ describe('approved general result navigation', () => {
       await act(async () => window.dispatchEvent(new Event('resize')))
       expect(navigation.scrollLeft).toBe(0)
       expect(
-        within(navigation).getByRole('button', { name: '5번, 안 풂' })
+        within(navigation).getByRole('button', { name: /^5번, .+, 안 풂$/ })
       ).not.toHaveFocus()
       expect(scrollTo).not.toHaveBeenCalled()
       expect(scrollIntoView).not.toHaveBeenCalled()

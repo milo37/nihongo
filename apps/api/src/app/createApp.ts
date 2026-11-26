@@ -104,6 +104,8 @@ import type { UserReportService } from '../report/userReportService.js'
 import { createAdminConsoleCommandGuard } from '../admin/adminConsoleCommandGuard.js'
 import type { AdminMemberService } from '../admin/adminMemberService.js'
 import { createAdminMemberRoutes } from '../routes/adminMembers.js'
+import type { AdminRetentionReader } from '../admin/adminRetention.js'
+import { createAdminRetentionRoutes } from '../routes/adminRetention.js'
 import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
 import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
 import {
@@ -184,6 +186,8 @@ interface CreateApiAppDependencies {
     ) => Promise<AdminImportApplyResponse | null>
     /** Operations console member list and restriction (JLP-691). */
     members?: AdminMemberService
+    /** #1266: the daily return counts table, read only. */
+    retention?: AdminRetentionReader
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
     /** JLP-842: the administrator access record of every admin request. */
@@ -709,6 +713,21 @@ export const createApiApp = ({
             }),
             readGuard,
             service: admin.members
+          })
+        )
+      }
+      if (admin.retention) {
+        app.route(
+          '/api/v1/admin',
+          createAdminRetentionRoutes({
+            readGuard: createAdminReadGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.rateLimiter,
+              recordAccess: admin.recordAccess
+            }),
+            reader: admin.retention
           })
         )
       }
