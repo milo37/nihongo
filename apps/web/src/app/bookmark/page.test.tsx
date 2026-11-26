@@ -221,7 +221,7 @@ describe('BookmarkPage pagination settlement', () => {
     const interaction = userEvent.setup()
     const text = await screen.findByText(preview)
     expect(text).toHaveAttribute('lang', 'ja')
-    expect(text.className).toContain('line-clamp-2')
+    expect(text.className).toContain('study-list-text')
     expect(screen.getByText('21문제')).toBeVisible()
     expect(screen.getByText('담은 순')).toBeVisible()
     expect(screen.queryByText('저장된 문항 미리보기예요.')).toBeNull()
@@ -485,7 +485,13 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
-    expect(screen.getByText('책갈피에서 빼지 못했어요.')).toBeVisible()
+    // JLP-982: the failure is a toast, not a line above the list.
+    expect(
+      within(screen.getByRole('region', { name: '알림' })).getByText(
+        '책갈피에서 빼지 못했어요.'
+      )
+    ).toBeVisible()
+    expect(screen.getAllByText('책갈피에서 빼지 못했어요.')).toHaveLength(1)
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())
@@ -519,6 +525,13 @@ describe('BookmarkPage pagination settlement', () => {
     const fixture = await renderLastPageDelete()
 
     await act(async () => fixture.settlement.resolve('REMOVE'))
+    // JLP-982: success is the bookmark toast too, with no line on the page.
+    expect(
+      await within(
+        await screen.findByRole('region', { name: '알림' })
+      ).findByText('책갈피에서 뺐어요.')
+    ).toBeVisible()
+    expect(screen.getAllByText('책갈피에서 뺐어요.')).toHaveLength(1)
 
     // Back on page 1 of 1, where the pager is hidden (ux2 §1-4).
     await waitFor(() =>
@@ -553,7 +566,13 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeVisible()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
-    expect(screen.getByText('책갈피에서 빼지 못했어요.')).toBeVisible()
+    // JLP-982: the failure is a toast, not a line above the list.
+    expect(
+      within(screen.getByRole('region', { name: '알림' })).getByText(
+        '책갈피에서 빼지 못했어요.'
+      )
+    ).toBeVisible()
+    expect(screen.getAllByText('책갈피에서 빼지 못했어요.')).toHaveLength(1)
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())

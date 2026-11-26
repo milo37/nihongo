@@ -33,6 +33,9 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | menu.css                             | Language and account menus                      |
 |              | maru.css                             | Maru pictures and Maru's stamp                  |
 |              | manuscript.css                       | Manuscript paper: progress squares, grade marks |
+|              | study-list.css                       | Study list rows (bookmark list)                 |
+|              | notice.css                           | Restricted-account notice                       |
+|              | explanation.css                      | Question explanation                            |
 | 4-screens    | home/home.css, home/daily.css        | Home; today's question                          |
 |              | practice-setup.css                   | Practice setup                                  |
 |              | session.css                          | Solve screen                                    |
@@ -51,6 +54,7 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | bookmark/bookmark.css                | Bookmarks                                       |
 |              | bookmark/report.css                  | Question report dialog                          |
 |              | same-passage.css                     | Solve and result: same-passage note, fold       |
+|              | development.css                      | Connection check page (development only)        |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
 |              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
 

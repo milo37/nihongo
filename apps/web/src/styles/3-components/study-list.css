@@ -1,0 +1,89 @@
+/* Study list (ux2 §1): a header line, then rows of meta, the question (two
+   lines at most), a sub line and an end cell. Sizes stay at 12·13·15·17px. */
+@layer utilities {
+  .study-list-text {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: var(--text-base);
+    --tw-leading: var(--leading-relaxed);
+    line-height: var(--leading-relaxed);
+  }
+  .study-list-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-bottom-style: solid;
+    border-bottom-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    padding-block: 0.75rem;
+  }
+  .study-list-aside {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-muted));
+  }
+  .study-list-row {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding-block: 1rem;
+  }
+  .study-list-end {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .study-list-body {
+    display: grid;
+    min-width: 0px;
+    flex: 1;
+    gap: var(--spacing);
+  }
+  .study-list {
+    max-width: 760px;
+  }
+  .study-list-item {
+    border-bottom-style: solid;
+    border-bottom-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+  }
+  .study-list-meta {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .study-list-sub {
+    font-size: 13px;
+    color: rgb(var(--color-muted));
+  }
+  .study-list-count {
+    font-size: 15px;
+    font-weight: var(--font-weight-bold);
+  }
+  .study-list-chevron {
+    color: rgb(var(--color-muted));
+  }
+  @media (hover: hover) {
+    .study-list-link:hover {
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  @media (width >= 40rem) {
+    .study-list-row {
+      padding-block: 1.25rem;
+    }
+    .study-list-text {
+      font-size: 17px;
+    }
+  }
+}

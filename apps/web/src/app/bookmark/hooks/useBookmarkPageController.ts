@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import type {
   JlptLevel,
@@ -10,6 +11,7 @@ import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
   isAccountRestrictedApiError,
@@ -18,8 +20,6 @@ import {
 
 export const BOOKMARK_PAGE_SIZE = 20
 export const BOOKMARK_PRACTICE_COUNT = 20
-
-export type BookmarkStatusMessage = 'removed' | 'removing' | 'restoreFailed'
 
 export interface BookmarkPracticeGroup {
   level: JlptLevel
@@ -33,6 +33,8 @@ const getBookmarkPage = (value: string | null): number => {
 
 export const useBookmarkPageController = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation('bookmark')
+  const { addToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const ownerIdentityRef = useRef<string | null | undefined>(undefined)
   const page = getBookmarkPage(searchParams.get('page'))
@@ -54,8 +56,6 @@ export const useBookmarkPageController = () => {
   const [pendingRemovalQuestionId, setPendingRemovalQuestionId] = useState<
     string | null
   >(null)
-  const [statusMessage, setStatusMessage] =
-    useState<BookmarkStatusMessage | null>(null)
   const bookmarksQuery = useListBookmarks({
     page,
     pageSize: BOOKMARK_PAGE_SIZE
@@ -78,7 +78,6 @@ export const useBookmarkPageController = () => {
     if (ownerIdentityRef.current === currentUserId) return
     ownerIdentityRef.current = currentUserId
     setPage(1, true)
-    setStatusMessage(null)
     resetCreateSession()
     resetDeleteBookmark()
   }, [currentUserId, resetCreateSession, resetDeleteBookmark, setPage])
@@ -159,16 +158,26 @@ export const useBookmarkPageController = () => {
   }
 
   const removeBookmark = (questionId: string): void => {
-    setStatusMessage('removing')
+    // JLP-982: success and failure share one bookmark toast, as on the
+    // practice screen; the page itself shows no status line.
     deleteBookmark.mutate(questionId, {
       onSuccess: () => {
         setPendingRemovalQuestionId(null)
-        setStatusMessage('removed')
+        addToast({
+          key: 'bookmark',
+          title: t('status.removed'),
+          variant: 'success'
+        })
       },
       onError: (error) => {
         if (isAuthTransitionSupersededError(error)) return
+        // The row comes back (the optimistic removal rolls back).
         setPendingRemovalQuestionId(null)
-        setStatusMessage('restoreFailed')
+        addToast({
+          key: 'bookmark',
+          title: t('status.restoreFailed'),
+          variant: 'warning'
+        })
       }
     })
   }
@@ -180,8 +189,6 @@ export const useBookmarkPageController = () => {
   }
 
   const isPracticeStarting = createSession.isPending || createSession.isPaused
-  const isRemovalPromptPending =
-    pendingRemovalQuestionId !== null && statusMessage === 'removing'
 
   return {
     accountRestricted,
@@ -195,7 +202,6 @@ export const useBookmarkPageController = () => {
     isBookmarkNavigationLocked,
     isBookmarksPaused,
     isPracticeStarting,
-    isRemovalPromptPending,
     isRemoving: deleteBookmark.isPending,
     isPracticeSessionPaused: createSession.isPaused,
     noEligibleQuestions,
@@ -209,7 +215,6 @@ export const useBookmarkPageController = () => {
     refreshAfterNoEligible,
     requestRemoval: setPendingRemovalQuestionId,
     setPage,
-    startBookmarkPractice,
-    statusMessage
+    startBookmarkPractice
   }
 }

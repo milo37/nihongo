@@ -17,10 +17,11 @@ import { contentFingerprint } from '../admin/adminQuestionWorkflowImport.js'
 import { createOperatorAdminAuthority } from '../admin/operatorAdminAuthority.js'
 
 /**
- * The 500 question set the Japanese explanations were written for (#976); its
- * publish command reads these 10 files, also from the older published set.
+ * The 500 question set the first Japanese explanations were written for
+ * (#976), as it was published before #936; the publish command reads these 10
+ * files from that older set.
  */
-export const EXPLANATION_JA_SET_FILE_NAMES = [
+export const EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES = [
   'n5.v1.json',
   'n4.v1.json',
   'n3.v1.json',
@@ -33,9 +34,13 @@ export const EXPLANATION_JA_SET_FILE_NAMES = [
   'n1.add.v1.json'
 ] as const
 
-/** The fixed 1293 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
-export const QUESTION_SET_FILE_NAMES = [
-  ...EXPLANATION_JA_SET_FILE_NAMES,
+/**
+ * The 888 questions published without a Japanese explanation (#976, #1243):
+ * the 500 above plus the add2 and kanji files. The publish command locates
+ * each explanation's question in these 20 files.
+ */
+export const EXPLANATION_JA_SET_FILE_NAMES = [
+  ...EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES,
   'n5.add2.v1.json',
   'n4.add2.v1.json',
   'n3.add2.v1.json',
@@ -45,7 +50,12 @@ export const QUESTION_SET_FILE_NAMES = [
   'n4.kanji.v1.json',
   'n3.kanji.v1.json',
   'n2.kanji.v1.json',
-  'n1.kanji.v1.json',
+  'n1.kanji.v1.json'
+] as const
+
+/** The fixed 1413 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
+export const QUESTION_SET_FILE_NAMES = [
+  ...EXPLANATION_JA_SET_FILE_NAMES,
   'n1.b1.v1.json',
   'n2.b2.v1.json',
   'n3.b3.v1.json',
@@ -53,7 +63,9 @@ export const QUESTION_SET_FILE_NAMES = [
   'n3.b5.v1.json',
   'n4.b6.v1.json',
   'n5.b7.v1.json',
-  'n1.b8.v1.json'
+  'n1.b8.v1.json',
+  'n4.b9.v1.json',
+  'n5.b10.v1.json'
 ] as const
 
 export interface QuestionSetFile {
@@ -69,7 +81,7 @@ export class QuestionSetInputError extends Error {
 }
 
 /**
- * Reads exactly the named set files (the 15 by default); a missing or extra
+ * Reads exactly the named set files (the 30 by default); a missing or extra
  * file refuses the run.
  */
 export const readQuestionSet = async (

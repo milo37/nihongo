@@ -20,7 +20,7 @@ it('shows only the Korean explanation on a Korean screen, with no tabs', async (
   const text = screen.getByText(/やま라고 읽습니다/u)
   expect(text).toHaveAttribute('lang', 'ko')
   expect(text.textContent).toBe(explanationKo)
-  expect(text).toHaveClass('whitespace-pre-line')
+  expect(text).toHaveClass('explanation-text')
   expect(screen.queryByText(/やま」と読みます/u)).toBeNull()
 })
 

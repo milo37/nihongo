@@ -1,0 +1,18 @@
+/* Restricted account: the amber notice shown in place of an action. */
+@layer utilities {
+  .account-restricted-notice {
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-amber-200);
+    background-color: var(--color-amber-50);
+    padding: 1rem;
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-950);
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+}

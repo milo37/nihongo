@@ -23,7 +23,9 @@ export const AccountSettings = (): ReactElement => {
   const flow = useSsoAccountManagement()
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
-  const trigger = useRef<HTMLElement | null>(null)
+  // JLP-981: a deletion dialog always hands focus back to this button, also
+  // when it reopened by itself after the Google check (no click to remember).
+  const deleteButton = useRef<HTMLButtonElement>(null)
   const logoutButton = useRef<HTMLButtonElement>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { caps } = flow
@@ -87,6 +89,7 @@ export const AccountSettings = (): ReactElement => {
           <SettingRow
             action={
               <Button
+                ref={deleteButton}
                 className={ROW_BUTTON_CLASS}
                 variant={pageRecheck ? 'outline' : 'danger-outline'}
                 disabled={
@@ -95,12 +98,11 @@ export const AccountSettings = (): ReactElement => {
                 aria-describedby={
                   caps && !caps.canDelete ? deleteReasonId : undefined
                 }
-                onClick={(event) => {
+                onClick={() => {
                   if (pageRecheck) {
                     void flow.recheck()
                     return
                   }
-                  trigger.current = event.currentTarget
                   flow.request({ kind: 'delete' })
                 }}
               >
@@ -124,7 +126,9 @@ export const AccountSettings = (): ReactElement => {
       </div>
       <TwoStepConfirmDialog
         flow={flow}
-        returnFocusRef={trigger}
+        returnFocusRef={
+          flow.dialog?.kind === 'unlink' ? undefined : deleteButton
+        }
         fallbackFocusRef={heading}
       />
       <LogoutDialog

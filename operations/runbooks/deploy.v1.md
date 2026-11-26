@@ -44,7 +44,7 @@
 
 1. 첫 관리자: [first-admin.v1.md](first-admin.v1.md)
 2. 태그 18: [question-import.v1.md](question-import.v1.md) 1단계
-3. 문제 1293 가져오기·검수 요청·승인·공개: 팀이 부록 B 명령 두 번(dry run → confirm). 관리자 화면 클릭·재로그인 없음
+3. 문제 1413 가져오기·검수 요청·승인·공개: 팀이 부록 B 명령 두 번(dry run → confirm). 관리자 화면 클릭·재로그인 없음
 
 ## 4. PRODUCTION (승인 버튼, 켜기 전)
 
@@ -78,7 +78,7 @@ gh run cancel <이전 실행 ID> -R milo37/nihongo  # main 끝이 아닌 대기 
 | 자동 배포 켤 때(1회)     | AWS에 로그인해 STAGING `instance_id`·`site_url` 두 값을 확인해 팀장에게 전달(값은 비밀 아님). 저장소 변수 등록은 팀장이 해도 됩니다. |
 | 인프라가 바뀔 때만       | `terraform plan` 확인 후 `apply`(AWS 로그인·MFA)                                                                                     |
 | 비밀값이 새로 생길 때만  | SSM SecureString 등록(값은 채팅·파일에 남기지 않음)                                                                                  |
-| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 1293 공개(부록 B)는 팀이 실행하고 운영자는 승인만 합니다.           |
+| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 1413 공개(부록 B)는 팀이 실행하고 운영자는 승인만 합니다.           |
 | PRODUCTION 전(1회)       | 도메인 구입, AWS 유료 전환, CloudFront 요금제 가입, Google OAuth 주소 등록, 경보 메일 구독 확인                                      |
 | PRODUCTION 배포마다      | 팀이 전달한 실행(대기 실행은 그것 하나)의 **Approve** 버튼 1번                                                                       |
 
@@ -104,9 +104,9 @@ curl -s -o /dev/null -w '%{http_code}\n' "$(terraform output -raw site_url)/heal
 - 기대: `Success`, 그리고 `200`. `aws ssm wait`는 약 100초에서 끝나므로 `InProgress`가 나오면 마지막 두 줄만 다시 실행합니다.
 - 서버 안에서 직접(Session Manager, `sudo -i`): `cd /opt/harumaru && /opt/harumaru/bin/deploy.sh <SHA>` → 마지막 줄 `deployed <SHA>`.
 
-## 부록 B. 문제 1293 한 번에 공개 (환경을 처음 채울 때, 팀 실행)
+## 부록 B. 문제 1413 한 번에 공개 (환경을 처음 채울 때, 팀 실행)
 
-관리자 화면으로 하면 호출 119번(15분에 30번 제한, 15분 대기 4번)과 30분마다 재로그인이 필요해 약 60분 이상 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 운영자 로그인은 필요 없습니다.
+관리자 화면으로 하면 호출 131번(15분에 30번 제한, 15분 대기 4번)과 30분마다 재로그인이 필요해 약 60분 이상 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 운영자 로그인은 필요 없습니다.
 
 전제: 그 명령이 들어간 release가 배포됨, 태그 18 적재([question-import.v1.md](question-import.v1.md) 1단계), ACTIVE 관리자가 정확히 1명([first-admin.v1.md](first-admin.v1.md)). 명령은 그 관리자 이름으로 감사 기록을 남깁니다.
 
@@ -124,16 +124,16 @@ bash scripts/question-set-publish.sh confirm   # 가져오기 → 검수 요청 
 ```
 
 - 스크립트는 SSM 상태를 최대 31분(서버 쪽 제한 30분 + 1분) 기다리고, 넘으면 command id를 찍고 실패로 끝납니다. 그때는 같은 id로 `aws ssm get-command-invocation`을 확인합니다.
-- 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 20개 파일(`n5~n1.v1`·`.add.v1`·`.add2.v1`, #1081·`.kanji.v1`, #1043)을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
-- 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 888. 이미 공개된 문제는 `skippedPublished`로 세고 새 문제만 공개합니다(예: 750이 공개된 환경이면 kanji 138만).
+- 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 30개 파일(`n5~n1.v1`·`.add.v1`·`.add2.v1`, #1081·`.kanji.v1`, #1043·`b1`~`b10`, #1239)을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
+- 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 1413. 이미 공개된 문제는 `skippedPublished`로 세고 새 문제만 공개합니다(예: 1293이 공개된 환경이면 B9·B10 120만).
 - 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 세고, 중간에 끊겼으면 남은 단계부터 이어 갑니다. 내용이 다른 같은 문제가 있으면 `conflicts`로 멈춥니다.
-- `question_set_publish_failed`면 `code`를 보고 고친 뒤 dry run부터 다시 합니다. 확인은 [question-import.v1.md](question-import.v1.md) "Check"와 같습니다(공개본 888, Tag 18).
+- `question_set_publish_failed`면 `code`를 보고 고친 뒤 dry run부터 다시 합니다. 확인은 [question-import.v1.md](question-import.v1.md) "Check"와 같습니다(공개본 1413, Tag 18).
 
 ## 부록 C. 일본어 해설 한 번에 공개 (#976, 팀 실행)
 
 서버 운영 명령 `api/dist/content/explanationJaPublishCommand.js`가 `content/translations/explanations-ja.v1.json`의 문제마다 일본어 해설만 바꾼 새 버전을 만들고 검수 요청 → 승인 → 공개합니다. 실행 조건·권한·기록은 부록 B와 같습니다(SSM Run Command로만, ACTIVE 관리자 1명 이름으로 감사 기록, SSM comment `explanation-ja-publish <mode>`). STAGING에서 먼저 돌립니다.
 
-전제: 그 명령이 들어간 release가 배포됨, 문제 500이 이미 공개됨(부록 B).
+전제: 그 명령이 들어간 release가 배포됨, 해설 파일의 문제 888(n5~n1 v1·add·add2·kanji 20개 파일)이 이미 공개됨(부록 B).
 
 `aws login`된 터미널, `infra/aws`(해당 환경 state)에서:
 
@@ -142,7 +142,7 @@ bash scripts/explanation-ja-publish.sh dry-run   # 쓰기 없음, 계획만
 bash scripts/explanation-ja-publish.sh confirm   # 새 버전 → 검수 요청 → 승인 → 공개
 ```
 
-- 서버에서 배포된 SHA의 `content/question-imports/` 10개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`, 그리고 #936 직전 커밋(f2e2e171)의 같은 10개 파일(그 문장으로 공개된 문제 찾기용, `QUESTION_SET_PREVIOUS_DIR`)을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
+- 서버에서 배포된 SHA의 `content/question-imports/` 20개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`, 그리고 #936 직전 커밋(f2e2e171)의 v1·add 10개 파일(그 문장으로 공개된 문제 찾기용, `QUESTION_SET_PREVIOUS_DIR`)을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
 - 출력은 `status …`와 JSON 한 줄뿐입니다. dry run 기대: `"event":"explanation_ja_dry_run"`, 빈 `conflicts`·`failures`. confirm 기대: `"event":"explanation_ja_published"`, 빈 `conflicts`·`failures`, 처음이면 `published`와 `items`가 같음.
-- 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 셉니다.
+- 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 셉니다. 처음 500(2026-11 공개) 뒤 #1243 388개를 더한 파일(888)이면 dry run 기대는 `skippedPublished` 500, `pending.CREATE` 388입니다.
 - `explanation_ja_publish_failed`면 `code`(또는 `conflicts`·`failures`)를 보고 고친 뒤 dry run부터 다시 합니다.
