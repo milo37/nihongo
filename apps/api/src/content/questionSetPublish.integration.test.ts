@@ -176,9 +176,9 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
     const report = await run(false)
     expect(report).toMatchObject({
       execute: false,
-      items: 1293,
+      items: 1413,
       pending: {
-        IMPORT: 1293,
+        IMPORT: 1413,
         REVIEW_REQUEST: 0,
         APPROVAL: 0,
         PUBLICATION: 0
@@ -190,7 +190,7 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
       issues: [],
       failures: []
     })
-    expect(report.files).toHaveLength(28)
+    expect(report.files).toHaveLength(30)
     expect(await contentRowCounts()).toEqual(before)
   })
 
@@ -248,7 +248,7 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
       }))
     })
     expect((await run(false)).pending).toEqual({
-      IMPORT: 1243,
+      IMPORT: 1363,
       REVIEW_REQUEST: 30,
       APPROVAL: 10,
       PUBLICATION: 10
@@ -258,10 +258,10 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
     const report = await run(true, runId)
     expect(report).toMatchObject({
       execute: true,
-      imported: 1243,
-      reviewRequested: 1273,
-      approved: 1283,
-      published: 1293,
+      imported: 1363,
+      reviewRequested: 1393,
+      approved: 1403,
+      published: 1413,
       skippedPublished: 0,
       failures: []
     })
@@ -278,9 +278,9 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
         ])
       )
     ).toMatchObject({
-      'IMPORT_APPLY:true': 27,
-      'APPROVAL:true': 1283,
-      'PUBLICATION:true': 1293
+      'IMPORT_APPLY:true': 29,
+      'APPROVAL:true': 1403,
+      'PUBLICATION:true': 1413
     })
     const published = await database.client.questionVersion.count({
       where: {
@@ -288,7 +288,7 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
         createdByUserId: adminId
       }
     })
-    expect(published).toBe(1293)
+    expect(published).toBe(1413)
   }, 300_000)
 
   it('skips the published set on a rerun', async () => {
@@ -299,7 +299,7 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
       reviewRequested: 0,
       approved: 0,
       published: 0,
-      skippedPublished: 1293,
+      skippedPublished: 1413,
       conflicts: [],
       failures: []
     })

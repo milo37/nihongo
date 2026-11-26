@@ -230,18 +230,18 @@ qs dry-run
 ej_previous_files='n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json'
 ej_added_files='n5.add2.v1.json n4.add2.v1.json n3.add2.v1.json n2.add2.v1.json n1.add2.v1.json n5.kanji.v1.json n4.kanji.v1.json n3.kanji.v1.json n2.kanji.v1.json n1.kanji.v1.json'
 ej_files="$ej_previous_files $ej_added_files"
-qs_files="$ej_files n1.b1.v1.json n2.b2.v1.json n3.b3.v1.json n2.b4.v1.json n3.b5.v1.json n4.b6.v1.json n5.b7.v1.json n1.b8.v1.json"
+qs_files="$ej_files n1.b1.v1.json n2.b2.v1.json n3.b3.v1.json n2.b4.v1.json n3.b5.v1.json n4.b6.v1.json n5.b7.v1.json n1.b8.v1.json n4.b9.v1.json n5.b10.v1.json"
 expected_urls="$(for f in $qs_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"; done)"
 [[ "$(cat "$work/qs/urls")" == "$expected_urls" ]] \
-  || { echo "question set files not the twenty-eight names at the release SHA, in order" >&2; exit 1; }
+  || { echo "question set files not the thirty names at the release SHA, in order" >&2; exit 1; }
 [[ "$(ls "$work/qs/opt/content/question-set-$sha" | sort)" == "$(printf '%s\n' $qs_files | sort)" ]] \
-  || { echo "question set dir is not exactly the twenty-eight files" >&2; exit 1; }
+  || { echo "question set dir is not exactly the thirty files" >&2; exit 1; }
 [[ "$(cat "$work/qs/env")" == "$app_url" ]] || { echo "DATABASE_URL did not reach docker literally" >&2; exit 1; }
 ! grep -qE 'p\$\(id\)w|QUESTION_SET_CONFIRM' "$work/qs/argv" || { echo "dry run argv has the URL or the confirm" >&2; exit 1; }
 qs confirm
 grep -q -- '-e QUESTION_SET_CONFIRM=PUBLISH_QUESTION_SET' "$work/qs/argv" || { echo "confirm mode without the confirm" >&2; exit 1; }
 if qs other 2>/dev/null; then echo "question-set-publish accepted an unknown mode" >&2; exit 1; fi
-echo "ok question-set-publish: twenty-eight files at the release SHA, URL by environment, confirm only on confirm"
+echo "ok question-set-publish: thirty files at the release SHA, URL by environment, confirm only on confirm"
 
 # 7. explanation-ja-publish.sh: the twenty set files and the explanation file of the
 # deployed SHA, the first ten files before #936 as the previous set, the app URL by environment (never argv), confirm only in confirm mode.

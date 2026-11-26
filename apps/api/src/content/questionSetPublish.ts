@@ -53,7 +53,7 @@ export const EXPLANATION_JA_SET_FILE_NAMES = [
   'n1.kanji.v1.json'
 ] as const
 
-/** The fixed 1293 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
+/** The fixed 1413 question set, in import order (JLP-816, JLP-828, #1081, #1043, #1239). */
 export const QUESTION_SET_FILE_NAMES = [
   ...EXPLANATION_JA_SET_FILE_NAMES,
   'n1.b1.v1.json',
@@ -63,7 +63,9 @@ export const QUESTION_SET_FILE_NAMES = [
   'n3.b5.v1.json',
   'n4.b6.v1.json',
   'n5.b7.v1.json',
-  'n1.b8.v1.json'
+  'n1.b8.v1.json',
+  'n4.b9.v1.json',
+  'n5.b10.v1.json'
 ] as const
 
 export interface QuestionSetFile {
@@ -79,7 +81,7 @@ export class QuestionSetInputError extends Error {
 }
 
 /**
- * Reads exactly the named set files (the 28 by default); a missing or extra
+ * Reads exactly the named set files (the 30 by default); a missing or extra
  * file refuses the run.
  */
 export const readQuestionSet = async (
