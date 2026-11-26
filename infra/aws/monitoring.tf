@@ -156,7 +156,7 @@ resource "aws_cloudwatch_metric_alarm" "backup_missing" {
 }
 
 # JLP-843: tell someone when a scheduled erasure, guest cleanup, return-rate
-# count (#1042) or retention cleanup (#671) run does not succeed. Run Command reports each run as an
+# count (#1042), retention cleanup (#671) or daily push (#1046) run does not succeed. Run Command reports each run as an
 # invocation event; anything that is not still running and not Success goes to
 # the alerts topic.
 locals {
@@ -165,12 +165,13 @@ locals {
     aws_ssm_document.guest_cleanup.name,
     aws_ssm_document.retention_cohort.name,
     aws_ssm_document.cleanup.name,
+    aws_ssm_document.daily_push.name,
   ]
 }
 
 resource "aws_cloudwatch_event_rule" "scheduled_job_failed" {
   name        = "${local.name}-scheduled-job-failed"
-  description = "Account erasure, guest cleanup, return-rate count or retention cleanup run ended without Success."
+  description = "Account erasure, guest cleanup, return-rate count, retention cleanup or daily push run ended without Success."
   event_pattern = jsonencode({
     source        = ["aws.ssm"]
     "detail-type" = ["EC2 Command Invocation Status-change Notification"]
@@ -240,7 +241,7 @@ resource "aws_sns_topic_policy" "alerts" {
 # no invocation event, so watch the Scheduler side too.
 resource "aws_cloudwatch_metric_alarm" "scheduler_target_error" {
   alarm_name          = "${local.name}-scheduler-target-error"
-  alarm_description   = "EventBridge Scheduler could not start a scheduled job (erasure, guest cleanup or host stop)."
+  alarm_description   = "EventBridge Scheduler could not start a scheduled job (erasure, guest cleanup, daily push or host stop)."
   namespace           = "AWS/Scheduler"
   metric_name         = "TargetErrorCount"
   dimensions          = { ScheduleGroup = "default" }

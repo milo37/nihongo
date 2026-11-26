@@ -17,8 +17,7 @@ const sessionData = (mode: Mode): StudySessionView => ({
     startedAt: '2026-11-13T09:00:00.000Z',
     expiresAt: null,
     submittedAt: null,
-    durationSec: null,
-    practiceContractVersion: 2
+    durationSec: null
   },
   questions: [],
   requestedCount: 20,

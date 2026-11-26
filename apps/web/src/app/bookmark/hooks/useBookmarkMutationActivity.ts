@@ -2,7 +2,6 @@ import { useMutationState } from '@tanstack/react-query'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 
 interface BookmarkMutationActivity {
-  isPaused: boolean
   pendingQuestionIds: ReadonlySet<string>
 }
 
@@ -19,18 +18,12 @@ export const useBookmarkMutationActivity = (): BookmarkMutationActivity => {
       mutationKey: bookmarkQueries.allKey(),
       status: 'pending'
     },
-    select: (mutation) => ({
-      isPaused: mutation.state.isPaused,
-      questionId: readQuestionId(mutation.state.variables)
-    })
+    select: (mutation) => readQuestionId(mutation.state.variables)
   })
 
   return {
-    isPaused: states.some(({ isPaused }) => isPaused),
     pendingQuestionIds: new Set(
-      states.flatMap(({ questionId }) =>
-        questionId === null ? [] : [questionId]
-      )
+      states.flatMap((questionId) => (questionId === null ? [] : [questionId]))
     )
   }
 }

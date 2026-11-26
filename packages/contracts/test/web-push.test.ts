@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DAILY_PUSH_BODY,
+  DAILY_PUSH_BODY_TEMPLATE,
+  DAILY_PUSH_TITLE,
+  dailyPushBody,
   dailyPushPayloadSchema,
   deletePushSubscriptionRequestSchema,
   isPushServiceEndpoint,
@@ -98,19 +100,30 @@ describe('web push contract (#1046)', () => {
 })
 
 describe('daily push payload (#1046)', () => {
-  it('is the fixed words and the home address', () => {
-    for (const body of Object.values(DAILY_PUSH_BODY)) {
-      expect(
-        dailyPushPayloadSchema.parse({ kind: 'DAILY_QUESTION', body, url: '/' })
-      ).toEqual({ kind: 'DAILY_QUESTION', body, url: '/' })
+  it('says the daily goal and opens practice', () => {
+    expect(dailyPushBody('ko', 30)).toBe('오늘도 30문제, 가볍게 풀고 가요')
+    expect(dailyPushBody('ja', 150)).toBe('今日も150問、気軽に解いていこう')
+    expect(DAILY_PUSH_TITLE).toEqual({
+      ko: '좋은 아침이에요',
+      ja: 'おはよう'
+    })
+    for (const template of Object.values(DAILY_PUSH_BODY_TEMPLATE)) {
+      expect(template).toContain('{count}')
     }
+    const payload = {
+      kind: 'DAILY_GOAL',
+      title: DAILY_PUSH_TITLE.ko,
+      body: dailyPushBody('ko', 10),
+      url: '/practice'
+    }
+    expect(dailyPushPayloadSchema.parse(payload)).toEqual(payload)
     expect(
-      dailyPushPayloadSchema.safeParse({
-        kind: 'DAILY_QUESTION',
-        body: DAILY_PUSH_BODY.ko,
-        url: '/study',
-        nickname: 'a'
-      }).success
+      dailyPushPayloadSchema.safeParse({ ...payload, url: '/' }).success
     ).toBe(false)
+    expect(
+      dailyPushPayloadSchema.safeParse({ ...payload, nickname: 'a' }).success
+    ).toBe(false)
+    const { title: _title, ...untitled } = payload
+    expect(dailyPushPayloadSchema.safeParse(untitled).success).toBe(false)
   })
 })

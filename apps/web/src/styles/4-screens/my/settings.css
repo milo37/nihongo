@@ -20,19 +20,12 @@
   .account-row-button {
     min-width: 8rem;
   }
-  .account-recheck {
-    justify-self: flex-start;
-  }
   .account-settings-title {
     font-size: var(--text-lg);
     line-height: var(--text-lg--line-height);
     font-weight: var(--font-weight-bold);
     --tw-outline-style: none;
     outline-style: none;
-  }
-  .account-feedback {
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
   }
   .account-strong {
     font-weight: var(--font-weight-semibold);
@@ -57,9 +50,6 @@
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
     font-weight: var(--font-weight-semibold);
-  }
-  .account-row-retry {
-    margin-top: 0.5rem;
   }
   .account-row-action {
     margin-top: 0.75rem;
@@ -219,6 +209,15 @@
   }
   .two-step-notice {
     margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+  .two-step-notice-error {
+    color: var(--color-red-700);
+  }
+  .two-step-notice-muted {
+    color: rgb(var(--color-muted));
   }
   .two-step-step {
     display: flex;

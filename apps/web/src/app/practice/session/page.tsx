@@ -36,7 +36,7 @@ export const PracticeSessionPage = (): ReactElement => {
     session.safeQuestionIndex,
     Boolean(session.currentQuestion) &&
       session.sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-      (!session.isV2Session || session.draftController.isReady)
+      (!session.hasSession || session.draftController.isReady)
   )
   const refetchSession = (): void => void session.sessionQuery.refetch()
 

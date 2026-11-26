@@ -44,7 +44,6 @@ export const PracticeNavigationGuardDialog = ({
 }
 
 type PracticeSubmitDialogProps = {
-  hasFrozenAttempt: boolean
   isConfirmDisabled: boolean
   isConfirmLoading: boolean
   isContinueDisabled: boolean
@@ -57,7 +56,6 @@ type PracticeSubmitDialogProps = {
 }
 
 export const PracticeSubmitDialog = ({
-  hasFrozenAttempt,
   isConfirmDisabled,
   isConfirmLoading,
   isContinueDisabled,
@@ -69,24 +67,21 @@ export const PracticeSubmitDialog = ({
   unansweredCount
 }: PracticeSubmitDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
-  const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
-  // #1262: a failed submit closes the dialog and says so in a toast. A
-  // frozen attempt keeps its answers; [제출하기] opens this dialog again to
-  // resend them. Being offline is the shared connection toast.
-  const { addToast } = useToast()
+  // #1262: a failed submit closes the dialog and says so in a toast; the
+  // answers stay as they are and [제출하기] sends them again. Being offline
+  // is the shared connection toast. The toast closes on the next send and
+  // when the session screen goes, so the result never says it failed (#1311).
+  const { addToast, dismissToast } = useToast()
   useEffect(() => {
     if (!isSubmissionError) return
     onOpenChange(false)
-    addToast({
+    const id = addToast({
       key: 'submit',
-      title: t(
-        hasFrozenAttempt
-          ? 'session.submit.frozenFailure'
-          : 'session.submit.requestFailure'
-      ),
+      title: t('session.submit.requestFailure'),
       variant: 'warning'
     })
+    return () => dismissToast(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSubmissionError])
 
@@ -96,13 +91,11 @@ export const PracticeSubmitDialog = ({
       title={t('session.submit.title')}
       returnFocusRef={returnFocusRef}
       description={
-        hasFrozenAttempt
-          ? t('session.submit.frozenDescription')
-          : unansweredCount > 0
-            ? t('session.submit.unansweredDescription', {
-                unanswered: formatCount(unansweredCount)
-              })
-            : t('session.submit.completeDescription')
+        unansweredCount > 0
+          ? t('session.submit.unansweredDescription', {
+              unanswered: formatCount(unansweredCount)
+            })
+          : t('session.submit.completeDescription')
       }
       footer={
         <>
@@ -111,10 +104,7 @@ export const PracticeSubmitDialog = ({
             disabled={isContinueDisabled}
             onClick={() => onOpenChange(false)}
           >
-            {/* Answers stay locked on a frozen attempt: it only closes. */}
-            {hasFrozenAttempt
-              ? commonT('actions.close')
-              : t('session.submit.continue')}
+            {t('session.submit.continue')}
           </Button>
           <Button
             disabled={isConfirmDisabled}

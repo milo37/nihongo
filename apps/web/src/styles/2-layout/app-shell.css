@@ -36,3 +36,9 @@
     padding-top: clamp(56px, 12vh, 120px);
   }
 }
+
+/* #1292: an info toast is a notice, not an error: grey, not the brand red
+   the info token carries on this app. */
+.ui-toast-info {
+  --ui-toast-tone: var(--color-muted);
+}

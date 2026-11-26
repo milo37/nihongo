@@ -1,5 +1,4 @@
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
-import type { GetStudyResultResponse } from '@api/study/getStudyResult/schema'
 import type {
   JlptLevel,
   PracticeQuestionOption,
@@ -56,23 +55,6 @@ export interface StudyResultView {
    */
   stampEarned?: boolean
 }
-
-export const toLegacyStudyResultView = (
-  response: GetStudyResultResponse
-): StudyResultView => ({
-  ...response,
-  submittedAt: null,
-  items: response.items.map((item) => ({
-    ...item,
-    sessionQuestionId: null,
-    wrongNoteStatus: null,
-    question: {
-      ...item.question,
-      questionVersionId: null,
-      tagSummaries: null
-    }
-  }))
-})
 
 export const toCanonicalStudyResultView = (
   response: StudyResult & { stampEarned?: boolean }

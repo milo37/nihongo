@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { linkConsent } from '@app/login/components/linkConsent'
 import { isNickname, NicknameField } from '@app/login/components/NicknameField'
 import { useSignupConsent } from '@app/login/hooks/useSignupConsent'
@@ -27,7 +28,7 @@ export const SignupConsentPage = ({
   const { i18n, t } = useTranslation('auth')
   const heading = useRef<HTMLHeadingElement>(null)
   const [checked, setChecked] = useState({ age: false, terms: false })
-  const [missing, setMissing] = useState(false)
+  const { addToast } = useToast()
   const [typed, setTyped] = useState<string | null>(null)
   const [nicknameInvalid, setNicknameInvalid] = useState(false)
   const nicknameInput = useRef<HTMLInputElement>(null)
@@ -61,7 +62,6 @@ export const SignupConsentPage = ({
 
   const toggle = (name: CheckName, value: boolean): void => {
     setChecked((current) => ({ ...current, [name]: value }))
-    setMissing(false)
   }
   const showNicknameInvalid = (): void => {
     setNicknameInvalid(true)
@@ -72,7 +72,14 @@ export const SignupConsentPage = ({
     const badNickname = !isNickname(nickname)
     const empty = (['age', 'terms'] as const).find((name) => !checked[name])
     setNicknameInvalid(badNickname)
-    setMissing(Boolean(empty))
+    // #1292: an unticked required box is a toast, not a line; [가입하기]
+    // stays pressable and the focus goes to the box.
+    if (empty)
+      addToast({
+        key: 'signup-missing',
+        title: t('signup.missing'),
+        variant: 'warning'
+      })
     if (badNickname) nicknameInput.current?.focus()
     else if (empty) document.getElementById(`signup-consent-${empty}`)?.focus()
     if (badNickname || empty) return
@@ -133,11 +140,6 @@ export const SignupConsentPage = ({
           </span>
         </label>
       </div>
-      {missing ? (
-        <p className="signup-consent-error" role="alert">
-          {t('signup.missing')}
-        </p>
-      ) : null}
       <Button
         className="signup-consent-submit"
         size="lg"

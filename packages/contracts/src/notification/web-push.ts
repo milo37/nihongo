@@ -1,14 +1,17 @@
 import { z } from 'zod'
 
 /**
- * #1046: one web push a day ("오늘의 한 문제가 왔어요") at 08:00 Korea/Japan
- * time. A subscription is the address and keys a browser gives; it is kept
- * without a user, session or IP, until it is turned off or the push service
- * says it is gone. No sign-in: members and guests are the same.
+ * #1046: one web push a day at 08:00 Korea/Japan time that says the member's
+ * daily goal. A subscription is the address and keys a browser gives; it
+ * belongs to the member who turned it on (no session or IP) and is deleted
+ * when it is turned off, the member is deleted or the push service says it is
+ * gone. Members only; a member with no daily goal gets no push.
  *
  * GET    /api/v1/push/config        → 200 PushConfigResponse
- * PUT    /api/v1/push/subscription  → 204 (same endpoint: keys and locale replaced)
- * DELETE /api/v1/push/subscription  → 204 (also when there was none)
+ * PUT    /api/v1/push/subscription  → 204, member only (same endpoint: keys,
+ *                                      locale and member replaced)
+ * DELETE /api/v1/push/subscription  → 204 (also when there was none; no
+ *                                      sign-in needed, so logout can call it)
  */
 export const pushConfigResponseSchema = z
   .object({
@@ -84,21 +87,37 @@ export type DeletePushSubscriptionRequest = z.output<
   typeof deletePushSubscriptionRequestSchema
 >
 
-/** The words of the daily push, per screen language. Nothing personal. */
-export const DAILY_PUSH_BODY: Readonly<Record<PushLocale, string>> = {
-  ko: '오늘의 한 문제가 왔어요',
-  ja: '今日の1問が届きました'
+/**
+ * The words of the daily goal push, per screen language. It goes out at 08:00
+ * Seoul time, so the title greets the morning. `{count}` becomes the member's
+ * daily goal. The words live only here.
+ */
+export const DAILY_PUSH_TITLE: Readonly<Record<PushLocale, string>> = {
+  ko: '좋은 아침이에요',
+  ja: 'おはよう'
 }
 
+export const DAILY_PUSH_BODY_TEMPLATE: Readonly<Record<PushLocale, string>> = {
+  ko: '오늘도 {count}문제, 가볍게 풀고 가요',
+  ja: '今日も{count}問、気軽に解いていこう'
+}
+
+export const dailyPushBody = (locale: PushLocale, dailyGoal: number): string =>
+  DAILY_PUSH_BODY_TEMPLATE[locale].replace('{count}', String(dailyGoal))
+
+/** Tapping the push opens practice. */
+export const DAILY_PUSH_URL = '/practice'
+
 /**
- * The encrypted message the service worker receives. It shows `body` under
- * the app name and opens `url` when tapped.
+ * The encrypted message the service worker receives. It shows `title` and
+ * `body` and opens `url` when tapped.
  */
 export const dailyPushPayloadSchema = z
   .object({
-    kind: z.literal('DAILY_QUESTION'),
+    kind: z.literal('DAILY_GOAL'),
+    title: z.string().min(1).max(50),
     body: z.string().min(1).max(100),
-    url: z.literal('/')
+    url: z.literal(DAILY_PUSH_URL)
   })
   .strict()
 

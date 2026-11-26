@@ -16,7 +16,7 @@ export { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmSection
 
 type TwoStepConfirmDialogProps = {
   flow: SsoAccountFlow
-  returnFocusRef: RefObject<HTMLElement | null>
+  returnFocusRef?: RefObject<HTMLElement | null>
   fallbackFocusRef: RefObject<HTMLElement | null>
 }
 
@@ -40,6 +40,13 @@ export const TwoStepConfirmDialog = ({
     cancel.current?.focus({ preventScroll: true })
     alert.current?.scrollIntoView?.({ block: 'nearest' })
   }, [lastAdminBlocked])
+  // #1292: any other red line (and [다시 확인] under it) can also sit below
+  // the fold at ②; scroll the body to it, focus stays where it was.
+  const feedback = flow.feedback
+  useEffect(() => {
+    if (!feedback || lastAdminBlocked) return
+    alert.current?.scrollIntoView?.({ block: 'start' })
+  }, [feedback, lastAdminBlocked])
   const isUnlink = dialog?.kind === 'unlink'
   const isConfirm = dialog?.step === 'confirm'
   const provider = 'Google'
