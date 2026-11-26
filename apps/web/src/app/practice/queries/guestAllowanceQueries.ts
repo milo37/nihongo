@@ -10,8 +10,7 @@ export const guestAllowanceQueries = {
     queryOptions({
       queryKey: serverStateQueryKeys.study.guestAllowance(),
       queryFn: ({ signal }) => getGuestAllowance(signal),
-      staleTime: 60_000,
-      meta: { localErrorUi: true }
+      staleTime: 60_000
     })
 } as const
 

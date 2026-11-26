@@ -151,6 +151,9 @@ export const useRushRound = ({
     notice,
     previousBest,
     result: submit.data,
+    // #1262: a failed save shows on the result with [다시 시도].
+    saveFailed: submit.isError,
+    retrySave: () => send(Math.min(score, RUSH_SCORE_MAX)),
     start,
     pick
   }

@@ -36,7 +36,7 @@ export const PracticeSessionPage = (): ReactElement => {
     session.safeQuestionIndex,
     Boolean(session.currentQuestion) &&
       session.sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-      (!session.isV2Session || session.draftController.isReady)
+      (!session.hasSession || session.draftController.isReady)
   )
   const refetchSession = (): void => void session.sessionQuery.refetch()
 
@@ -95,15 +95,8 @@ export const PracticeSessionPage = (): ReactElement => {
       >
         <PracticeSessionNotices
           draftActionMessage={session.draftActionMessage}
-          draftController={session.draftController}
-          hasUnresolvedConflictCheck={session.hasUnresolvedConflictCheck}
-          isCompactDraftStatus={session.isCompactDraftStatus}
           isFirstQuestion={session.safeQuestionIndex === 0}
-          isInlineDraftStatus={session.isInlineDraftStatus}
           isSessionError={session.sessionQuery.isError}
-          isSessionPaused={session.sessionQuery.fetchStatus === 'paused'}
-          isV2Session={session.isV2Session}
-          onRetryDraftSave={session.retryDraftSave}
           onRetrySession={refetchSession}
           sessionData={data}
         />

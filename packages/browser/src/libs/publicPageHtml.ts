@@ -1,14 +1,24 @@
 // #981: crawlers that do not run JavaScript (Naver) read each public page's
 // own title, description and share text from a copy of the built index.html.
 // The API static server answers /practice with practice/index.html, so the
-// copies need no server or deploy change. The body and scripts stay the same.
+// copies need no server or deploy change.
+// #1268: the copies also carry the page language, hreflang links and the
+// page's own text inside <noscript>: crawlers and visitors without JavaScript
+// read it, while a browser that runs the app never shows it (no flash, no
+// layout change). The scripts stay the same.
 
 export const SITE_ORIGIN = 'https://harumaru.app'
 
-export type PublicPageHead = {
+export type PublicPageHtml = {
   readonly path: string
+  readonly locale: 'ko' | 'ja'
   readonly title: string
   readonly description: string
+  /** Escaped HTML of the page's text; shown only without JavaScript. */
+  readonly bodyHtml: string
+  readonly alternates: readonly { hreflang: string; href: string }[]
+  /** #982: schema.org data of the page; written into the head as JSON-LD. */
+  readonly jsonLd?: Readonly<Record<string, unknown>>
 }
 
 const escapeAttribute = (value: string): string =>
@@ -44,21 +54,69 @@ const setMetaContent = (
       `${match.slice(0, match.indexOf('content="'))}content="${content}"`
   )
 
+// "<" is escaped so no text can close the script tag early.
+const jsonLdTag = (data: Readonly<Record<string, unknown>>): string =>
+  `<script type="application/ld+json" data-prerender>${JSON.stringify(data).replaceAll('<', '\\u003c')}</script>`
+
+const OG_LOCALE = { ko: 'ko_KR', ja: 'ja_JP' } as const
+
+// #1281: the /ja pages share the Japanese card and site name; the Korean
+// pages keep index.html's.
+const JA_SHARE = {
+  siteName: 'ハルまる',
+  image: `${SITE_ORIGIN}/share-card-ja.png`,
+  imageAlt: 'JLPT、1日1セット。気軽に解いていこう'
+} as const
+
 export const renderPublicPageHtml = (
   indexHtml: string,
-  { path, title, description }: PublicPageHead
+  {
+    path,
+    locale,
+    title,
+    description,
+    bodyHtml,
+    alternates,
+    jsonLd
+  }: PublicPageHtml
 ): string => {
   const url = escapeAttribute(`${SITE_ORIGIN}${path}`)
   const safeTitle = escapeAttribute(title)
   const safeDescription = escapeAttribute(description)
+  const headTags = [
+    `<link rel="canonical" href="${url}" />`,
+    ...alternates.map(
+      ({ hreflang, href }) =>
+        `<link rel="alternate" data-prerender hreflang="${escapeAttribute(hreflang)}" href="${escapeAttribute(href)}" />`
+    ),
+    // The app keeps these tags on the first view of this very page.
+    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`,
+    ...(jsonLd ? [jsonLdTag(jsonLd)] : [])
+  ].join('\n    ')
   let html = replaceOnce(
     indexHtml,
     /<title>[^<]*<\/title>/u,
-    () =>
-      `<title>${safeTitle}</title>\n    <link rel="canonical" href="${url}" />`
+    () => `<title>${safeTitle}</title>\n    ${headTags}`
+  )
+  html = replaceOnce(
+    html,
+    /<html lang="[a-z]+">/u,
+    () => `<html lang="${locale}">`
+  )
+  html = replaceOnce(
+    html,
+    /<div id="root"><\/div>/u,
+    (root) => `<noscript>${bodyHtml}</noscript>\n    ${root}`
   )
   html = setMetaContent(html, 'name', 'description', safeDescription)
   html = setMetaContent(html, 'property', 'og:title', safeTitle)
   html = setMetaContent(html, 'property', 'og:description', safeDescription)
+  html = setMetaContent(html, 'property', 'og:locale', OG_LOCALE[locale])
+  if (locale === 'ja') {
+    html = setMetaContent(html, 'property', 'og:site_name', JA_SHARE.siteName)
+    html = setMetaContent(html, 'property', 'og:image', JA_SHARE.image)
+    html = setMetaContent(html, 'property', 'og:image:alt', JA_SHARE.imageAlt)
+    html = setMetaContent(html, 'name', 'twitter:image', JA_SHARE.image)
+  }
   return setMetaContent(html, 'property', 'og:url', url)
 }

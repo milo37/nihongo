@@ -197,7 +197,6 @@ section.practice-guest-limit,
   /* Setup notices: session cap, nothing to study, and the cancel dialog's error. */
   .practice-alert-body {
     margin-top: var(--spacing);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
   }
   .practice-alert-action {
@@ -213,17 +212,6 @@ section.practice-guest-limit,
     font-size: var(--text-sm);
     line-height: var(--text-sm--line-height);
     color: var(--color-amber-950);
-  }
-  .practice-cancel-error {
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: var(--color-red-200);
-    background-color: var(--color-red-50);
-    padding: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: var(--color-red-900);
   }
   .practice-alert-title {
     font-weight: var(--font-weight-bold);

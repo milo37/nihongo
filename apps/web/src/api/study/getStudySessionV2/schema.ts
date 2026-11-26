@@ -15,14 +15,17 @@ export const getStudySessionV2TransportResponseSchema =
     z.literal(200)
   ).superRefine(({ data, headers }, context) => {
     refinePracticeJsonTransportHeaders(headers, context, false)
+    // #978: the web reads contract 2 only. The API never sends a contract 1
+    // body (it answers 409 PRACTICE_CONTRACT_VERSION_MISMATCH), so the
+    // screens below carry no v1 branch.
     if (
-      headers['x-nihongo-practice-contract'] !==
-      String(data.session.practiceContractVersion)
+      headers['x-nihongo-practice-contract'] !== '2' ||
+      data.session.practiceContractVersion !== 2
     ) {
       context.addIssue({
         code: 'custom',
         path: ['headers', 'x-nihongo-practice-contract'],
-        message: 'session body와 practice contract header가 일치해야 합니다.'
+        message: 'session body와 practice contract header가 모두 2여야 합니다.'
       })
     }
   })

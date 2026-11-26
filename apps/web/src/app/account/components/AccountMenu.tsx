@@ -56,7 +56,6 @@ export const AccountMenu = ({
         id="account-menu-button"
         type="button"
         className="account-menu-trigger"
-        aria-label={t('accountMenu.label')}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menu.menuId : undefined}
@@ -72,7 +71,15 @@ export const AccountMenu = ({
         }}
       >
         <Avatar name={user.name} size="sm" />
-        <span className="account-menu-name">{user.name}</span>
+        {/* The name comes from content, not aria-label: the avatar letter
+            counts as visible text to axe, and phones hide the name. The
+            screen-reader copy starts with the visible name (WCAG 2.5.3). */}
+        <span className="account-menu-name" aria-hidden="true">
+          {user.name}
+        </span>
+        <span className="sr-only">
+          {t('accountMenu.label', { name: user.name })}
+        </span>
         <Icon
           name="chevron-right"
           className="account-menu-caret account-menu-caret-icon"

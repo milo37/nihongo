@@ -6,6 +6,10 @@ import {
   within
 } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { mockServer } from '@/test/server'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { cachedStorage } from '@nihongo/browser/libs/storage'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
@@ -22,7 +26,9 @@ let client: QueryClient
 const renderCard = () =>
   render(
     <QueryClientProvider client={client}>
-      <DailyQuestionCard level="N5" />
+      <ToastProvider>
+        <DailyQuestionCard level="N5" />
+      </ToastProvider>
     </QueryClientProvider>
   )
 
@@ -147,4 +153,39 @@ it('stays still on a day already answered (#997)', async () => {
   for (const sheet of sheets(reopened)) {
     expect(sheet).not.toHaveClass('home-daily-write')
   }
+})
+
+it('hides the card on a failed load and brings it back from the toast (#1292)', async () => {
+  client.clear()
+  let failing = true
+  mockServer.use(
+    http.get('*/api/v1/daily-question', () =>
+      failing
+        ? HttpResponse.json(
+            { code: 'INTERNAL_SERVER_ERROR', message: 'private' },
+            { status: 500 }
+          )
+        : undefined
+    )
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <DailyQuestionCard level="N5" />
+      </ToastProvider>
+    </QueryClientProvider>
+  )
+  const region = await screen.findByRole('region', { name: '알림' })
+  const retry = await within(region).findByRole('button', {
+    name: '다시 시도'
+  })
+  expect(
+    screen.queryByRole('region', { name: '오늘의 한 문제' })
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  failing = false
+  await userEvent.click(retry)
+  expect(
+    await screen.findByRole('region', { name: '오늘의 한 문제' })
+  ).toBeInTheDocument()
 })

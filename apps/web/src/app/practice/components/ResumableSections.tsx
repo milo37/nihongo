@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -5,7 +6,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
@@ -48,11 +49,6 @@ export const ResumableRecord = ({
             formattedOrdinal: formatNumber(item.currentOrdinal ?? 1, locale)
           })}
         </p>
-        {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' && !canResume ? (
-          <p className="practice-resume-warning">
-            {t('setup.resume.legacyUnavailable')}
-          </p>
-        ) : null}
       </div>
       <div className="practice-resume-actions">
         {canResume ? (
@@ -81,40 +77,50 @@ export const ResumableRecord = ({
   )
 }
 
-/** Inline failure with a retry button; `description` says what failed. */
+/**
+ * #1262: a failed load is a toast, not a box in the list. With no list to
+ * show it stays, with the retry in it; a failed refresh just says so.
+ */
 export const ResumableError = ({
   query,
-  description
+  description,
+  withRetry = false
 }: {
   query: ResumableQuery
   description: string
-}): ReactElement => {
+  withRetry?: boolean
+}): null => {
   const { t: commonT } = useTranslation('common')
-  return (
-    <ErrorState
-      density="inline"
-      title={commonT('state.requestFailed')}
-      description={description}
-      action={
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void query.refetch()}
-        >
-          {commonT('actions.retry')}
-        </Button>
-      }
-    />
-  )
+  const { addToast, dismissToast } = useToast()
+  const refetchRef = useRef(query.refetch)
+  useEffect(() => {
+    refetchRef.current = query.refetch
+  }, [query.refetch])
+  useEffect(() => {
+    const id = addToast({
+      key: 'resume',
+      title: description,
+      variant: 'warning',
+      ...(withRetry
+        ? {
+            persistent: true,
+            action: {
+              label: commonT('actions.retry'),
+              onClick: () => void refetchRef.current()
+            }
+          }
+        : {})
+    })
+    return withRetry ? () => dismissToast(id) : undefined
+  }, [refetchRef, description, withRetry, addToast, dismissToast, commonT])
+  return null
 }
 
 /** Refresh, stale-cache and failed-refresh notices shown above the list. */
 export const ResumableStatusNotices = ({
-  query,
-  sourceUnavailable
+  query
 }: {
   query: ResumableQuery
-  sourceUnavailable: boolean
 }): ReactElement => {
   const { t } = useTranslation('practice')
   const data = query.data
@@ -126,20 +132,6 @@ export const ResumableStatusNotices = ({
           density="inline"
           message={t('setup.resume.refreshing')}
         />
-      ) : null}
-      {data && sourceUnavailable && !query.isError ? (
-        <div
-          className="practice-resume-warning"
-          role={query.isError ? 'alert' : 'status'}
-        >
-          <p>
-            {t(
-              query.fetchStatus === 'paused'
-                ? 'setup.resume.cachedOffline'
-                : 'setup.resume.stale'
-            )}
-          </p>
-        </div>
       ) : null}
       {data && query.isError ? (
         <ResumableError query={query} description={t('setup.resume.stale')} />

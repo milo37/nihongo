@@ -267,18 +267,6 @@ label:has(input:checked) .study-option-text {
   .study-session-body-narrow {
     max-width: 760px;
   }
-  .study-recovery-note {
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding: 0.75rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    color: rgb(var(--color-warning-strong));
-  }
   @media (width >= 40rem) {
     .study-session-body,
     .study-state-frame {
@@ -367,90 +355,14 @@ label:has(input:checked) .study-option-text {
     }
   }
   /* Notices above the question: supply gap, draft saving, stale session. */
-  .study-draft-compact {
-    margin-top: 0.5rem;
-    font-size: var(--text-caption-size);
-    --tw-leading: 1.25rem;
-    line-height: 1.25rem;
-    color: rgb(var(--color-muted));
-  }
-  .study-draft-pending {
-    margin-top: 0.5rem;
-    font-weight: var(--font-weight-medium);
-  }
   .study-notice-action {
     margin-top: 0.75rem;
-  }
-  .study-draft-notice {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-info-line));
-    background-color: rgb(var(--color-info-soft));
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-info-strong));
-  }
-  .study-draft-action {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-  }
-  .study-notice-warning {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-warning-strong));
-  }
-  .study-notice-stale {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-danger-strong));
   }
   .study-supply-note {
     margin-bottom: 1rem;
     font-size: 13px;
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
-  }
-  .study-draft-action-error {
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    color: rgb(var(--color-danger-strong));
-  }
-  .study-draft-action-info {
-    border-color: rgb(var(--color-info-line));
-    background-color: rgb(var(--color-info-soft));
-    color: rgb(var(--color-info-strong));
   }
   .study-notice-title {
     font-weight: var(--font-weight-semibold);
@@ -474,7 +386,6 @@ label:has(input:checked) .study-option-text {
   }
   .study-option-text {
     min-width: 0px;
-    --tw-leading: 1.6;
     line-height: 1.6;
   }
   .study-answer-options input {
@@ -496,31 +407,6 @@ label:has(input:checked) .study-option-text {
     border-width: 0;
   }
   /* Bookmark button and its messages. */
-  .study-bookmark-error {
-    margin-top: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger));
-  }
-  .study-bookmark-warning {
-    margin-top: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-warning));
-  }
-  .study-bookmark-load-error {
-    margin-top: 0.75rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger));
-  }
   .study-bookmark-button {
     display: inline-flex;
     width: 2.75rem;
@@ -588,8 +474,7 @@ label:has(input:checked) .study-option-text {
   @media (width < 64rem) {
     body:has(.study-actions) .ui-toast-region {
       bottom: calc(
-        var(--study-actions-height) + env(safe-area-inset-bottom) + 12px +
-          var(--global-banner-offset, 0px)
+        var(--study-actions-height) + env(safe-area-inset-bottom) + 12px
       );
     }
   }
@@ -616,30 +501,6 @@ label:has(input:checked) .study-option-text {
   }
   .study-action-previous {
     flex-shrink: 0;
-  }
-  .study-submit-error {
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    color: rgb(var(--color-danger-strong));
-  }
-  .study-submit-offline {
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-    color: rgb(var(--color-warning-strong));
   }
   /* Hover before focus and the current mark, as Tailwind orders them: the
      current question keeps its ink border under the pointer. */

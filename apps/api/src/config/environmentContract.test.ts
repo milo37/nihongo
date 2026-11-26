@@ -18,6 +18,10 @@ const contractNames = new Set([
 // Read outside the API process: commands and the web build.
 const NOT_READ_BY_API = new Set([
   'PRODUCTION_DATABASE_URL',
+  // #1046: the daily push command signs with these; the API only needs the
+  // public key.
+  'WEB_PUSH_PRIVATE_KEY',
+  'WEB_PUSH_SUBJECT',
   'VITE_API_MODE',
   'VITE_API_BASE_URL',
   'VITE_RELEASE_ID'

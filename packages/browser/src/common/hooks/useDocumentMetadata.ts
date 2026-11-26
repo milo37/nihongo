@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useHref, useLocation } from 'react-router'
 import { getAppPath } from '../../libs/appNavigation'
+import { stripLocalePrefix } from '../../libs/localePath'
 import { getRouteLabelKey } from '../../i18n/routePresentation'
 import type { RouteLabelKey } from '../../i18n/routePresentation'
 
@@ -19,36 +20,57 @@ type DocumentMetadataOptions = {
   readonly routeLabelKey?: RouteLabelKey
 }
 
+// #1268: the build writes each public page's own title, description,
+// canonical and hreflang into its HTML and names the page in a meta tag
+// ("ko:/practice"). The first view of that very page in that language keeps
+// them; the first move to another page or language removes the tag and hands
+// over to this hook for good.
+// A plain function: the compiler adds cache slots to every value in a hook.
+const keepsBuiltHead = (language: string | undefined, fullPath: string) => {
+  const tag = document.head.querySelector<HTMLMetaElement>(
+    'meta[data-prerender]'
+  )
+  const keep = tag?.content === `${language}:${fullPath}`
+  // The tag and the language links belong to the build's copy only.
+  if (tag && !keep)
+    document
+      .querySelectorAll('[data-prerender]')
+      .forEach((node) => node.remove())
+  return keep
+}
+
 export const useDocumentMetadata = ({
   robots,
   routeLabelKey
 }: DocumentMetadataOptions): void => {
   const routeLocation = useLocation()
   const basename = useHref('/')
-  const location = {
-    ...routeLocation,
-    pathname: getAppPath(routeLocation.pathname, basename)
-  }
+  const fullPath = getAppPath(routeLocation.pathname, basename)
+  const path = stripLocalePrefix(fullPath)
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
-    const routeKey = routeLabelKey ?? getRouteLabelKey(location.pathname)
-    const route = t(routeKey)
-    document.title = t('documentTitle', { route })
+    const keepPrerendered = keepsBuiltHead(i18n.resolvedLanguage, fullPath)
 
-    let description = document.querySelector<HTMLMetaElement>(
-      'meta[name="description"]'
-    )
-    if (!description) {
-      description = document.createElement('meta')
-      description.name = 'description'
-      document.head.append(description)
+    if (!keepPrerendered) {
+      const routeKey = routeLabelKey ?? getRouteLabelKey(path)
+      const route = t(routeKey)
+      document.title = t('documentTitle', { route })
+
+      let description = document.querySelector<HTMLMetaElement>(
+        'meta[name="description"]'
+      )
+      if (!description) {
+        description = document.createElement('meta')
+        description.name = 'description'
+        document.head.append(description)
+      }
+      description.content = t(
+        routeKey in pageDescriptionKeys
+          ? pageDescriptionKeys[routeKey as keyof typeof pageDescriptionKeys]
+          : 'metaDescription'
+      )
     }
-    description.content = t(
-      routeKey in pageDescriptionKeys
-        ? pageDescriptionKeys[routeKey as keyof typeof pageDescriptionKeys]
-        : 'metaDescription'
-    )
 
     // #1045: the name iOS gives the home screen icon follows the page
     // language. Only the learner page carries the tag; admin has none.
@@ -66,6 +88,7 @@ export const useDocumentMetadata = ({
     if (robotsNodes.length === 0) document.head.append(robotsMeta)
     robotsNodes.slice(1).forEach((node) => node.remove())
 
+    if (keepPrerendered) return
     // #980: an indexed page names itself (no query or hash) as canonical.
     const canonicalNodes = Array.from(
       document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]')
@@ -73,7 +96,7 @@ export const useDocumentMetadata = ({
     if (robots === 'index,follow') {
       const canonical = canonicalNodes[0] ?? document.createElement('link')
       canonical.rel = 'canonical'
-      canonical.href = `${window.location.origin}${basename.replace(/\/$/u, '')}${location.pathname}`
+      canonical.href = `${window.location.origin}${basename.replace(/\/$/u, '')}${fullPath}`
       if (canonicalNodes.length === 0) document.head.append(canonical)
       canonicalNodes.slice(1).forEach((node) => node.remove())
     } else {
@@ -81,8 +104,9 @@ export const useDocumentMetadata = ({
     }
   }, [
     basename,
+    fullPath,
     i18n.resolvedLanguage,
-    location.pathname,
+    path,
     robots,
     routeLabelKey,
     t

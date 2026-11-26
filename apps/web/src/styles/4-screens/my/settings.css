@@ -20,19 +20,12 @@
   .account-row-button {
     min-width: 8rem;
   }
-  .account-recheck {
-    justify-self: flex-start;
-  }
   .account-settings-title {
     font-size: var(--text-lg);
     line-height: var(--text-lg--line-height);
     font-weight: var(--font-weight-bold);
     --tw-outline-style: none;
     outline-style: none;
-  }
-  .account-feedback {
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
   }
   .account-strong {
     font-weight: var(--font-weight-semibold);
@@ -58,16 +51,12 @@
     line-height: var(--text-base--line-height);
     font-weight: var(--font-weight-semibold);
   }
-  .account-row-retry {
-    margin-top: 0.5rem;
-  }
   .account-row-action {
     margin-top: 0.75rem;
   }
   .account-row-body {
     min-width: 0px;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     overflow-wrap: break-word;
   }
@@ -125,7 +114,6 @@
   }
   .nickname-name {
     font-size: 28px;
-    --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
     font-weight: var(--font-weight-bold);
     overflow-wrap: break-word;
@@ -197,7 +185,6 @@
   }
   .home-screen-hint-text {
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
@@ -210,7 +197,6 @@
     display: grid;
     gap: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     overflow-wrap: break-word;
   }
@@ -223,6 +209,15 @@
   }
   .two-step-notice {
     margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+  .two-step-notice-error {
+    color: var(--color-red-700);
+  }
+  .two-step-notice-muted {
+    color: rgb(var(--color-muted));
   }
   .two-step-step {
     display: flex;

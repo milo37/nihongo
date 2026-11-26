@@ -103,6 +103,10 @@
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"
     },
+    "./notification/web-push": {
+      "types": "./dist/notification/web-push.d.ts",
+      "import": "./dist/notification/web-push.js"
+    },
     "./observability/report-client-error": {
       "types": "./dist/observability/report-client-error.d.ts",
       "import": "./dist/observability/report-client-error.js"

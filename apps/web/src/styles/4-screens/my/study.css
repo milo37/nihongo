@@ -1,17 +1,11 @@
 /* My page: my study summary, subject rates and recent study. */
 @layer utilities {
-  /* My study: section, loading, error, empty. */
-  .my-study-error {
-    margin-top: 0px;
-  }
+  /* My study: section, loading, empty. */
   .my-empty-text {
     margin-top: var(--spacing);
     font-size: var(--text-sm);
     line-height: var(--text-sm--line-height);
     color: rgb(var(--color-muted));
-  }
-  .my-study-retry {
-    margin-top: 0.75rem;
   }
   .my-empty-action {
     margin-top: 1rem;
@@ -99,7 +93,6 @@
   }
   .my-summary-number {
     font-size: 32px;
-    --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
     font-weight: var(--font-weight-bold);
   }
@@ -186,7 +179,6 @@
   .my-recent-more {
     margin-top: 0.75rem;
     font-size: 13px;
-    --tw-leading: 1.7;
     line-height: 1.7;
     color: rgb(var(--color-muted));
   }

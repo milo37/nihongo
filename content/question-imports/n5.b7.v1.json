@@ -1,0 +1,1489 @@
+{
+  "items": [
+    {
+      "clientItemId": "n5-b7-reading-01",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "ゆきさんの あたらしい へやは どんな へやですか。",
+        "passage": "マリさんへ\nわたしは 先週、あたらしい アパートに ひっこしました。駅から あるいて 5分です。へやは せまいですが、あかるくて きれいです。こんどの 日よう日、あそびに 来ませんか。ひるごはんを いっしょに つくりましょう。\nゆき",
+        "explanationKo": "핵심: 「へやは せまいですが、あかるくて きれいです」\n방은 좁지만 밝고 깨끗합니다. 「ひろい(넓다)」는 반대이고, 「くらい(어둡다)」는 글에 없는 말입니다.",
+        "explanationJa": "ポイント：「へやは せまいですが、あかるくて きれいです」\nへやは せまいですが、あかるいです。「ひろい」は 反対で、「くらい」は 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せまいですが、あかるい へや"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひろくて、あかるい へや"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "せまくて、くらい へや"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ひろいですが、くらい へや"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-02",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "ゆきさんは 日よう日に マリさんと なにを したいですか。",
+        "passage": "マリさんへ\nわたしは 先週、あたらしい アパートに ひっこしました。駅から あるいて 5分です。へやは せまいですが、あかるくて きれいです。こんどの 日よう日、あそびに 来ませんか。ひるごはんを いっしょに つくりましょう。\nゆき",
+        "explanationKo": "핵심: 「こんどの 日よう日、あそびに 来ませんか。ひるごはんを いっしょに つくりましょう」\n유키 씨 집에 놀러 와서 같이 점심을 만들자고 합니다. 역은 집까지의 거리 이야기이고, 이사는 유키 씨가 이미 했으며, 방을 찾는 이야기는 없습니다.",
+        "explanationJa": "ポイント：「こんどの 日よう日、あそびに 来ませんか。ひるごはんを いっしょに つくりましょう」\nゆきさんの へやで いっしょに ひるごはんを つくります。駅は へやまでの みちの 話で、ひっこしは ゆきさんが もう しました。へやを さがす 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅の まえで ひるごはんを たべる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ゆきさんの へやで ひるごはんを つくる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "マリさんの へやに ひっこす"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いっしょに あたらしい へやを さがす"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-03",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "きのう、わたしは なにを しましたか。",
+        "passage": "きのうは あさから よるまで 雨でした。わたしは どこにも いかないで、うちで カレーを つくりました。にくが なかったので、やさいだけの カレーです。ばんごはんに 母と いっしょに たべました。とても おいしかったです。",
+        "explanationKo": "핵심: 「どこにも いかないで、うちで カレーを つくりました」\n집에서 채소만 넣은 카레를 만들었습니다. 어디에도 나가지 않았으므로 레스토랑·슈퍼·밖에서 놀기는 모두 맞지 않습니다.",
+        "explanationJa": "ポイント：「どこにも いかないで、うちで カレーを つくりました」\nうちで やさいだけの カレーを つくりました。どこにも いって いないので、レストラン・スーパー・そとで あそぶ は ちがいます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "母と レストランで カレーを たべた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "スーパーへ にくを かいに いった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うちで やさいの カレーを つくった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "雨の 中、そとで あそんだ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-04",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "おきゃくさんが 来たら、サラさんは なにを しますか。",
+        "passage": "サラさんへ\nぎゅうにゅうが ありませんでしたから、コンビニへ かいに いきます。3時ごろ かえります。おきゃくさんが 来たら、テーブルの 上の おかしを 出して ください。\nナナ",
+        "explanationKo": "핵심: 「おきゃくさんが 来たら、テーブルの 上の おかしを 出して ください」\n손님이 오면 테이블 위의 과자를 내놓아 달라는 부탁입니다. 편의점에 가는 사람은 나나 씨이고, 3시는 나나 씨가 돌아오는 시간입니다. 전화 이야기는 없습니다.",
+        "explanationJa": "ポイント：「おきゃくさんが 来たら、テーブルの 上の おかしを 出して ください」\nサラさんは おかしを 出します。コンビニへ いくのは ナナさんで、3時は ナナさんが かえる 時間です。でんわの 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "テーブルの 上の おかしを 出す"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "コンビニへ ぎゅうにゅうを かいに いく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "3時まで そとで まつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ナナさんに でんわを する"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-05",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "アナさんは いま なにを して いますか。",
+        "passage": "はじめまして、アナです。ブラジルから 来ました。日本に 来て 1年です。いまは レストランで はたらいて います。しごとは よる 10時までですから、あさは すこし おそく おきます。すきな スポーツは サッカーです。",
+        "explanationKo": "핵심: 「いまは レストランで はたらいて います」\n지금은 레스토랑에서 일합니다. 대학·일본어 가르치기 이야기는 없고, 축구는 좋아하는 스포츠일 뿐이며 지금은 일본에 있습니다.",
+        "explanationJa": "ポイント：「いまは レストランで はたらいて います」\nいまは レストランで はたらいて います。大学や 日本語を おしえる 話は なく、サッカーは すきな スポーツです。いまは 日本に います。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "大学で べんきょうして いる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "レストランで はたらいて いる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ブラジルで サッカーを して いる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日本語を おしえて いる"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-06",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "アナさんは どうして あさ おそく おきますか。",
+        "passage": "はじめまして、アナです。ブラジルから 来ました。日本に 来て 1年です。いまは レストランで はたらいて います。しごとは よる 10時までですから、あさは すこし おそく おきます。すきな スポーツは サッカーです。",
+        "explanationKo": "핵심: 「しごとは よる 10時までですから、あさは すこし おそく おきます」\n밤 10시까지 일하기 때문에 아침에 늦게 일어납니다. 아침 축구·레스토랑 휴무·밤 공부는 글에 없습니다.",
+        "explanationJa": "ポイント：「しごとは よる 10時までですから、あさは すこし おそく おきます」\nよる 10時まで はたらくので、あさ おそく おきます。あさの サッカー、レストランの 休み、よるの べんきょうは 文に ありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よる おそくまで しごとを するから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あさ サッカーを するから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あさは レストランが 休みだから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よる 日本語を べんきょうするから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-07",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "どうして ぞうを 見る ことが できませんでしたか。",
+        "passage": "土よう日に、おとうとと どうぶつえんへ いきました。おとうとは ぞうが いちばん すきです。でも、ぞうは びょうきで、見る ことが できませんでした。パンダは 見ました。かえりに パンダの ぼうしを かいました。",
+        "explanationKo": "핵심: 「ぞうは びょうきで、見る ことが できませんでした」\n코끼리가 아파서 볼 수 없었습니다. 아픈 것은 남동생이 아니라 코끼리이고, 동물원 휴무나 사람이 많았다는 말은 없습니다.",
+        "explanationJa": "ポイント：「ぞうは びょうきで、見る ことが できませんでした」\nびょうきだったのは ぞうです。おとうとでは ありません。どうぶつえんの 休みや 人の 多さの 話は ありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "どうぶつえんが 休みだったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おとうとが びょうきだったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぞうが びょうきだったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "人が とても おおかったから"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-08",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "かえりに なにを かいましたか。",
+        "passage": "土よう日に、おとうとと どうぶつえんへ いきました。おとうとは ぞうが いちばん すきです。でも、ぞうは びょうきで、見る ことが できませんでした。パンダは 見ました。かえりに パンダの ぼうしを かいました。",
+        "explanationKo": "핵심: 「かえりに パンダの ぼうしを かいました」\n돌아오는 길에 판다 모자를 샀습니다. 코끼리는 동생이 좋아하는 동물이고, 책·사진은 글에 없습니다.",
+        "explanationJa": "ポイント：「かえりに パンダの ぼうしを かいました」\nかったのは パンダの ぼうしです。ぞうは おとうとの すきな どうぶつで、本や しゃしんは 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぞうの ぼうし"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "パンダの 本"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぞうの しゃしん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "パンダの ぼうし"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-09",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "テストの 日に なにを もって いきますか。",
+        "passage": "みなさんへ\n金よう日に かんじの テストが あります。テストは あさ 9時半から 10時までです。えんぴつと けしゴムを もって きて ください。じしょは つかっては いけません。テストの あとで、すこし 休みましょう。\n先生",
+        "explanationKo": "핵심: 「えんぴつと けしゴムを もって きて ください」\n연필과 지우개를 가져갑니다. 사전은 쓰면 안 되고, 펜 이야기는 없습니다.",
+        "explanationJa": "ポイント：「えんぴつと けしゴムを もって きて ください」\nえんぴつと けしゴムです。じしょは つかっては いけません。ペンの 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "えんぴつと けしゴム"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "えんぴつと じしょ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ペンと けしゴム"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じしょと けしゴム"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-10",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "テストは なん分 ありますか。",
+        "passage": "みなさんへ\n金よう日に かんじの テストが あります。テストは あさ 9時半から 10時までです。えんぴつと けしゴムを もって きて ください。じしょは つかっては いけません。テストの あとで、すこし 休みましょう。\n先生",
+        "explanationKo": "핵심: 「テストは あさ 9時半から 10時までです」\n9시 반부터 10시까지이므로 30분입니다. 60분은 9시부터 10시까지로, 90분은 9시부터 10시 반까지로 잘못 센 값이고, 15분은 근거가 없습니다.",
+        "explanationJa": "ポイント：「テストは あさ 9時半から 10時までです」\n9時半から 10時までなので 30分です。60分は 9時から 10時まで、90分は 9時から 10時半までと まちがえた 数で、15分は 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "15分"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "30分"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "60分"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "90分"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-11",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "HARD",
+        "questionText": "わたしは いくら はらいましたか。",
+        "passage": "きのう、ともだちの ミンさんと きっさてんに いきました。コーヒーを 2つと ケーキを 1つ たのみました。コーヒーは 1つ 350円、ケーキは 400円でした。ケーキは ふたりで 半分ずつ たべました。おかねも 半分ずつ はらいました。",
+        "explanationKo": "핵심: 350円 × 2 + 400円 = 1100円 → 「おかねも 半分ずつ はらいました」 → 550円\n둘이 반씩 냈으므로 550엔입니다. 1100엔은 두 사람 합계, 750엔은 커피 한 잔과 케이크 값, 700엔은 커피 두 잔 값입니다.",
+        "explanationJa": "ポイント：350円 × 2 ＋ 400円 ＝ 1100円 →「おかねも 半分ずつ はらいました」→ 550円\nふたりで 半分ずつ はらったので 550円です。1100円は ふたりの ぜんぶ、750円は コーヒー 1つと ケーキ、700円は コーヒー 2つの ねだんです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "550円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "700円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "750円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1100円"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-12",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "おかあさんの しごとは なんですか。",
+        "passage": "わたしの かぞくは 4人です。父は ぎんこうで はたらいて います。母は 小学校の 先生です。あには 高校生で、まいにち テニスを して います。わたしは 大学生です。日よう日は みんなで ばんごはんを たべます。",
+        "explanationKo": "핵심: 「母は 小学校の 先生です」\n어머니는 초등학교 선생님입니다. 은행은 아버지의 일이고, 고등학교·대학교는 형과 나의 학교입니다.",
+        "explanationJa": "ポイント：「母は 小学校の 先生です」\nぎんこうは 父の しごとです。高校と 大学は あにと わたしの 学校です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぎんこうの しごと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "小学校の 先生"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "高校の 先生"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "大学の 先生"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-13",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ただしい ものは どれですか。",
+        "passage": "わたしの かぞくは 4人です。父は ぎんこうで はたらいて います。母は 小学校の 先生です。あには 高校生で、まいにち テニスを して います。わたしは 大学生です。日よう日は みんなで ばんごはんを たべます。",
+        "explanationKo": "핵심: 「あには 高校生で、まいにち テニスを して います」\n형은 매일 테니스를 칩니다. 고등학생은 형이고 나는 대학생, 가족은 4명, 아버지는 은행에서 일합니다.",
+        "explanationJa": "ポイント：「あには 高校生で、まいにち テニスを して います」\n高校生なのは あにで、わたしは 大学生です。かぞくは 4人で、父は ぎんこうで はたらいて います。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは 高校生だ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かぞくは 5人だ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "父は 小学校で はたらいて いる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あには まいにち テニスを する"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-14",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "リンさんは どうして きょう ひるごはんに いけませんか。",
+        "passage": "山下さん\nすみません。きょうの ひるごはん、いっしょに いけなく なりました。かいぎが 1時まで ありますから。あしたは どうですか。あしたは 12時に 駅の まえで まって います。\nリン",
+        "explanationKo": "핵심: 「かいぎが 1時まで ありますから」\n1시까지 회의가 있어서 갈 수 없습니다. 역 앞에서 기다리는 것은 내일 약속이고, 아프다거나 내일 일이 있다는 말은 없습니다.",
+        "explanationJa": "ポイント：「かいぎが 1時まで ありますから」\nかいぎが あるので いけません。駅の まえで まつのは あしたの ことで、びょうきや あしたの しごとの 話は ありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かいぎが あるから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "びょうきだから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "駅で 人を まつから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あした しごとが あるから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-15",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "いつもは かいしゃに ついてから なにを しますか。",
+        "passage": "わたしは まいあさ 6時半に おきます。コーヒーを のんで、7時半の でんしゃに のります。かいしゃには 8時半に つきます。しごとは 9時からですから、すこし 本を よみます。でも、きょうは でんしゃが おくれて、9時に つきました。",
+        "explanationKo": "핵심: 「しごとは 9時からですから、すこし 本を よみます」\n8시 반에 도착해 일이 시작될 때까지 책을 읽습니다. 커피는 집에서 마시고, 일은 9시부터이며, 전철은 회사에 오기 전에 탑니다.",
+        "explanationJa": "ポイント：「しごとは 9時からですから、すこし 本を よみます」\nコーヒーは うちで のみます。しごとは 9時からで、でんしゃは かいしゃに 来る まえに のります。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "コーヒーを のむ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "すぐ しごとを する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "でんしゃを まつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "本を よむ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-16",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "きょう、わたしは なん時に かいしゃに つきましたか。",
+        "passage": "わたしは まいあさ 6時半に おきます。コーヒーを のんで、7時半の でんしゃに のります。かいしゃには 8時半に つきます。しごとは 9時からですから、すこし 本を よみます。でも、きょうは でんしゃが おくれて、9時に つきました。",
+        "explanationKo": "핵심: 「きょうは でんしゃが おくれて、9時に つきました」\n오늘은 전철이 늦어서 9시에 도착했습니다. 8시 반은 평소 도착 시간, 7시 반은 전철 시간, 6시 반은 일어나는 시간입니다.",
+        "explanationJa": "ポイント：「きょうは でんしゃが おくれて、9時に つきました」\n8時半は いつも つく 時間、7時半は でんしゃの 時間、6時半は おきる 時間です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "6時半"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "7時半"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "8時半"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "9時"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-17",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ワンさんは なにを しますか。",
+        "passage": "ワンさんへ\n11時ごろ、さとうさんから でんわが ありました。あしたの かいぎは 2時からでは ありません。3時からです。4時までに さとうさんに でんわして ください。\n田中",
+        "explanationKo": "핵심: 「4時までに さとうさんに でんわして ください」\n4시까지 사토 씨에게 전화해야 합니다. 11시는 사토 씨가 전화한 시간, 회의는 2시가 아니라 3시이고, 전화할 상대는 다나카 씨가 아닙니다.",
+        "explanationJa": "ポイント：「4時までに さとうさんに でんわして ください」\n11時は さとうさんから でんわが あった 時間です。かいぎは 2時では なく 3時からで、でんわする 人は 田中さんでは ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "11時に さとうさんに でんわする"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あした 2時に かいぎに 出る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "4時までに さとうさんに でんわする"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "3時までに 田中さんに でんわする"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-18",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "きょう、わたしは なにを たべましたか。",
+        "passage": "きょうの ひるは、かいしゃの ちかくの ラーメンやに いきました。いつも しおラーメンを たべますが、きょうは しおラーメンが ありませんでした。それで、みそラーメンを たべました。すこし からかったですが、おいしかったです。",
+        "explanationKo": "핵심: 「それで、みそラーメンを たべました」\n오늘은 시오라멘이 없어서 미소라멘을 먹었습니다. 시오라멘은 평소에 먹는 것이고, 쇼유라멘·우동은 글에 없습니다.",
+        "explanationJa": "ポイント：「それで、みそラーメンを たべました」\nしおラーメンは いつも たべる もので、きょうは ありませんでした。しょうゆラーメンと うどんは 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しおラーメン"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しょうゆラーメン"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うどん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "みそラーメン"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-19",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "わたしの まちに なにが ありますか。",
+        "passage": "わたしの まちは 駅から バスで 15分の ところに あります。大きな スーパーと 川が あります。しずかで、とても いい まちです。でも、よるは バスが すくないです。8時の あとは 1時間に 1本だけです。",
+        "explanationKo": "핵심: 「大きな スーパーと 川が あります」\n큰 슈퍼와 강이 있습니다. 역은 버스로 15분 떨어진 곳이고, 산·공원은 글에 없습니다.",
+        "explanationJa": "ポイント：「大きな スーパーと 川が あります」\n駅は バスで 15分の ところに あります。山や こうえんは 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "大きな 駅と 川"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "大きな スーパーと 川"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "大きな スーパーと 山"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "大きな こうえんと 川"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-20",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この まちの よく ない ところは なんですか。",
+        "passage": "わたしの まちは 駅から バスで 15分の ところに あります。大きな スーパーと 川が あります。しずかで、とても いい まちです。でも、よるは バスが すくないです。8時の あとは 1時間に 1本だけです。",
+        "explanationKo": "핵심: 「でも、よるは バスが すくないです」\n「でも」 뒤에 나오는 밤 버스가 적은 것이 안 좋은 점입니다. 슈퍼와 강은 있고, 조용한 동네입니다.",
+        "explanationJa": "ポイント：「でも、よるは バスが すくないです」\n「でも」の あとの、よるの バスが すくない ことです。スーパーと 川は あり、しずかな まちです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "スーパーが ない こと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "よる バスが すくない こと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うるさい こと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "川が ない こと"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-21",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "わたしは なにが いちばん きれいだと 言って いますか。",
+        "passage": "わたしの しゅみは しゃしんです。カメラは 父に もらいました。ふるいですが、とても いい カメラです。先月、ともだちと 山へ いって、たくさん しゃしんを とりました。山の 上から 見た まちが いちばん きれいでした。",
+        "explanationKo": "핵심: 「山の 上から 見た まちが いちばん きれいでした」\n산 위에서 본 마을이 가장 예뻤다고 합니다. 카메라는 「좋은 카메라」라고 했을 뿐이고, 친구의 사진·강은 글에 없습니다.",
+        "explanationJa": "ポイント：「山の 上から 見た まちが いちばん きれいでした」\nカメラは「いい カメラ」と 言って いるだけです。ともだちの しゃしんや 川は 文に ありません。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "父に もらった カメラ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ともだちが とった しゃしん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "山の 下の 川"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "山の 上から 見た まち"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-22",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "にもつを もって きた 人は どう しますか。",
+        "passage": "にもつを もって きた 人へ\nいま、だれも いません。5時に かえります。にもつは となりの 103の 中川さんに わたして ください。ドアの まえには おかないで ください。\n104 山本",
+        "explanationKo": "핵심: 「にもつは となりの 103の 中川さんに わたして ください」\n옆집 103호 나카가와 씨에게 맡깁니다. 문 앞에는 두지 말라고 했고, 5시는 야마모토 씨가 돌아오는 시간이며, 전화 이야기는 없습니다.",
+        "explanationJa": "ポイント：「にもつは となりの 103の 中川さんに わたして ください」\nドアの まえには おかないで と 書いて あります。5時は 山本さんが かえる 時間で、でんわの 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "103の 中川さんに わたす"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ドアの まえに おく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "5時に もう いちど 来る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "山本さんに でんわを する"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-23",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あしたの ひるは どうですか。",
+        "passage": "きょうは とても さむくて、あさは 2どでした。でも、あしたは あたたかく なるでしょう。ひるは 15どぐらいです。わたしは あした、いもうとと うみへ いきます。あたたかいので、コートは いりません。",
+        "explanationKo": "핵심: 「あしたは あたたかく なるでしょう。ひるは 15どぐらいです」\n내일 낮은 15도쯤으로 따뜻합니다. 2도는 오늘 아침 기온이고, 춥다는 것은 오늘 이야기입니다.",
+        "explanationJa": "ポイント：「あしたは あたたかく なるでしょう。ひるは 15どぐらいです」\n2どは きょうの あさの ことで、さむいのも きょうの ことです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "15どぐらいで、あたたかい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "2どぐらいで、さむい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "15どぐらいで、さむい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "2どぐらいで、あたたかい"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-24",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "駅の 人は どうして すぐ わかりましたか。",
+        "passage": "きのう、駅で かさを なくしました。あおくて 大きい かさです。けさ、駅の 人に ききました。かさは 駅に ありました。かさに わたしの なまえを かいて いましたから、駅の 人は すぐ わかりました。",
+        "explanationKo": "핵심: 「かさに わたしの なまえを かいて いましたから、駅の 人は すぐ わかりました」\n우산에 이름을 써 두었기 때문에 바로 알았습니다. 새 우산·매일 역에 옴·역무원과 친구라는 말은 없습니다.",
+        "explanationJa": "ポイント：「かさに わたしの なまえを かいて いましたから、駅の 人は すぐ わかりました」\nかさに なまえが あったからです。あたらしい かさ、まいにち 駅に 来る こと、ともだちの 話は 文に ありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かさが あたらしかったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたしが まいにち 駅に 来るから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしが 駅の 人の ともだちだから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かさに なまえが かいて あったから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-25",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "しゅくだいで なにを かきますか。",
+        "passage": "きょうの しゅくだいです。\nきょうかしょの 25ページを よんで ください。それから、「わたしの 休みの 日」の ぶんを 5つ かいて ください。しゅくだいは 月よう日に 出して ください。わからない ことばは、じしょを 見て ください。",
+        "explanationKo": "핵심: 「「わたしの 休みの 日」の ぶんを 5つ かいて ください」\n「나의 쉬는 날」 문장을 5개 씁니다. 25페이지는 읽는 부분이고, 사전은 모르는 말을 찾을 때 봅니다.",
+        "explanationJa": "ポイント：「「わたしの 休みの 日」の ぶんを 5つ かいて ください」\n25ページは よむ ところで、じしょは わからない ことばを 見る ときに つかいます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "「わたしの 休みの 日」の ぶんを 5つ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "25ページの ことばを 5つ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "「わたしの 休みの 日」の ぶんを 25"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じしょの ことばを 5つ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-26",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "しゅくだいは いつ 出しますか。",
+        "passage": "きょうの しゅくだいです。\nきょうかしょの 25ページを よんで ください。それから、「わたしの 休みの 日」の ぶんを 5つ かいて ください。しゅくだいは 月よう日に 出して ください。わからない ことばは、じしょを 見て ください。",
+        "explanationKo": "핵심: 「しゅくだいは 月よう日に 出して ください」\n숙제는 월요일에 냅니다. 다른 요일은 글에 나오지 않습니다.",
+        "explanationJa": "ポイント：「しゅくだいは 月よう日に 出して ください」\nほかの 日は 文に 出て きません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "月よう日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "火よう日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "金よう日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日よう日"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-27",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "わたしは ほっかいどうで なにを したいですか。",
+        "passage": "なつやすみに、かぞくと ほっかいどうへ いきます。ひこうきで 2時間ぐらいです。ほっかいどうには 5日 います。おじいさんの うちに とまって、うみで およいだり、さかなを たべたり したいです。父は しごとが ありますから、ひとりで さきに かえります。",
+        "explanationKo": "핵심: 「うみで およいだり、さかなを たべたり したいです」\n바다에서 수영하고 생선을 먹고 싶어 합니다. 일은 아버지 이야기, 숙소는 호텔이 아니라 할아버지 집이고, 산은 글에 없습니다.",
+        "explanationJa": "ポイント：「うみで およいだり、さかなを たべたり したいです」\nしごとは 父の 話で、とまるのは ホテルでは なく おじいさんの うちです。山は 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おじいさんと しごとを したい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "山に のぼりたい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うみで およぎたい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ホテルに とまりたい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-28",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ただしい ものは どれですか。",
+        "passage": "なつやすみに、かぞくと ほっかいどうへ いきます。ひこうきで 2時間ぐらいです。ほっかいどうには 5日 います。おじいさんの うちに とまって、うみで およいだり、さかなを たべたり したいです。父は しごとが ありますから、ひとりで さきに かえります。",
+        "explanationKo": "핵심: 「父は しごとが ありますから、ひとりで さきに かえります」\n아버지는 일 때문에 먼저 돌아갑니다. 그래서 가족 모두가 5일 있는 것은 아니고, 2시간은 배가 아니라 비행기, 할아버지는 원래 홋카이도에 사십니다.",
+        "explanationJa": "ポイント：「父は しごとが ありますから、ひとりで さきに かえります」\nだから かぞく みんなが 5日 いるのでは ありません。2時間は ふねでは なく ひこうきで、おじいさんの うちは ほっかいどうに あります。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "父は みんなより さきに かえる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かぞくは みんな 5日 いる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ふねで 2時間ぐらい かかる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おじいさんが ほっかいどうへ 来る"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-29",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "りんごは いつ つきますか。",
+        "passage": "けんたへ\nげんきですか。こちらは もう さむいです。きょう、りんごを おくりました。にわの 木の りんごです。あさって つきます。おかあさんと いっしょに たべて ください。\nおばあさん",
+        "explanationKo": "핵심: 「あさって つきます」\n사과는 모레 도착합니다. 오늘은 할머니가 보낸 날이고, 내일·다음 주는 글에 없습니다.",
+        "explanationJa": "ポイント：「あさって つきます」\nきょうは おばあさんが おくった 日です。あしたや らいしゅうは 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あさって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あした"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "らいしゅう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-30",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "HARD",
+        "questionText": "雨の 日、うちから 学校まで なん分ぐらい かかりますか。",
+        "passage": "わたしは まいにち じてんしゃで 学校へ いきます。15分ぐらいです。でも、雨の 日は バスで いきます。バスは 10分ですが、うちから バスていまで あるいて 10分 かかります。",
+        "explanationKo": "핵심: 「バスは 10分ですが、うちから バスていまで あるいて 10分 かかります」\n걷기 10분 + 버스 10분 = 20분입니다. 10분은 버스만, 15분은 자전거로 갈 때, 25분은 자전거 시간에 걷기를 더한 잘못된 값입니다.",
+        "explanationJa": "ポイント：「バスは 10分ですが、うちから バスていまで あるいて 10分 かかります」\nあるいて 10分 ＋ バス 10分 ＝ 20分です。10分は バスだけ、15分は じてんしゃの ときで、25分は じてんしゃと あるく 時間を たした まちがいです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "10分"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "15分"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "20分"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "25分"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-31",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "いつもは はしった あとで なにを しますか。",
+        "passage": "わたしは まいあさ、こうえんを 30分 はしります。はしった あとで、シャワーを あびて、あさごはんを たべます。でも、きょうは 雨でしたから、こうえんへ いきませんでした。うちで 30分 たいそうを しました。",
+        "explanationKo": "핵심: 「はしった あとで、シャワーを あびて、あさごはんを たべます」\n달린 뒤에 샤워를 하고 아침을 먹습니다. 체조는 오늘 집에서 한 것이고, 텔레비전·다시 자기는 글에 없습니다.",
+        "explanationJa": "ポイント：「はしった あとで、シャワーを あびて、あさごはんを たべます」\nたいそうは きょう うちで した ことです。テレビや ねる 話は 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "テレビを 見る"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こうえんで たいそうを する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "もう いちど ねる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "シャワーを あびる"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-32",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "きょう、わたしは なにを しましたか。",
+        "passage": "わたしは まいあさ、こうえんを 30分 はしります。はしった あとで、シャワーを あびて、あさごはんを たべます。でも、きょうは 雨でしたから、こうえんへ いきませんでした。うちで 30分 たいそうを しました。",
+        "explanationKo": "핵심: 「きょうは 雨でしたから、こうえんへ いきませんでした。うちで 30分 たいそうを しました」\n오늘은 비 때문에 공원에 가지 않고 집에서 체조를 했습니다. 공원에 가지 않았으므로 공원에서 달리기·체조는 틀리고, 집에서 달렸다는 말도 없습니다.",
+        "explanationJa": "ポイント：「きょうは 雨でしたから、こうえんへ いきませんでした。うちで 30分 たいそうを しました」\nこうえんへ いって いないので、こうえんで はしる・たいそうする は ちがいます。うちで はしった 話も ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "雨の 中、こうえんを はしった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こうえんで たいそうを した"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うちで 1時間 はしった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "うちで たいそうを した"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-33",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "たまごが やすいのは なんよう日ですか。",
+        "passage": "まるやま スーパー　今週の やすい もの\n火よう日：たまご 1パック 150円\n木よう日：ぎゅうにゅう 1本 120円\n土よう日：にくが ぜんぶ 半分の ねだん\n※ たまごと ぎゅうにゅうは、この ねだんで 一人 1つまでです。",
+        "explanationKo": "핵심: 「火よう日：たまご 1パック 150円」\n달걀은 화요일에 쌉니다. 목요일은 우유, 토요일은 고기이고, 일요일은 안내에 없습니다.",
+        "explanationJa": "ポイント：「火よう日：たまご 1パック 150円」\n木よう日は ぎゅうにゅう、土よう日は にくで、日よう日は ありません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "木よう日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土よう日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "火よう日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日よう日"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-34",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "木よう日に ぎゅうにゅうを 2本 かいたいです。ただしい ものは どれですか。",
+        "passage": "まるやま スーパー　今週の やすい もの\n火よう日：たまご 1パック 150円\n木よう日：ぎゅうにゅう 1本 120円\n土よう日：にくが ぜんぶ 半分の ねだん\n※ たまごと ぎゅうにゅうは、この ねだんで 一人 1つまでです。",
+        "explanationKo": "핵심: 「たまごと ぎゅうにゅうは、この ねだんで 一人 1つまでです」\n120엔에 살 수 있는 것은 한 사람당 1개까지입니다. 그래서 2개 모두 120엔은 아니고, 목요일에도 살 수 있으며, 반값은 토요일 고기 이야기입니다.",
+        "explanationJa": "ポイント：「たまごと ぎゅうにゅうは、この ねだんで 一人 1つまでです」\nこの ねだんで かえるのは 1本だけです。木よう日にも かう ことは でき、半分の ねだんは 土よう日の にくの 話です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "2本とも 120円で かえる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "120円で かえるのは 1本だけ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "木よう日は ぎゅうにゅうが かえない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ぎゅうにゅうが 半分の ねだんに なる"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-35",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "かんじの クラスは いつですか。",
+        "passage": "さくら 日本語クラス\n月よう日・水よう日：よる 7時～8時半（かいわ）\n土よう日：あさ 10時～12時（かんじ）\n※ 1かい 500円です。\n※ はじめて 来る 人は、15分 まえに 来て ください。",
+        "explanationKo": "핵심: 「土よう日：あさ 10時～12時（かんじ）」\n한자 수업은 토요일 아침입니다. 월·수요일 밤은 회화 수업이고, 토요일 밤 수업은 없습니다.",
+        "explanationJa": "ポイント：「土よう日：あさ 10時～12時（かんじ）」\n月よう日と 水よう日の よるは かいわの クラスで、土よう日の よるは ありません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "月よう日の よる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "水よう日の よる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "土よう日の よる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "土よう日の あさ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-36",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "月よう日に はじめて かいわの クラスに いきます。なん時に いきますか。",
+        "passage": "さくら 日本語クラス\n月よう日・水よう日：よる 7時～8時半（かいわ）\n土よう日：あさ 10時～12時（かんじ）\n※ 1かい 500円です。\n※ はじめて 来る 人は、15分 まえに 来て ください。",
+        "explanationKo": "핵심: 「よる 7時～8時半（かいわ）」「はじめて 来る 人は、15分 まえに 来て ください」\n회화는 7시 시작이고 처음 오는 사람은 15분 전에 오므로 6시 45분입니다. 7시는 시작 시간, 7시 15분은 15분 뒤, 9시 45분은 토요일 한자 수업 시간으로 잘못 센 값입니다.",
+        "explanationJa": "ポイント：「よる 7時～8時半（かいわ）」「はじめて 来る 人は、15分 まえに 来て ください」\n7時の 15分 まえで 6時45分です。7時は はじまる 時間、7時15分は 15分 あと、9時45分は 土よう日の かんじの クラスで 数えた まちがいです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "6時45分"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "7時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "7時15分"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "9時45分"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-37",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "Bランチと のみものを たのみます。ぜんぶで いくらですか。",
+        "passage": "ランチ メニュー（あさ 11時～ごご 2時）\nA　カレー　700円\nB　ハンバーグ　900円\nC　さかな　800円\n※ のみものは 100円です。\n※ ごはんは もう 1ぱい たべられます。お金は いりません。",
+        "explanationKo": "핵심: 「B　ハンバーグ　900円」「のみものは 100円です」\n900엔 + 100엔 = 1000엔입니다. 900엔은 음료를 빼먹은 값, 800엔은 C 런치, 1100엔은 음료를 두 번 센 값입니다.",
+        "explanationJa": "ポイント：「B　ハンバーグ　900円」「のみものは 100円です」\n900円 ＋ 100円 ＝ 1000円です。900円は のみものを 入れて いない、800円は Cランチ、1100円は のみものを 2かい 数えた ねだんです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "900円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1000円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1100円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-38",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "ただしい ものは どれですか。",
+        "passage": "ランチ メニュー（あさ 11時～ごご 2時）\nA　カレー　700円\nB　ハンバーグ　900円\nC　さかな　800円\n※ のみものは 100円です。\n※ ごはんは もう 1ぱい たべられます。お金は いりません。",
+        "explanationKo": "핵심: 「ごはんは もう 1ぱい たべられます。お金は いりません」\n밥은 돈을 내지 않고 한 그릇 더 먹을 수 있습니다. 런치는 오후 2시까지, 음료는 100엔 따로이고, 가장 비싼 것은 함박스테이크(900엔)입니다.",
+        "explanationJa": "ポイント：「ごはんは もう 1ぱい たべられます。お金は いりません」\nランチは ごご 2時までで、のみものは 100円 かかります。いちばん たかいのは ハンバーグ（900円）です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ランチは よる 2時まで たべられる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "のみものは ランチに ついて いる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ごはんは お金を はらわないで もう 1ぱい たべられる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "さかなの ランチが いちばん たかい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-39",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "木よう日の ごご 3時に、おとなが カットと シャンプーを します。いくらですか。",
+        "passage": "ヘアサロン ハナ\nカット：おとな 3000円、こども（小学生まで）2000円\nシャンプー：500円\n※ 火よう日は 休みです。\n※ 月よう日から 金よう日の ごご 2時～4時は、カットが 500円 やすく なります。",
+        "explanationKo": "핵심: 「月よう日から 金よう日の ごご 2時～4時は、カットが 500円 やすく なります」\n목요일 오후 3시라 커트가 2500엔, 샴푸 500엔을 더해 3000엔입니다. 3500엔은 할인을 빼먹은 값, 2500엔은 샴푸를 뺀 값, 2000엔은 어린이 커트 값입니다.",
+        "explanationJa": "ポイント：「月よう日から 金よう日の ごご 2時～4時は、カットが 500円 やすく なります」\nカット 2500円 ＋ シャンプー 500円 ＝ 3000円です。3500円は やすく なる ことを 入れて いない、2500円は シャンプーが ない、2000円は こどもの カットの ねだんです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "2000円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "2500円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "3000円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "3500円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-40",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "10月12日に 雨が ふったら、どう なりますか。",
+        "passage": "ひかり小学校　あきの まつり\n日：10月12日（土）あさ 10時～ごご 3時\nところ：ひかり小学校\n※ 雨の ときは、つぎの 日（日よう日）に します。\n※ ジュースは 1かいの きょうしつで うって います。\n※ くるまで 来ないで ください。",
+        "explanationKo": "핵심: 「雨の ときは、つぎの 日（日よう日）に します」\n비가 오면 다음 날인 10월 13일(일)에 합니다. 취소·교실 안·1주일 뒤라는 말은 없습니다.",
+        "explanationJa": "ポイント：「雨の ときは、つぎの 日（日よう日）に します」\nつぎの 日なので 10月13日です。やめる、きょうしつで する、1しゅうかん あとの 話は ありません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まつりは ない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きょうしつの 中で する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1しゅうかん あとに する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "10月13日に する"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-41",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "ジュースは どこで かえますか。",
+        "passage": "ひかり小学校　あきの まつり\n日：10月12日（土）あさ 10時～ごご 3時\nところ：ひかり小学校\n※ 雨の ときは、つぎの 日（日よう日）に します。\n※ ジュースは 1かいの きょうしつで うって います。\n※ くるまで 来ないで ください。",
+        "explanationKo": "핵심: 「ジュースは 1かいの きょうしつで うって います」\n주스는 1층 교실에서 팝니다. 2층·학교 앞 가게·역 안 가게는 안내에 없습니다.",
+        "explanationJa": "ポイント：「ジュースは 1かいの きょうしつで うって います」\n2かいや 小学校の まえの 店、えきの 店は 文に ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "2かいの きょうしつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "小学校の まえの 店"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1かいの きょうしつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "えきの 中の 店"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-42",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "木よう日の ごご 4時に いきたいです。ただしい ものは どれですか。",
+        "passage": "やまだ クリニック\nうけつけ\n月・火・水・金：あさ 9時～12時、ごご 3時～6時\n木・土：あさ 9時～12時\n休み：日よう日\n※ ごご 5時半の あとに 来る 人は、まえに でんわを して ください。",
+        "explanationKo": "핵심: 「木・土：あさ 9時～12時」\n목요일은 아침 9시~12시만 접수하므로 오후 4시에는 갈 수 없습니다. 오후 3~6시는 월·화·수·금 이야기이고, 전화는 5시 반 이후에 오는 사람의 규칙입니다.",
+        "explanationJa": "ポイント：「木・土：あさ 9時～12時」\n木よう日は ごごの うけつけが ありません。ごご 3時～6時は 月・火・水・金で、でんわは 5時半の あとに 来る 人の きまりです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "4時に いけば みて もらえる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "木よう日の ごごは うけつけを して いない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "でんわを すれば 4時に いける"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "木よう日は 6時まで うけつけを する"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-43",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "金よう日の ごご 5時45分に いきたいです。まえに なにを しますか。",
+        "passage": "やまだ クリニック\nうけつけ\n月・火・水・金：あさ 9時～12時、ごご 3時～6時\n木・土：あさ 9時～12時\n休み：日よう日\n※ ごご 5時半の あとに 来る 人は、まえに でんわを して ください。",
+        "explanationKo": "핵심: 「ごご 5時半の あとに 来る 人は、まえに でんわを して ください」\n금요일은 오후 6시까지 접수하지만 5시 45분은 5시 반 이후라 먼저 전화해야 합니다. 그래서 아무것도 안 하고 가는 것은 틀리고, 아침 9시에 가거나 다음 날 전화하라는 말은 없습니다.",
+        "explanationJa": "ポイント：「ごご 5時半の あとに 来る 人は、まえに でんわを して ください」\n金よう日は 6時まで うけつけが ありますが、5時45分は 5時半の あとなので、まえに でんわを します。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "なにも しないで いく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "クリニックに でんわを する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あさ 9時に うけつけに いく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "つぎの 日の あさに でんわを する"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-44",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "あさ 9時から ごご 2時まで じてんしゃを かりたいです。いちばん やすいのは いくらですか。",
+        "passage": "かす じてんしゃ（駅の まえ）\n1時間：200円\n1日（あさ 8時～よる 8時）：800円\n※ よる 8時までに かえして ください。\n※ かりる ときに、なまえと でんわばんごうを かいて ください。",
+        "explanationKo": "핵심: 「1時間：200円」「1日（あさ 8時～よる 8時）：800円」\n9시부터 2시까지 5시간이라 시간 요금으로는 200엔×5 = 1000엔, 하루 요금은 800엔이므로 800엔이 가장 쌉니다. 200엔은 1시간 값, 1800엔은 두 요금을 더한 값입니다.",
+        "explanationJa": "ポイント：「1時間：200円」「1日（あさ 8時～よる 8時）：800円」\n9時から 2時までは 5時間で、200円×5＝1000円です。1日の 800円の ほうが やすいです。200円は 1時間、1800円は 二つを たした ねだんです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "200円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1000円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1800円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-b7-reading-45",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "ハイキングに いきたい 人は、まず なにを しますか。",
+        "passage": "みんなで ハイキングに いきませんか\n日：5月3日（水）\nあつまる ところ：みなみ駅の まえ　あさ 8時半\nもって くる もの：おべんとう、のみもの\n※ 雨の ときは やめます。\n※ いきたい 人は、4月28日までに 山口に メールを ください。",
+        "explanationKo": "핵심: 「いきたい 人は、4月28日までに 山口に メールを ください」\n가고 싶은 사람은 4월 28일까지 야마구치 씨에게 메일을 보냅니다. 5월 3일은 하이킹 날, 역에 모이는 것도 5월 3일이고, 도시락은 자기가 먹으려고 가져가는 것입니다.",
+        "explanationJa": "ポイント：「いきたい 人は、4月28日までに 山口に メールを ください」\n5月3日は ハイキングの 日で、駅に あつまるのも その 日です。おべんとうは じぶんで たべる ものです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "5月3日に 山口さんに メールを する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "4月28日に みなみ駅へ いく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "4月28日までに 山口さんに メールを する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "山口さんに おべんとうを もって いく"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    }
+  ]
+}

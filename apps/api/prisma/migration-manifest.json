@@ -95,6 +95,14 @@
     {
       "name": "20261129090000_shared_passage_group",
       "checksum": "97b33c6c32fa00922195dd2af6ca29ad7653b18017a006ddb80df800d97398ff"
+    },
+    {
+      "name": "20261130090000_push_subscription",
+      "checksum": "f19c197bc1b5170a86c30fe7f7ec49871e674d306d3d66c31b7004d7a7ada081"
+    },
+    {
+      "name": "20261201090000_push_subscription_member",
+      "checksum": "aeb69d3f2c1255f658357b21523baa2b66793df3f19164f0e81b8fcb68659f6c"
     }
   ]
 }

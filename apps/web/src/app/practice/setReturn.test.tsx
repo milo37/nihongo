@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { ReactElement } from 'react'
@@ -7,6 +8,7 @@ import { ResultActions } from '@app/practice/result/ResultActions'
 import { PracticeSessionHeader } from '@app/practice/session/components/PracticeSessionHeader'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 
 type Mode = StudySessionView['session']['mode']
 
@@ -19,20 +21,21 @@ const session = (mode: Mode): StudySessionView['session'] => ({
   startedAt: '2026-11-12T09:00:00.000Z',
   expiresAt: null,
   submittedAt: '2026-11-12T09:05:00.000Z',
-  durationSec: 300,
-  practiceContractVersion: 2
+  durationSec: 300
 })
 
-const renderWith = (element: ReactElement) =>
+const renderWith = (element: ReactElement, client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <I18nProvider>
-        <MemoryRouter>{element}</MemoryRouter>
+        <ToastProvider>
+          <MemoryRouter>{element}</MemoryRouter>
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   )
 
-const actions = (mode: Mode, isGuest = false) => (
+const actions = (mode: Mode, isGuest = false, showRetry = true) => (
   <ResultActions
     isGuest={isGuest}
     isGuestDone={false}
@@ -42,9 +45,23 @@ const actions = (mode: Mode, isGuest = false) => (
     retryLoadingLabel="…"
     session={session(mode)}
     requestedCount={10}
-    showRetry
+    showRetry={showRetry}
   />
 )
+
+// The wrong-note list as the server just counted it (#1283).
+const withToReview = (toReview: number) => {
+  const client = new QueryClient()
+  const { queryKey } = wrongNoteQueries.reviewList({
+    state: 'TO_REVIEW',
+    pageSize: 1
+  })
+  client.setQueryData(queryKey, {
+    total: toReview,
+    counts: { toReview, reviewed: 0 }
+  } as never)
+  return client
+}
 
 const header = (mode: Mode) => (
   <PracticeSessionHeader
@@ -94,6 +111,34 @@ describe('세트가 온 목록으로 돌아가기 (JLP-856)', () => {
       await screen.findByRole('button', { name: '다음 10문제' })
     ).toBeInTheDocument()
     expect(screen.queryByRole('link')).toBeNull()
+  })
+
+  it.each(['DAILY_REVIEW', 'WRONG_NOTE'] as const)(
+    '%s 세트를 다 맞혀 복습할 문제가 없으면 [학습으로]로 학습 탭에 간다 (#1283)',
+    async (mode) => {
+      renderWith(actions(mode, false, false), withToReview(0))
+      expect(
+        await screen.findByRole('link', { name: '학습으로' })
+      ).toHaveAttribute('href', '/practice')
+      expect(screen.queryByRole('link', { name: '오답노트로' })).toBeNull()
+    }
+  )
+
+  it.each(['DAILY_REVIEW', 'WRONG_NOTE'] as const)(
+    '%s 세트를 다 맞혀도 복습할 문제가 남으면 오답노트로 (#1283)',
+    async (mode) => {
+      renderWith(actions(mode, false, false), withToReview(2))
+      expect(
+        await screen.findByRole('link', { name: '오답노트로' })
+      ).toHaveAttribute('href', '/wrong-notes')
+    }
+  )
+
+  it('책갈피 세트는 다 맞혀도 책갈피로 (#1283)', async () => {
+    renderWith(actions('BOOKMARK', false, false), withToReview(0))
+    expect(
+      await screen.findByRole('link', { name: '책갈피로' })
+    ).toHaveAttribute('href', '/bookmarks')
   })
 
   it.each([

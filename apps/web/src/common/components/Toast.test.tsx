@@ -140,4 +140,63 @@ describe('Toast (U12 §3)', () => {
     expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
     expect(screen.getByRole('main')).toHaveFocus()
   })
+
+  // #1263: a tap fires mouseenter and focus with no mouseleave or blur.
+  const pointer = (fine: boolean) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: fine && query === '(hover: hover) and (pointer: fine)',
+      media: query
+    }))
+
+  it('폰에서 토스트를 탭해도 제때 닫힌다 (#1263)', () => {
+    vi.useFakeTimers()
+    pointer(false)
+    renderToasts()
+    act(() => {
+      add({ title: '저장' })
+    })
+    fireEvent.mouseEnter(cards()[0]!)
+    fireEvent.focus(cards()[0]!)
+    act(() => vi.advanceTimersByTime(5_000))
+    expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('마우스가 올라가 있는 동안은 기다리고, 떠나면 다시 센다 (#1263)', () => {
+    vi.useFakeTimers()
+    pointer(true)
+    renderToasts()
+    act(() => {
+      add({ title: '저장' })
+    })
+    fireEvent.mouseEnter(cards()[0]!)
+    act(() => vi.advanceTimersByTime(10_000))
+    expect(cards()).toHaveLength(1)
+    fireEvent.mouseLeave(cards()[0]!)
+    act(() => vi.advanceTimersByTime(5_000))
+    expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('닫힐 때 퇴장을 다 보이고 나서 빠지며, 그동안은 누를 수 없다 (#1263)', () => {
+    const real = window.getComputedStyle
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) =>
+      element instanceof HTMLElement && element.dataset.state === 'closing'
+        ? ({
+            animationName: 'ui-toast-out',
+            animationDuration: '0.24s'
+          } as CSSStyleDeclaration)
+        : real(element)
+    )
+    renderToasts()
+    act(() => {
+      add({ title: '저장' })
+    })
+    fireEvent.click(screen.getByRole('button', { name: '알림 닫기' }))
+    const [card] = cards()
+    expect(card).toHaveAttribute('data-state', 'closing')
+    expect(card).toHaveAttribute('inert')
+    fireEvent.animationEnd(card!)
+    expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
+  })
 })

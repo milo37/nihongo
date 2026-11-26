@@ -13,7 +13,6 @@ import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from './IconButton'
 import { classNames } from './classNames'
 
-// Failures never use a toast (they would vanish); they stay inline.
 export type ToastVariant = 'info' | 'success' | 'warning'
 
 export interface ToastAction {
@@ -39,6 +38,8 @@ interface ToastRecord extends ToastInput {
   revision: number
   /** Element to return focus to when the toast is closed from inside. */
   opener: Element | null
+  /** Playing its exit; removed when that ends (#1263). */
+  closing?: boolean
 }
 
 interface ToastContextValue {
@@ -56,6 +57,7 @@ type ToastProviderProps = {
 type ToastProps = ToastRecord & {
   durationMs: number
   onDismiss: (toastId: string, returnFocus: boolean) => void
+  onExited: (toastId: string) => void
 }
 
 export const TOAST_ANNOUNCER_ID = 'toast-announcer'
@@ -91,6 +93,21 @@ const closeIcon = (
   </svg>
 )
 
+// #1263: a tap fires mouseenter (and focus) with no mouseleave or blur, so
+// pausing there would keep a touched toast open for good. Only a mouse or
+// trackpad pauses it.
+const canPauseOnHover = (): boolean =>
+  window.matchMedia?.('(hover: hover) and (pointer: fine)').matches === true
+
+// The exit's length, read from the stylesheet (--motion-toast). 0 when no
+// exit animation runs (reduced motion ends it at once; jsdom has none).
+const exitDurationMs = (element: Element): number => {
+  const style = getComputedStyle(element)
+  if (!style.animationName.includes('ui-toast-out')) return 0
+  const ms = parseFloat(style.animationDuration) * 1000
+  return Number.isFinite(ms) ? ms : 0
+}
+
 let toastIdSequence = 0
 
 const createToastId = (): string => {
@@ -100,44 +117,80 @@ const createToastId = (): string => {
 
 export const Toast = ({
   action,
+  closing = false,
   description,
   durationMs,
   id,
   onDismiss,
+  onExited,
   revision,
   title,
   variant = 'info'
 }: ToastProps): ReactElement => {
   const { t } = useTranslation('common')
   const [isPaused, setIsPaused] = useState(false)
+  const ref = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (isPaused || !Number.isFinite(durationMs) || durationMs <= 0) {
+    if (
+      closing ||
+      isPaused ||
+      !Number.isFinite(durationMs) ||
+      durationMs <= 0
+    ) {
       return
     }
 
     const timeout = window.setTimeout(() => onDismiss(id, false), durationMs)
 
     return () => window.clearTimeout(timeout)
-  }, [durationMs, id, isPaused, onDismiss, revision])
+  }, [closing, durationMs, id, isPaused, onDismiss, revision])
+
+  // Removed when the exit ends; the timer covers an animationend that never
+  // comes (a hidden tab).
+  useEffect(() => {
+    const element = ref.current
+    if (!closing || !element) return
+    const exitMs = exitDurationMs(element)
+    if (exitMs === 0) {
+      onExited(id)
+      return
+    }
+    const timeout = window.setTimeout(() => onExited(id), exitMs)
+    return () => window.clearTimeout(timeout)
+  }, [closing, id, onExited])
 
   return (
     // The visible card has no live role; the provider's region announces it.
     // Top/right borders only: .ui-toast draws the 4px tone strip on the left.
     <article
+      ref={ref}
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        'ui-toast grid grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        // A title alone sits in the middle of the close button's height
+        // instead of leaving the space under it empty.
+        description || action ? 'items-start' : 'items-center',
+        closing ? 'pointer-events-none' : 'pointer-events-auto',
         variantClassNames[variant]
       )}
       data-variant={variant}
+      data-state={closing ? 'closing' : undefined}
+      inert={closing}
+      onAnimationEnd={(event) => {
+        if (closing && event.target === event.currentTarget) onExited(id)
+      }}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
         event.stopPropagation()
         onDismiss(id, true)
       }}
-      onMouseEnter={() => setIsPaused(true)}
+      onMouseEnter={() => {
+        if (canPauseOnHover()) setIsPaused(true)
+      }}
       onMouseLeave={() => setIsPaused(false)}
-      onFocusCapture={() => setIsPaused(true)}
+      onFocusCapture={() => {
+        if (canPauseOnHover()) setIsPaused(true)
+      }}
       onBlurCapture={(event) => {
         const nextTarget = event.relatedTarget
 
@@ -149,7 +202,13 @@ export const Toast = ({
         }
       }}
     >
-      <span className="ui-toast-icon" aria-hidden="true">
+      <span
+        className={classNames(
+          'ui-toast-icon',
+          description || action ? 'mt-0.5' : null
+        )}
+        aria-hidden="true"
+      >
         {variantIcons[variant]}
       </span>
       <div className="min-w-0 py-0.5">
@@ -204,9 +263,14 @@ export const ToastProvider = ({
     toastsRef.current = toasts
   }, [toasts])
 
+  // Closing first: the toast plays its exit, then onExited removes it.
   const dismiss = useCallback((toastId: string, returnFocus: boolean): void => {
     const toast = toastsRef.current.find((entry) => entry.id === toastId)
-    setToasts((current) => current.filter((entry) => entry.id !== toastId))
+    setToasts((current) =>
+      current.map((entry) =>
+        entry.id === toastId ? { ...entry, closing: true } : entry
+      )
+    )
     if (!returnFocus || !toast) return
     const opener = toast.opener
     const target =
@@ -216,6 +280,10 @@ export const ToastProvider = ({
         ? opener
         : document.querySelector<HTMLElement>('main')
     target?.focus()
+  }, [])
+
+  const removeToast = useCallback((toastId: string): void => {
+    setToasts((current) => current.filter((entry) => entry.id !== toastId))
   }, [])
 
   const dismissToast = useCallback(
@@ -241,7 +309,12 @@ export const ToastProvider = ({
         if (same) {
           return current.map((entry) =>
             entry.id === id
-              ? { ...entry, ...toast, revision: entry.revision + 1 }
+              ? {
+                  ...entry,
+                  ...toast,
+                  closing: false,
+                  revision: entry.revision + 1
+                }
               : entry
           )
         }
@@ -263,6 +336,30 @@ export const ToastProvider = ({
     },
     [maxVisible, t]
   )
+
+  // #1262: the stack's height is --toast-stack-height, so a screen can keep
+  // its last option and buttons scrollable above the toasts. At the page
+  // end, the page moves up with a growing stack.
+  const regionRef = useRef<HTMLElement>(null)
+  const hasToasts = toasts.length > 0
+  useEffect(() => {
+    const region = regionRef.current
+    const root = document.documentElement
+    if (!region || typeof ResizeObserver === 'undefined') return
+    let height = 0
+    const observer = new ResizeObserver(() => {
+      const next = region.offsetHeight
+      const atEnd = window.innerHeight + window.scrollY >= root.scrollHeight - 1
+      root.style.setProperty('--toast-stack-height', `${next}px`)
+      if (atEnd && next > height) window.scrollBy(0, next - height)
+      height = next
+    })
+    observer.observe(region)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--toast-stack-height')
+    }
+  }, [hasToasts])
 
   const contextValue = useMemo<ToastContextValue>(
     () => ({ addToast, dismissToast }),
@@ -289,7 +386,11 @@ export const ToastProvider = ({
         {announcement}
       </div>
       {ordered.length > 0 ? (
-        <section className="ui-toast-region" aria-label={t('toast.region')}>
+        <section
+          ref={regionRef}
+          className="ui-toast-region"
+          aria-label={t('toast.region')}
+        >
           {ordered.map(({ key: _dedupeKey, ...toast }) => (
             <Toast
               key={toast.id}
@@ -301,6 +402,7 @@ export const ToastProvider = ({
                     (toast.action ? actionDurationMs : defaultDurationMs))
               }
               onDismiss={dismiss}
+              onExited={removeToast}
             />
           ))}
         </section>
@@ -317,4 +419,43 @@ export const useToast = (): ToastContextValue => {
   }
 
   return context
+}
+
+/**
+ * #1262: a failed press is said in a warning toast, not a line on the
+ * screen; the button stays where it was, so no retry in the toast. Fires
+ * each time the title appears (a new press clears it first).
+ */
+export const useErrorToast = (title: string | null, key: string): void => {
+  const { addToast } = useToast()
+  useEffect(() => {
+    if (title) addToast({ key, title, variant: 'warning' })
+  }, [title, key, addToast])
+}
+
+/**
+ * #1292: something that loads by itself failed and its block is hidden, so
+ * the toast carries [다시 시도]. It goes when the load works again.
+ */
+export const useRetryToast = (
+  title: string | null,
+  key: string,
+  onRetry: () => void
+): void => {
+  const { t } = useTranslation('common')
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
+  useEffect(() => {
+    if (!title) return
+    const id = addToast({
+      key,
+      title,
+      variant: 'warning',
+      action: { label: t('actions.retry'), onClick: () => retryRef.current() }
+    })
+    return () => dismissToast(id)
+  }, [title, key, retryRef, addToast, dismissToast, t])
 }

@@ -1,0 +1,1984 @@
+{
+  "items": [
+    {
+      "clientItemId": "n1-b8-grammar-01",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "人気の歌手が初めてこの町に来る（　）、会場の前には朝から長い列ができていた。",
+        "passage": null,
+        "explanationKo": "핵심: 〜とあって = ~라서(특별한 상황이라 당연히 그런 결과)\n인기 가수가 처음 오는 특별한 일이라 아침부터 줄이 생겼습니다. ものなら는 (어렵지만) ~할 수 있다면, にしては는 ~치고는, かたわら는 ~하는 한편이라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜とあって＝特別な事情なので、当然そうなる\n人気の歌手が初めて来るという特別なことなので、列ができました。「ものなら」は「できるなら」、「にしては」は「〜のわりに」、「かたわら」は「〜する一方で」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ものなら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にしては"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かたわら"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "とあって"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-02",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "今日の公演（　）、この劇場は五十年の歴史に幕を下ろす。",
+        "passage": null,
+        "explanationKo": "핵심: 〜を限りに = ~을 끝으로(그때를 마지막으로)\n오늘 공연을 마지막으로 극장이 문을 닫습니다. をもとに는 ~을 바탕으로, をよそに는 ~을 아랑곳하지 않고, を問わず는 ~을 불문하고라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜を限りに＝〜を最後に\n今日の公演を最後に劇場が閉まります。「をもとに」は「〜を材料にして」、「をよそに」は「〜を気にしないで」、「を問わず」は「〜に関係なく」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をもとに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を限りに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "をよそに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を問わず"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-03",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "彼は体調不良（　）、面倒な飲み会の誘いをいつも断っている。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にかこつけて = ~을 핑계 삼아\n몸이 안 좋다는 것을 구실로 술자리를 거절합니다. にひきかえ는 ~와 반대로, にもまして는 ~보다 더, を皮切りに는 ~을 시작으로라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜にかこつけて＝〜を言い訳にして\n体調不良を理由にして断っています。「にひきかえ」は「〜と反対に」、「にもまして」は「〜以上に」、「を皮切りに」は「〜を始めとして」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にひきかえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にもまして"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にかこつけて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を皮切りに"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-04",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "彼女は、事故に遭った日のことを涙（　）語った。",
+        "passage": null,
+        "explanationKo": "핵심: 涙ながらに = 눈물을 흘리며(그 상태 그대로)\n사고 당일을 울면서 이야기했습니다. がてら는 ~하는 김에, ずくめ는 온통 ~뿐, ともなく는 특별히 ~하려는 생각 없이라 「涙」와 맞지 않습니다.",
+        "explanationJa": "ポイント：涙ながらに＝泣きながら\n泣きながら事故の日のことを話しました。「がてら」は「〜のついでに」、「ずくめ」は「〜ばかり」、「ともなく」は「特に〜しようと思わずに」です。",
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "がてら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ずくめで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ながらに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ともなく"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-05",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "一日中畑で働いていた父は、泥（　）になって帰ってきた。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + まみれ = ~투성이(더러운 것이 온몸에 묻음)\n하루 종일 밭일을 해서 진흙투성이가 됐습니다. めく는 ~다워지다, ながら는 ~인 채로, ぐるみ는 ~째 모두라 「泥」와 맞지 않습니다.",
+        "explanationJa": "ポイント：名詞＋まみれ＝体じゅうに〜がついている（汚れ）\n泥が体じゅうについていました。「めく」は「〜らしくなる」、「ながら」は「〜のまま」、「ぐるみ」は「〜全部」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "めいて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ながら"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぐるみ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まみれ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-06",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "三月に入り、日差しもだいぶ春（　）きた。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + めく(めいて) = ~다워지다, ~의 느낌이 나다\n햇살이 봄다워졌습니다. まみれ는 ~투성이, ぎみ는 약간 ~한 기운, ずくめ는 온통 ~뿐이며, 「〜てきた」와 이어지지도 않습니다.",
+        "explanationJa": "ポイント：名詞＋めく＝〜らしくなる\n日差しが春らしくなってきました。「まみれ」は汚れ、「ぎみ」は「少し〜の感じ」、「ずくめ」は「〜ばかり」で、「〜てきた」にもつながりません。",
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まみれて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぎみで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "めいて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ずくめで"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-07",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "赤信号を無視して交差点に突っ込むとは、危険（　）行為だ。",
+        "passage": null,
+        "explanationKo": "핵심: な형용사 어간 + きわまりない = 더없이 ~하다\n더없이 위험한 행위라는 뜻입니다. にたえない는 차마 ~할 수 없다, に足る는 ~할 만한, ならではの는 ~만의라 「危険」 뒤에 오지 않습니다.",
+        "explanationJa": "ポイント：な形容詞の語幹＋きわまりない＝この上なく〜だ\nこの上なく危険な行為です。「にたえない」は「〜していられない」、「に足る」は「〜する価値がある」、「ならではの」は「〜だけの」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にたえない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きわまりない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に足る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ならではの"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-08",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "一流の料理人が目の前で握るすしを、海の見える部屋で味わう。まさにぜいたく（　）だ。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + の極み = 더할 나위 없는 ~(최고의 상태)\n그야말로 사치의 극치라는 뜻입니다. きらい는 (나쁜) 경향, しまつ는 (나쁜) 결과, あまり는 너무 ~해서라 문장 끝에 「〜だ」로 오지 않습니다.",
+        "explanationJa": "ポイント：名詞＋の極み＝これ以上ない〜\nこれ以上ないぜいたくです。「きらい」は悪い傾向、「しまつ」は悪い結果、「あまり」は「〜すぎて」で、ここでは使えません。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "のきらい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "のしまつ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "の極み"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "のあまり"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-09",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "最近の彼の発言は、人を傷つける言葉ばかりで、とても聞く（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 동사 사전형 + にたえない = 차마 ~할 수 없다(너무 심해서)\n남을 상처 주는 말뿐이라 차마 들을 수 없습니다. に足る는 ~할 만하다(좋은 뜻), にかたくない는 쉽게 ~할 수 있다(想像・察する와 씀), に先駆けて는 명사 뒤에 옵니다.",
+        "explanationJa": "ポイント：動詞辞書形＋にたえない＝ひどくて〜していられない\n人を傷つける言葉ばかりで、聞いていられません。「に足る」はよい意味、「にかたくない」は「想像・察する」と使い、「に先駆けて」は名詞の後です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にたえない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に足る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にかたくない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "に先駆けて"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-10",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "彼ほどの実績があれば、もっと高く評価されて（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 〜てしかるべきだ = 당연히 ~되어야 한다\n그만한 실적이면 더 높이 평가받아야 마땅하다는 뜻입니다. やまない는 (바람·감정이) 끝없이 ~하다, はばからない는 거리낌 없이 ~하다, かなわない는 ~해서 견딜 수 없다라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜てしかるべきだ＝そうなるのが当然だ\nあれほどの実績なら、高く評価されるのが当然です。「やまない」は願いや気持ち、「はばからない」は「遠慮しないで〜する」、「かなわない」は「〜で困る」です。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "やまない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しかるべきだ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はばからない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かなわない"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-11",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "せっかく京都まで行ったのに、雨のせいで有名な庭園は見（　）だった。",
+        "passage": null,
+        "explanationKo": "핵심: ない형 + ずじまい = 결국 ~하지 못하고 끝남\n비 때문에 결국 정원을 못 보고 끝났습니다. ずとも는 ~하지 않아도, ずにはおかない는 반드시 ~하게 만든다, んばかり는 금방이라도 ~할 듯이라 「〜だった」와 맞지 않습니다.",
+        "explanationJa": "ポイント：ない形＋ずじまい＝結局〜しないで終わった\n雨で結局庭園を見ないで終わりました。「ずとも」は「〜しなくても」、「ずにはおかない」は「必ず〜させる」、「んばかり」は「今にも〜しそう」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ずとも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ずにはおかない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ずじまい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "んばかり"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-12",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "彼は自分の身の危険（　）、川に落ちた子どもを助けに飛び込んだ。",
+        "passage": null,
+        "explanationKo": "핵심: 〜を顧みず = ~을 돌보지 않고, 개의치 않고\n자기 위험을 생각하지 않고 뛰어들었습니다. をもとに는 ~을 바탕으로, を通じて는 ~을 통해, をめぐって는 ~을 둘러싸고라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜を顧みず＝〜を気にしないで\n自分の危険を考えずに飛び込みました。「をもとに」は材料、「を通じて」は手段・期間、「をめぐって」は「〜について（争う）」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をもとに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を顧みず"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "を通じて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "をめぐって"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-13",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "息子は朝ごはん（　）、慌てて家を飛び出していった。",
+        "passage": null,
+        "explanationKo": "핵심: 〜もそこそこに = ~도 대충 하고(서둘러 다음 행동)\n아침도 대충 먹고 뛰어나갔습니다. もさることながら는 ~도 그렇지만, ならいざしらず는 ~라면 몰라도, を限りに는 ~을 끝으로라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜もそこそこに＝〜を十分にしないで急いで\n朝ごはんを十分に食べないで出ていきました。「もさることながら」は「〜もそうだが」、「ならいざしらず」は「〜ならともかく」、「を限りに」は「〜を最後に」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "もさることながら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "もそこそこに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ならいざしらず"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を限りに"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-14",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "初めて一人で富士山の頂上に立ったときの気持ちよさ（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 〜といったらない = 말할 수 없을 만큼 ~하다\n정상에 섰을 때의 상쾌함이 말로 다 못할 정도였다는 뜻입니다. にすぎない는 ~에 불과하다, に越したことはない는 ~하는 게 최선이다, どころではない는 ~할 상황이 아니다라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜といったらない＝言葉で言えないほど〜だ\n頂上に立ったときの気持ちよさは、言葉で言えないほどでした。「にすぎない」は「ただ〜だけ」、「に越したことはない」は「〜がいちばんいい」、「どころではない」は「〜できる状況ではない」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "といったらない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にすぎない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に越したことはない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "どころではない"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-15",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "うちの息子（　）、ゲームばかりして少しも勉強しない。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + ときたら = ~로 말할 것 같으면(불만·비난)\n우리 아들은 게임만 한다는 불만입니다. にして는 ~이기에/~에 이르러, とあって는 ~라서(특별한 상황), ともなると는 ~쯤 되면이라 맞지 않습니다.",
+        "explanationJa": "ポイント：名詞＋ときたら＝〜は（不満を言う）\n息子への不満を言っています。「にして」は「〜で（やっと）」、「とあって」は「特別な事情なので」、「ともなると」は「〜くらいになると」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にして"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とあって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ともなると"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ときたら"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-16",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "計画に反対している住民（　）、町の発展を望んでいないわけではない。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にしたところで = ~라고 해도, ~의 입장에서도\n반대하는 주민이라 해도 발전을 원하지 않는 건 아니라는 뜻입니다. にひきかえ는 ~와 반대로, とばかりに는 마치 ~라는 듯이, を皮切りに는 ~을 시작으로라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜にしたところで＝〜の立場でも\n反対している住民の立場でも、発展を望んでいないわけではありません。「にひきかえ」は「〜と反対に」、「とばかりに」は「いかにも〜という様子で」、「を皮切りに」は「〜を始めとして」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にひきかえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とばかりに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にしたところで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を皮切りに"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-17",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "小さな子ども（　）、大人がこんな簡単な計算を間違えるとは情けない。",
+        "passage": null,
+        "explanationKo": "핵심: 〜ならいざしらず = ~라면 몰라도\n아이라면 몰라도 어른이 틀리는 건 한심하다는 뜻입니다. ならでは는 ~만의(뒤에 の가 필요), とあれば는 ~를 위해서라면, なりに는 ~나름대로라 앞뒤를 대비시키지 못합니다.",
+        "explanationJa": "ポイント：〜ならいざしらず＝〜ならともかく\n子どもならともかく、大人が間違えるのは情けないということです。「ならでは」は「〜だけの」、「とあれば」は「〜のためなら」、「なりに」は「〜にふさわしく」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ならでは"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とあれば"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "なりに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ならいざしらず"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-18",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "経験はまだ少ないが、私（　）精一杯努力するつもりだ。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + なりに = ~나름대로\n경험은 적지만 내 나름대로 노력하겠다는 뜻입니다. ながらに는 ~인 채로, ゆえに는 ~이기 때문에, ごとき는 ~따위(뒤에 が・に 등이 필요)라 맞지 않습니다.",
+        "explanationJa": "ポイント：名詞＋なりに＝〜にできる範囲で\n経験は少ないが、自分にできる範囲で努力します。「ながらに」は「〜のまま」、「ゆえに」は理由、「ごとき」は「〜のような者」で、後に助詞が必要です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ながらに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ゆえに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ごとき"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "なりに"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-19",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "若いころは仕事（　）、家族と過ごす時間をおろそかにしてしまった。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にかまけて = ~에 정신이 팔려(다른 일을 소홀히 함)\n일에 매달려 가족과의 시간을 소홀히 했습니다. に即して는 ~에 맞추어, にひきかえ는 ~와 반대로, にもまして는 ~보다 더라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜にかまけて＝〜にばかり気を取られて\n仕事にばかり気を取られて、家族との時間を大切にしませんでした。「に即して」は「〜に合わせて」、「にひきかえ」は「〜と反対に」、「にもまして」は「〜以上に」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に即して"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にひきかえ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にもまして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にかまけて"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-20",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この祭りは地元の人々（　）、海外からの観光客にも人気がある。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にとどまらず = ~에 그치지 않고(범위가 더 넓음)\n지역 주민에 그치지 않고 외국 관광객에게도 인기입니다. をよそに는 ~을 아랑곳하지 않고, にかこつけて는 ~을 핑계로, ともなく는 특별히 ~하려는 생각 없이라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜にとどまらず＝〜だけでなく、さらに広く\n地元の人だけでなく、海外の観光客にも人気です。「をよそに」は「〜を気にしないで」、「にかこつけて」は「〜を言い訳にして」、「ともなく」は「特に〜しようと思わずに」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をよそに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にかこつけて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ともなく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にとどまらず"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-21",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "若さ（　）の失敗は、誰にでもあるものだ。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + ゆえ(の) = ~ 때문(의)\n젊음 때문에 하는 실수는 누구에게나 있다는 뜻입니다. まみれ는 ~투성이, ずくめ는 온통 ~뿐, きわまり는 ~きわまりない 형태로만 쓰여 맞지 않습니다.",
+        "explanationJa": "ポイント：名詞＋ゆえの＝〜が原因の\n若いことが原因の失敗です。「まみれ」は汚れ、「ずくめ」は「〜ばかり」、「きわまり」は「〜きわまりない」の形で使います。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まみれ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ずくめ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ゆえ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きわまり"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-22",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "色づいた木々が澄んだ秋の空（　）、見事な景色をつくり出していた。",
+        "passage": null,
+        "explanationKo": "핵심: 〜とあいまって = ~와 어우러져(함께 작용해 더 좋은 효과)\n단풍과 맑은 하늘이 어우러져 멋진 경치가 되었습니다. とばかりに는 마치 ~라는 듯이, ともなく는 특별히 ~하려는 생각 없이, といえども는 ~라고 해도라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜とあいまって＝〜と一緒になって、より大きな効果を生む\n紅葉と秋の空が一緒になって、見事な景色になりました。「とばかりに」は「いかにも〜という様子で」、「ともなく」は「特に〜しようと思わずに」、「といえども」は「〜でも」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "とあいまって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とばかりに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ともなく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "といえども"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-23",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "その新製品は、国内での発売（　）、まず海外の市場で販売された。",
+        "passage": null,
+        "explanationKo": "핵심: 〜に先駆けて = ~에 앞서(남보다·다른 것보다 먼저)\n국내 발매보다 먼저 해외에서 팔았습니다. にかこつけて는 ~을 핑계로, をおして는 ~을 무릅쓰고, にたえず는 차마 ~하지 못하고라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜に先駆けて＝〜より先に\n国内の発売より先に海外で売りました。「にかこつけて」は「〜を言い訳にして」、「をおして」は「〜を無理して」、「にたえず」は「ひどくて〜できず」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にかこつけて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "をおして"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にたえず"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "に先駆けて"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-24",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "どんなに高価な機械でも、使い方を知らなけれ（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 〜ばそれまでだ = ~하면 그것으로 끝이다(소용없다)\n아무리 비싼 기계도 사용법을 모르면 소용없다는 뜻입니다. ばこそ는 ~이기 때문에야말로, ばかりだ는 「知らなければかりだ」가 되어 형태가 안 되고, ばよかった는 몰랐으면 좋았다는 후회라 앞의 「どんなに〜でも」와 맞지 않습니다.",
+        "explanationJa": "ポイント：〜ばそれまでだ＝〜たら、それで終わり（役に立たない）\n高い機械でも、使い方を知らなければ役に立ちません。「ばこそ」は「〜からこそ」、「ばかりだ」は形が合わず、「ばよかった」は後悔で「どんなに〜でも」と合いません。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ばそれまでだ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ばこそだ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばかりだ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ばよかった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-25",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "簡単な手続きですから、わざわざ窓口までお越しいただく（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 〜には及ばない(には及びません) = ~할 필요는 없다\n간단한 절차라 창구까지 오실 필요가 없다는 정중한 표현입니다. にたえない는 차마 ~할 수 없다, にかたくない는 쉽게 ~할 수 있다(想像・察する와 씀), を禁じ得ない는 (감정을) 금할 수 없다라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜には及ばない＝〜する必要はない\n窓口まで来る必要はないと丁寧に言っています。「にたえない」は「ひどくて〜できない」、「にかたくない」は「想像・察する」と使い、「を禁じ得ない」は気持ちを表します。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "には及びません"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にたえません"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にかたくありません"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を禁じ得ません"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-26",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "彼は、自分こそが業界でいちばんの技術者だと公言して（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 〜てはばからない = 거리낌 없이 ~하다\n자기가 최고라고 거리낌 없이 공언합니다. 「〜てかねない」라는 형태는 없고(かねない는 ます형 뒤), 「〜ていられない」는 ~하고 있을 수 없다, たまらない는 너무 ~하다(감정)라 「公言して」와 맞지 않습니다.",
+        "explanationJa": "ポイント：〜てはばからない＝遠慮しないで堂々と〜する\n自分がいちばんだと遠慮なく言っています。「かねない」はます形の後に使う形で「〜て」には付かず、「いられない」は「〜していることができない」、「たまらない」は気持ちの強さで、合いません。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かねない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いられない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "たまらない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はばからない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-27",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "大切な取引先にこれほどの迷惑をかけた以上、社長が直接謝ら（　）だろう。",
+        "passage": null,
+        "explanationKo": "핵심: ない형 + ずにはすまない = ~하지 않고는 끝나지 않는다(반드시 ~해야 한다)\n큰 폐를 끼쳤으니 사장이 직접 사과해야 한다는 뜻입니다. ずじまい는 결국 ~하지 못하고 끝남, ずとも는 ~하지 않아도, んばかり는 금방이라도 ~할 듯이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ない形＋ずにはすまない＝〜しないでは終わらない（必ず〜する必要がある）\n大きな迷惑をかけたので、社長が謝る必要があります。「ずじまい」は「結局〜しないで終わった」、「ずとも」は「〜しなくても」、「んばかり」は「今にも〜しそう」です。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ずじまい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ずにはすまない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ずとも"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "んばかり"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-28",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "財布を家に忘れてきたので、昼ごはんを買お（　）買えない。",
+        "passage": null,
+        "explanationKo": "핵심: 의지형(買おう) + にも + 가능형 부정 = ~하려고 해도 ~할 수 없다(「買おうにも買えない」)\n지갑이 없어서 사려고 해도 살 수 없습니다. うものなら는 (만약) ~하기라도 하면, うが・うと는 ~하더라도(뒤에 상관없다는 내용)라 「買えない」와 이어지지 않습니다.",
+        "explanationJa": "ポイント：意向形＋にも＋〜ない＝〜しようとしても、できない\n財布がないので、買おうとしても買えません。「うものなら」は「もし〜したら（大変だ）」、「うが・うと」は「〜しても関係ない」で、「買えない」とつながりません。",
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "うものなら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "うが"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うにも"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "うと"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-29",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "彼は長年の夢をかなえ（　）、毎日寝る間も惜しんで練習を重ねた。",
+        "passage": null,
+        "explanationKo": "핵심: ない형 + んがため(に) = ~하기 위해(강한 목적, 문어)\n꿈을 이루기 위해 연습했습니다. んばかりに는 금방이라도 ~할 듯이, まいと는 ~하지 않으려고(꿈을 이루지 않으려고가 됨), べくもなく는 ~할 수도 없이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ない形＋んがため＝ぜひ〜しようとして（書き言葉）\n夢をかなえようとして練習しました。「んばかりに」は「今にも〜しそうに」、「まいと」は「〜しないように」で反対の意味、「べくもなく」は「〜できるはずもなく」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "んがため"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "んばかりに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "まいと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "べくもなく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-30",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "教師（　）、生徒の前で人を差別するような発言をしてはならない。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + たるもの = ~인 자(그 입장이라면 마땅히)\n교사라면 차별 발언을 해서는 안 된다는 뜻입니다. なりに는 ~나름대로, とあって는 ~라서(특별한 상황), ときたら는 ~로 말하자면(불만)이라 맞지 않습니다.",
+        "explanationJa": "ポイント：名詞＋たるもの＝〜という立場にある人は（当然）\n教師という立場の人は、差別の発言をしてはいけません。「なりに」は「〜にできる範囲で」、「とあって」は「特別な事情なので」、「ときたら」は不満を言う形です。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たるもの"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なりに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "とあって"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ときたら"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-31",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "事件の現場の近くで、犯人（　）男の姿が防犯カメラに映っていた。",
+        "passage": null,
+        "explanationKo": "핵심: 〜とおぼしき = ~로 보이는, ~인 듯한\n범인으로 보이는 남자가 찍혔습니다. ならではの는 ~만의, たる는 ~인(그 자격의), ずくめの는 온통 ~뿐인이라 추측의 뜻이 없습니다.",
+        "explanationJa": "ポイント：〜とおぼしき＝〜と思われる\n犯人と思われる男が映っていました。「ならではの」は「〜だけの」、「たる」は「〜という立場の」、「ずくめの」は「〜ばかりの」で、推測の意味がありません。",
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ならではの"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "たる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "とおぼしき"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ずくめの"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-32",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "今日は一日晴れる（　）、午後から急に激しい雨が降り出した。",
+        "passage": null,
+        "explanationKo": "핵심: 〜かと思いきや = ~인가 했더니(예상과 반대)\n맑을 거라 생각했는데 비가 왔습니다. とあって는 ~라서, ばかりか는 ~뿐만 아니라, からといって는 ~라고 해서(뒤에 부정)라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜かと思いきや＝〜と思ったが、反対に\n晴れると思ったのに雨が降りました。「とあって」は「特別な事情なので」、「ばかりか」は「〜だけでなく」、「からといって」は後に否定が来ます。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かと思いきや"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とあって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばかりか"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "からといって"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-33",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "弟はゲームを始めた（　）、何度呼んでも返事をしない。",
+        "passage": null,
+        "explanationKo": "핵심: た형 + が最後 = 일단 ~했다 하면(그 뒤로는 계속 ~)\n게임을 시작했다 하면 불러도 대답하지 않습니다. ものを는 ~했을 텐데(아쉬움), 手前는 ~한 체면상, ばかりか는 ~뿐만 아니라라 맞지 않습니다.",
+        "explanationJa": "ポイント：た形＋が最後＝一度〜したら、その後はずっと\nゲームを始めたら、もう返事をしません。「ものを」は残念な気持ち、「手前」は「〜した以上、体面のため」、「ばかりか」は「〜だけでなく」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が最後"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ものを"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "手前"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ばかりか"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-34",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "母親が部屋を片付ける（　）、子どもたちがまた散らかしていく。",
+        "passage": null,
+        "explanationKo": "핵심: 동사 + そばから = ~하는 족족(하자마자 곧 다시)\n엄마가 치우는 족족 아이들이 다시 어지릅니다. かたわら는 (본업) 한편으로, ついでに는 ~하는 김에, ばかりに는 ~한 탓에라 맞지 않습니다.",
+        "explanationJa": "ポイント：動詞＋そばから＝〜してもすぐに（また）\n片付けてもすぐに散らかされます。「かたわら」は「仕事などの一方で」、「ついでに」は「〜の機会に」、「ばかりに」は「〜したせいで」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かたわら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そばから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ついでに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ばかりに"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-35",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "小さな町工場が、世界的な大企業と価格で競う（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 동사 사전형 + べくもない = ~할 수 있을 리가 없다\n작은 공장이 대기업과 가격으로 경쟁할 수는 없다는 뜻입니다. に足る는 ~할 만하다(뒤에 명사), きらいがある는 (나쁜) 경향이 있다, ばかりだ는 계속 ~하기만 한다라 맞지 않습니다.",
+        "explanationJa": "ポイント：動詞辞書形＋べくもない＝〜できるはずがない\n小さな工場が大企業と価格で競うことはできません。「に足る」は後に名詞が来て、「きらいがある」は悪い傾向、「ばかりだ」は「どんどん〜する」です。",
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に足る"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きらいがある"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばかりだ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "べくもない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-36",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "監督は高い熱（　）、最後まで試合の指揮を執った。",
+        "passage": null,
+        "explanationKo": "핵심: 〜をおして = ~을 무릅쓰고\n고열을 무릅쓰고 지휘했습니다. をめぐって는 ~을 둘러싸고, をきっかけに는 ~을 계기로, を限りに는 ~을 끝으로라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜をおして＝〜なのに無理をして\n熱があるのに無理をして指揮しました。「をめぐって」は「〜について（争う）」、「をきっかけに」は「〜が始まりで」、「を限りに」は「〜を最後に」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をめぐって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "をおして"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "をきっかけに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を限りに"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-37",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "彼は ＿＿ ＿＿ ★ ＿＿ 選手に選ばれた。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + にして = ~에(이르러), ~의 나이에\n바른 문장: 彼はわずか十五歳にして日本代表選手に選ばれた。 「わずか十五歳にして」 뒤에 「日本代表選手に選ばれた」가 옵니다. ★ 자리는 「にして」입니다.",
+        "explanationJa": "ポイント：名詞＋にして＝〜で（もう）\n正しい文：彼はわずか十五歳にして日本代表選手に選ばれた。 「わずか十五歳にして」の後に「日本代表選手に選ばれた」が続きます。★は「にして」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わずか"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "十五歳"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日本代表"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にして"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-38",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "この店が五十年も続いてきたのは、 ＿＿ ＿＿ ★ ＿＿ だ。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: AあってのB = A가 있어야 B가 있다\n바른 문장: この店が五十年も続いてきたのは、長年のお客様あってのことだ。 「お客様あってのこと」로 손님 덕분이라는 뜻입니다. ★ 자리는 「あっての」입니다.",
+        "explanationJa": "ポイント：AあってのB＝Aがあるから、Bがある\n正しい文：この店が五十年も続いてきたのは、長年のお客様あってのことだ。 「お客様あってのこと」で、お客様のおかげだという意味です。★は「あっての」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あっての"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "長年の"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "お客様"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-39",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "彼は ＿＿ ★ ＿＿ ＿＿ 一人で運び上げた。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 수량 + からある = ~이나 되는(많음을 강조)\n바른 문장: 彼は重さ五十キロからある荷物を一人で運び上げた。 「五十キロからある荷物」로 50킬로나 되는 짐입니다. ★ 자리는 「五十キロ」입니다.",
+        "explanationJa": "ポイント：数量＋からある＝〜も（多いことを強調）\n正しい文：彼は重さ五十キロからある荷物を一人で運び上げた。 「五十キロからある荷物」で、五十キロもある荷物です。★は「五十キロ」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "荷物を"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "五十キロ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "重さ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "からある"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-40",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "HARD",
+        "questionText": "国の ＿＿ ＿＿ ★ ＿＿ 無責任な発言をするとは驚いた。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + ともあろう + 사람 = ~씩이나 되는 사람(그 입장에 어울리지 않음)\n바른 문장: 国の大臣ともあろう人がそんな無責任な発言をするとは驚いた。 「大臣ともあろう人が」 뒤에 「そんな無責任な発言」이 옵니다. ★ 자리는 「人が」입니다.",
+        "explanationJa": "ポイント：名詞＋ともあろう人＝〜という立派な立場の人（なのに）\n正しい文：国の大臣ともあろう人がそんな無責任な発言をするとは驚いた。 「大臣ともあろう人が」の後に「そんな無責任な発言」が続きます。★は「人が」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ともあろう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "大臣"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "人が"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そんな"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-41",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "約束の時間に二時間も遅れてくるなんて、 ＿＿ ＿＿ ★ ＿＿ 。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にもほどがある = ~에도 정도가 있다(너무 심하다)\n바른 문장: 約束の時間に二時間も遅れてくるなんて、いい加減にもほどがある。 「いい加減にもほどがある」로 무책임함이 지나치다는 비난입니다. ★ 자리는 「にも」입니다.",
+        "explanationJa": "ポイント：〜にもほどがある＝〜すぎる（ひどい）\n正しい文：約束の時間に二時間も遅れてくるなんて、いい加減にもほどがある。 「いい加減にもほどがある」で、ひどすぎると非難しています。★は「にも」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ほどがある"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "加減"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-42",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "この程度の ＿＿ ＿＿ ＿＿ ★ 、二、三日で治るだろう。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ない형 + ずとも = ~하지 않아도(문어)\n바른 문장: この程度のけがなら病院に行かずとも、二、三日で治るだろう。 「病院に行かずとも」로 병원에 가지 않아도라는 뜻입니다. ★ 자리는 「とも」입니다.",
+        "explanationJa": "ポイント：ない形＋ずとも＝〜しなくても（書き言葉）\n正しい文：この程度のけがなら病院に行かずとも、二、三日で治るだろう。 「病院に行かずとも」で「行かなくても」の意味です。★は「とも」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "病院に"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けがなら"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "行かず"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "とも"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-43",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "来週、新年のごあいさつ ＿＿ ＿＿ ★ ＿＿ に伺います。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + かたがた = ~을 겸해서\n바른 문장: 来週、新年のごあいさつかたがた新しい担当者を紹介しに伺います。 「ごあいさつかたがた」 뒤에 「新しい担当者を紹介しに伺います」가 옵니다. ★ 자리는 「担当者を」입니다.",
+        "explanationJa": "ポイント：名詞＋かたがた＝〜も兼ねて\n正しい文：来週、新年のごあいさつかたがた新しい担当者を紹介しに伺います。 「ごあいさつかたがた」の後に「新しい担当者を紹介しに伺います」が続きます。★は「担当者を」です。",
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かたがた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "紹介し"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "担当者を"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "新しい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-44",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "一度 ＿＿ ＿＿ ★ ＿＿ 失敗をするのは問題だ。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: AならまだしもB = A라면 그나마 괜찮지만 B는\n바른 문장: 一度ならまだしも三度も同じ失敗をするのは問題だ。 「一度ならまだしも」 뒤에 「三度も同じ失敗」가 옵니다. ★ 자리는 「三度も」입니다.",
+        "explanationJa": "ポイント：AならまだしもB＝Aならまだいいが、Bは困る\n正しい文：一度ならまだしも三度も同じ失敗をするのは問題だ。 「一度ならまだしも」の後に「三度も同じ失敗」が続きます。★は「三度も」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まだしも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "三度も"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "同じ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "なら"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-45",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "HARD",
+        "questionText": "その作品は、 ＿＿ ★ ＿＿ ＿＿ ほどの出来だった。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 사람 + をして〜させる(しめる) = ~로 하여금 ~하게 하다\n바른 문장: その作品は、厳しい評論家をしてうならせるほどの出来だった。 「厳しい評論家をして」 뒤에 사역형 「うならせる」가 옵니다(엄한 평론가마저 감탄하게 할 만큼). ★ 자리는 「評論家」입니다.",
+        "explanationJa": "ポイント：人＋をして〜させる（しめる）＝その人に〜させる\n正しい文：その作品は、厳しい評論家をしてうならせるほどの出来だった。 「厳しい評論家をして」の後に使役形「うならせる」が続きます（厳しい評論家さえ感心させるほど）。★は「評論家」です。",
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "うならせる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "をして"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "厳しい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "評論家"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-46",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "彼の実力なら、 ＿＿ ＿＿ ＿＿ ★ あたらない。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 동사 사전형 + にはあたらない = ~할 것까지는 없다\n바른 문장: 彼の実力なら、優勝したとしても驚くにはあたらない。 「驚くにはあたらない」로 놀랄 일이 아니라는 뜻입니다. ★ 자리는 「には」입니다.",
+        "explanationJa": "ポイント：動詞辞書形＋にはあたらない＝〜するほどのことではない\n正しい文：彼の実力なら、優勝したとしても驚くにはあたらない。 「驚くにはあたらない」で、驚くほどのことではないという意味です。★は「には」です。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "驚く"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "としても"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "優勝した"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "には"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-47",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "この店の客は、 ＿＿ ＿＿ ★ ＿＿ ところだ。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜といったところだ = 대략 ~정도다(많지 않음)\n바른 문장: この店の客は、平日なら一日五十人といったところだ。 「平日なら」 뒤에 「一日五十人といったところだ」가 옵니다. ★ 자리는 「一日五十人」입니다.",
+        "explanationJa": "ポイント：〜といったところだ＝だいたい〜くらいだ（多くない）\n正しい文：この店の客は、平日なら一日五十人といったところだ。 「平日なら」の後に「一日五十人といったところだ」が続きます。★は「一日五十人」です。",
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "といった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なら"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一日五十人"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "平日"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-48",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "HARD",
+        "questionText": "水は ＿＿ ★ ＿＿ ＿＿ ものだ。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜べからざる = ~해서는 안 되는, ~할 수 없는(문어)\n바른 문장: 水は人間が生きるうえで欠くべからざるものだ。 「生きるうえで欠くべからざるもの」로 빠뜨릴 수 없는 것이라는 뜻입니다. ★ 자리는 「生きる」입니다.",
+        "explanationJa": "ポイント：〜べからざる＝〜してはならない、〜できない（書き言葉）\n正しい文：水は人間が生きるうえで欠くべからざるものだ。 「生きるうえで欠くべからざるもの」で、なくてはならないものという意味です。★は「生きる」です。",
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "生きる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "うえで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "欠くべからざる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "人間が"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-49",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "EASY",
+        "questionText": "私たちは隣の家と ＿＿ ★ ＿＿ ＿＿ している。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + ぐるみ = ~전체가 함께\n바른 문장: 私たちは隣の家と家族ぐるみで付き合いをしている。 「家族ぐるみで付き合いをしている」로 가족 전체가 함께 왕래한다는 뜻입니다. ★ 자리는 「ぐるみで」입니다.",
+        "explanationJa": "ポイント：名詞＋ぐるみ＝〜全体で一緒に\n正しい文：私たちは隣の家と家族ぐるみで付き合いをしている。 「家族ぐるみで付き合いをしている」で、家族全体で付き合うという意味です。★は「ぐるみで」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "家族"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "付き合い"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぐるみで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-50",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "彼が ＿＿ ＿＿ ★ ＿＿ 、会議は予定どおり始める。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜(よ)うが〜まいが = ~하든 ~하지 않든\n바른 문장: 彼が来ようが来るまいが、会議は予定どおり始める。 「来ようが来るまいが」로 그가 오든 안 오든이라는 뜻입니다. ★ 자리는 「来る」입니다.",
+        "explanationJa": "ポイント：〜（よ）うが〜まいが＝〜しても、〜しなくても\n正しい文：彼が来ようが来るまいが、会議は予定どおり始める。 「来ようが来るまいが」で、来ても来なくても関係ないという意味です。★は「来る」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まいが"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "来よう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "来る"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-51",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "EASY",
+        "questionText": "これは ＿＿ ★ ＿＿ ＿＿ 問題だから、慎重に判断すべきだ。　★に入るものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜にかかわる = ~에 관계되는(중대한 영향)\n바른 문장: これは人の命にかかわる問題だから、慎重に判断すべきだ。 「人の命にかかわる問題」로 생명과 관계된 문제입니다. ★ 자리는 「命」입니다.",
+        "explanationJa": "ポイント：〜にかかわる＝〜に大きな影響がある\n正しい文：これは人の命にかかわる問題だから、慎重に判断すべきだ。 「人の命にかかわる問題」で、命に関係する問題です。★は「命」です。",
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "命"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かかわる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "人の"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-52",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "駅前の小さな商店が、ここ数年で次々に姿を消している。地域の店を守ることは、そこで暮らす人々の毎日を支えることであり、（　）町全体の活気を保つことにもつながるはずだ。",
+        "explanationKo": "핵심: ひいては = 나아가서는(더 큰 결과로 이어짐)\n가게를 지키는 일이 주민 생활을 넘어 마을 전체의 활기로 이어진다는 흐름입니다. ましてや는 하물며(뒤에 더 극단적인 예), もっとも는 다만(단서), それとも는 아니면(선택)이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ひいては＝さらに進んで、もっと大きなことにも\n店を守ることが、町全体の活気にもつながるという流れです。「ましてや」は「なおさら」、「もっとも」は「ただし」、「それとも」は選択です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ましてや"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "もっとも"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ひいては"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "それとも"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-53",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "この峠道は、山に慣れた大人でも一日で越えるのは難しいと言われている。途中には水を補給できる場所もほとんどなく、日が暮れると気温も急に下がる。（　）小さな子どもが一人で越えられるはずがない。",
+        "explanationKo": "핵심: ましてや = 하물며(앞의 예보다 더 그렇다)\n어른도 힘든 길이니 하물며 아이 혼자는 불가능하다는 흐름입니다. ひいては는 나아가서는, それにしても는 그렇다 치더라도, もっとも는 다만이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ましてや＝前の例でもそうなのだから、なおさら\n大人でも難しい道なので、子ども一人ではもっと無理です。「ひいては」は「さらに大きなことにも」、「それにしても」は「それはそうとしても」、「もっとも」は「ただし」です。",
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひいては"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ましてや"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "それにしても"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "もっとも"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-54",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "先週起きた工場の停止について、原因が機械の故障なのか、作業手順のミスなのかは、まだはっきりしていない。（　）、同じ事故を二度と起こさないための対策を急ぐ必要がある。",
+        "explanationKo": "핵심: いずれにせよ = 어느 쪽이든(결론은 같음)\n원인이 무엇이든 대책을 서둘러야 한다는 흐름입니다. それゆえ는 그러므로(앞이 이유), かといって는 그렇다고 해서(뒤에 부정), ましてや는 하물며라 맞지 않습니다.",
+        "explanationJa": "ポイント：いずれにせよ＝どちらにしても\n原因がどちらでも、対策を急ぐ必要があります。「それゆえ」は前が理由、「かといって」は後に否定、「ましてや」は「なおさら」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "それゆえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いずれにせよ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かといって"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ましてや"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-55",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "HARD",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "スマートフォンがあれば、道も漢字も料理の手順も、すぐに調べられる。とても便利になったが、便利な道具に頼りきっていると、人は（　）自分の頭で考えることを忘れてしまいがちだ。",
+        "explanationKo": "핵심: ともすれば = 자칫하면(그렇게 되기 쉬움)\n「〜がちだ」와 함께 자칫하면 생각하는 것을 잊기 쉽다는 흐름입니다. いかにも는 정말로, あえて는 굳이, いずれにせよ는 어느 쪽이든이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ともすれば＝どうかすると、そうなりやすい\n「〜がちだ」と一緒に、考えることを忘れやすいと言っています。「いかにも」は「本当に」、「あえて」は「わざと」、「いずれにせよ」は「どちらにしても」です。",
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いかにも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あえて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ともすれば"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いずれにせよ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-56",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "料理人の父（　）、高い材料をそろえることより、季節の材料を正しく扱うことのほうがずっと大切なのだそうだ。父の店の料理が素朴なのに飽きられないのは、そのためかもしれない。",
+        "explanationKo": "핵심: 사람 + に言わせれば = ~의 말로는, ~의 의견으로는\n요리사인 아버지의 의견을 전합니다(「〜そうだ」와 호응). にひきかえ는 ~와 반대로, にもまして는 ~보다 더, ともなると는 ~쯤 되면이라 맞지 않습니다.",
+        "explanationJa": "ポイント：人＋に言わせれば＝その人の意見では\n父の意見を伝えています（「〜そうだ」と合う）。「にひきかえ」は「〜と反対に」、「にもまして」は「〜以上に」、「ともなると」は「〜くらいになると」です。",
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "にひきかえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に言わせれば"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にもまして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ともなると"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-57",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "去年の春、三十年勤めた会社を定年で退職した。それ（　）、以前から興味のあった陶芸を本格的に習い始めた。今では週に三日、近所の工房に通っている。先生にほめられることも増え、毎日が以前よりずっと楽しくなった。",
+        "explanationKo": "핵심: 〜を機に = ~을 계기로\n퇴직을 계기로 도예를 시작했습니다. をよそに는 ~을 아랑곳하지 않고, をおして는 ~을 무릅쓰고, を限りに는 ~을 끝으로(뒤에 그만두는 내용)라 맞지 않습니다.",
+        "explanationJa": "ポイント：〜を機に＝〜をきっかけにして\n退職をきっかけに陶芸を始めました。「をよそに」は「〜を気にしないで」、「をおして」は「〜を無理して」、「を限りに」は「〜を最後に」です。",
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をよそに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を機に"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "をおして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を限りに"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-58",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "HARD",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "一人暮らしを始めた息子から、もう一か月も連絡がない。電話をかけても、たいてい留守番電話につながってしまう。忙しいのはわかるが、毎日とは言わ（　）、せめて週に一度くらいは元気でいることを知らせてほしいものだ。",
+        "explanationKo": "핵심: ない형 + ないまでも = ~까지는 아니더라도\n매일까지는 아니어도 일주일에 한 번은 연락해 달라는 흐름입니다. ないことには는 ~하지 않고서는(뒤에 부정), ずじまいで는 결국 ~하지 못하고, んばかりに는 금방이라도 ~할 듯이라 맞지 않습니다.",
+        "explanationJa": "ポイント：ない形＋ないまでも＝〜ほどではなくても\n毎日ではなくても、週に一度は連絡してほしいという流れです。「ないことには」は後に否定、「ずじまいで」は「結局〜しないで」、「んばかりに」は「今にも〜しそうに」です。",
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ないまでも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ないことには"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ずじまいで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "んばかりに"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-59",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "久しぶりに弟の部屋に入って驚いた。床には服や雑誌が積み重なり、机の上は空き箱でいっぱいだ。散らかっている（　）、もはや物置と呼んだほうが近い状態だった。母が見たら、きっと言葉を失うだろう。",
+        "explanationKo": "핵심: AというよりB = A라기보다 B(B가 더 맞는 표현)\n어질러져 있다기보다 창고라 부르는 게 맞다는 흐름입니다. にしては는 ~치고는, ばかりに는 ~한 탓에, とあって는 ~라서(특별한 상황)라 맞지 않습니다.",
+        "explanationJa": "ポイント：AというよりB＝AよりBと言ったほうが正しい\n散らかっているより、物置と言ったほうが合うという流れです。「にしては」は「〜のわりに」、「ばかりに」は「〜したせいで」、「とあって」は「特別な事情なので」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "というより"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にしては"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばかりに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "とあって"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-b8-grammar-60",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "HARD",
+        "questionText": "文章の（　）に入る最もよいものを選んでください。",
+        "passage": "今の職場に不満がないわけではない。給料は上がらないし、残業も多い。（　）、家族のことを考えると、すぐに会社を辞めて新しい仕事を探す勇気もない。毎晩同じことを考えては、ため息をつくばかりだ。",
+        "explanationKo": "핵심: さりとて = 그렇다고 해서(앞을 인정하면서도 반대 내용)\n불만은 있지만 그렇다고 그만둘 용기도 없다는 흐름입니다. それゆえ는 그러므로, ひいては는 나아가서는, ましてや는 하물며라 맞지 않습니다.",
+        "explanationJa": "ポイント：さりとて＝そうかといって\n不満はあるが、そうかといって辞める勇気もありません。「それゆえ」は「だから」、「ひいては」は「さらに大きなことにも」、「ましてや」は「なおさら」です。",
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "それゆえ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "さりとて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ひいては"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ましてや"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    }
+  ]
+}

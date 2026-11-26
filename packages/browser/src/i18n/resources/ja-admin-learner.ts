@@ -85,6 +85,9 @@ export const jaAdminLearnerResources = {
     cancel: 'キャンセル',
     submit: '送る',
     sent: '報告を送りました。ありがとうございます！',
+    rateLimited: '報告をたくさん送りました。',
+    duplicate: 'この問題はすでに報告済みです。確認しています。',
+    invalid: '書いた内容を確認してください。',
     error: '送れませんでした。もう一度お試しください。',
     offline:
       'インターネット接続が切れました。書いた内容はそのまま残っています。',

@@ -100,7 +100,9 @@ const ReturnCheck = ({
       }}
     >
       <p className="min-w-0 flex-1 py-2.5 leading-6 max-[480px]:pb-0">
-        {t('reauth.' + key)}
+        {/* #1262: a failed [다시 시도] shows here; the global handler skips
+            sign-in flow errors. */}
+        {t('reauth.' + (reauth.error ? 'startFailed' : key))}
       </p>
       {/* Below 480px the buttons go under the text so it keeps the full width. */}
       <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -136,11 +138,7 @@ const ReturnCheck = ({
  * against the server, then removes the parameter so a reload does not show it
  * again.
  */
-export const ReauthReturnNotice = ({
-  suppressed = false
-}: {
-  suppressed?: boolean
-}): ReactElement | null => {
+export const ReauthReturnNotice = (): ReactElement | null => {
   const location = useLocation()
   const navigate = useNavigate()
   const outcome = readOutcome(location.search)
@@ -162,7 +160,7 @@ export const ReauthReturnNotice = ({
       { replace: true, state: null }
     )
   }, [location.pathname, location.search, navigate])
-  if (!event || suppressed) return null
+  if (!event) return null
   return (
     <ReturnCheck
       key={`${event.key}:${event.attempt}`}

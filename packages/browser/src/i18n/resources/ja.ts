@@ -97,7 +97,7 @@ export const jaCoreResources = {
   },
   navigation: {
     accountMenu: {
-      label: 'アカウントメニュー',
+      label: '{{name}}のアカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
       myPage: 'マイページ'
     },
@@ -426,7 +426,8 @@ export const jaCoreResources = {
       ageHint: '14歳未満の方は、ログインせずに問題を解けます。',
       terms:
         '<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認しました',
-      missing: '必須項目を確認してください',
+      missing: '必須項目を確認してください。',
+      required: '（必須）',
       submitNew: '登録する',
       submitExisting: '確認する',
       cancel: 'キャンセル',
@@ -455,7 +456,9 @@ export const jaCoreResources = {
       hint: '2〜12文字で入力してください。',
       invalid: 'ニックネームを2文字以上入力してください',
       change: '変更',
-      saved: 'ニックネームを変更しました。'
+      saved: 'ニックネームを変更しました。',
+      saveFailed:
+        'ニックネームを変更できませんでした。少し待ってからもう一度保存してください。'
     },
     reauth: {
       name: '本人確認',
@@ -500,8 +503,7 @@ export const jaCoreResources = {
       logoutDescription: 'ログアウトしても解いた記録はそのまま残ります。',
       logoutAction: 'ログアウト',
       loggingOut: 'ログアウト中…',
-      logoutUnknown:
-        'ログアウトできたか確認できませんでした。ページを再読み込みしてください。',
+      logoutUnknown: 'ログアウトできませんでした。もう一度押してください。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
@@ -510,6 +512,9 @@ export const jaCoreResources = {
       deleteTitle: '退会しますか？',
       processing: '少々お待ちください…',
       actionFailed: 'うまくいきませんでした。もう一度お試しください。',
+      resultUnknown:
+        '処理されたか確認できませんでした。もう一度確認してください。',
+      methodsLoadFailed: 'ログイン方法を読み込めませんでした。',
       deletionAccepted:
         '退会の申し込みを受け付けました。{{date}}にすべて削除されます。それまでにもう一度ログインすると元に戻せます。',
       deletionAcceptedNoDate:
@@ -553,6 +558,7 @@ export const jaCoreResources = {
       newBest: '自己ベストです',
       firstRecord: 'はじめての記録です',
       previousBest: 'これまでの記録 {{b}}問',
+      saveFailed: '記録を保存できませんでした',
       again: 'もう一回',
       wrong: '間違えた問題 {{n}}',
       wrongTitle: '間違えた漢字 {{n}}問',
@@ -575,8 +581,6 @@ export const jaCoreResources = {
         stale: '一覧を更新できませんでした。最後に読み込んだ一覧です。',
         error: '解きかけの問題の一覧を読み込めませんでした。',
         summary: '{{formattedCount}}問中{{formattedOrdinal}}問目まで',
-        legacyUnavailable:
-          'この学習はもう続けられません。新しく始めてください。',
         action: '続きから解く',
         cancel: 'やめる'
       },
@@ -770,19 +774,11 @@ export const jaCoreResources = {
       bookmark: {
         addLabel: '{{ordinal}}番の問題をブックマークに入れる',
         removeLabel: '{{ordinal}}番の問題をブックマークから外す',
-        legacyReadOnly: 'この学習ではブックマークを変えられません。',
         removed: 'ブックマークから外しました。',
-        removeRollback:
-          'ブックマークから外せませんでした。もう一度お試しください。',
+        removeRollback: 'ブックマークから外せませんでした。',
         saved: 'ブックマークに入れました。',
-        saveRollback:
-          'ブックマークに入れられませんでした。もう一度お試しください。',
-        offlineQueued:
-          'インターネット接続が切れました。つながったらブックマークに反映します。',
-        statusLoadOffline:
-          'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
-        statusLoadFailed: 'ブックマークを確認できませんでした。',
-        retryStatus: '再確認'
+        saveRollback: 'ブックマークに入れられませんでした。',
+        statusLoadFailed: 'ブックマークを確認できませんでした。'
       },
       navigation: {
         previous: '前へ',
@@ -873,7 +869,8 @@ export const jaCoreResources = {
       nextSet: '次の{{formattedCount}}問',
       nextSetStarting: '新しい問題を準備しています…',
       backToWrongNotes: '間違いノートへ',
-      backToBookmarks: 'ブックマークへ'
+      backToBookmarks: 'ブックマークへ',
+      goToStudy: '学習へ'
     },
     retry: {
       checking: '確認中…',
@@ -905,10 +902,6 @@ export const jaCoreResources = {
       samePassage: '{{formattedOrdinal}}番と同じ文章'
     },
     bookmark: {
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。',
-      loadOffline:
-        'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
       loadError: 'ブックマークを確認できませんでした。',
       retry: '再確認',
       add: 'ブックマーク',
@@ -917,10 +910,9 @@ export const jaCoreResources = {
       removeLabel: '{{formattedOrdinal}}番の問題をブックマークから外す',
       unavailable: 'この結果ではブックマークを変えられません。',
       removed: 'ブックマークから外しました。',
-      removeFailed:
-        'ブックマークから外せませんでした。もう一度お試しください。',
+      removeFailed: 'ブックマークから外せませんでした。',
       saved: 'ブックマークに入れました。',
-      saveFailed: 'ブックマークに入れられませんでした。もう一度お試しください。'
+      saveFailed: 'ブックマークに入れられませんでした。'
     },
     blocker: {
       title: '間違えた問題を解き直す準備をしています',
@@ -949,6 +941,7 @@ export const jaCoreResources = {
     empty: {
       levelNone: '{{level}}の問題はありません。',
       startNew: '新しい問題を解く',
+      orRush: 'または',
       showAll: 'すべて見る',
       never: {
         title:
@@ -1092,12 +1085,8 @@ export const jaCoreResources = {
         '最新の一覧を読み込めませんでした。今見えている一覧はそのままにします。'
     },
     status: {
-      removing: '外しています…',
       removed: 'ブックマークから外しました。',
-      restoreFailed:
-        'ブックマークから外せませんでした。もう一度お試しください。',
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。'
+      restoreFailed: 'ブックマークから外せませんでした。'
     },
     title: 'ブックマーク',
     listCount: '{{formattedCount}}問',

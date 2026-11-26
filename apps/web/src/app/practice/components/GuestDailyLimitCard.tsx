@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import type { ReactElement } from 'react'
 import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
@@ -19,6 +20,11 @@ export const GuestDailyLimitCard = ({
   const { t: authT } = useTranslation('auth')
   const start = useStartSocialSignIn()
   const busy = start.isPending || start.isRedirecting
+  // #1292: the Google button stays; the toast says the start failed.
+  useErrorToast(
+    start.isError ? authT('sso.failedProvider', { provider: 'Google' }) : null,
+    'sso-start'
+  )
   return (
     <section
       className="practice-guest-limit"
@@ -31,11 +37,6 @@ export const GuestDailyLimitCard = ({
         </h2>
       </div>
       <p>{t('setup.dailyLimit.description')}</p>
-      {start.isError ? (
-        <p className="auth-notice auth-error" role="alert">
-          {authT('sso.failedProvider', { provider: 'Google' })}
-        </p>
-      ) : null}
       <SsoProviderButton
         provider="google"
         label={t('setup.dailyLimit.login')}

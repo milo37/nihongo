@@ -7,6 +7,7 @@ export const reportMutations = {
     mutationOptions({
       mutationKey: ['report', 'create'] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       mutationFn: (request: CreateReportRequest) => createReport(request)
     })
 } as const

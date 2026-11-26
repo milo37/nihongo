@@ -21,6 +21,7 @@ export const accessibilityDatabaseTables = [
   'GuestPrincipal',
   'IdempotencyRecord',
   'OperationIntent',
+  'PushSubscription',
   'Question',
   'QuestionImportResult',
   'QuestionOption',
@@ -74,6 +75,8 @@ export const accessibilityExpectedTableDeltas = {
   Furigana: 0,
   GuestPrincipal: 0,
   IdempotencyRecord: 4,
+  // #1046: the scan turns on no push.
+  PushSubscription: 0,
   AuthorityRevocationEvidence: 0,
   DatabaseCapability: 0,
   OperationIntent: 0,

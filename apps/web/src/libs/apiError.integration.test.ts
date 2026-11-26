@@ -6,7 +6,7 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockServer } from '@/test/server'
 
 describe('validated API and central error bus', () => {
-  it('잘못된 MSW 응답을 Zod validation error로 분류하고 Query error bus로 전달한다', async () => {
+  it('잘못된 MSW 응답을 Zod validation error로 분류하고, 조회 실패는 화면에 두어 error bus로 보내지 않는다 (#1262)', async () => {
     const errors: unknown[] = []
     const unsubscribe = subscribeApiError((error) => errors.push(error))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -32,7 +32,7 @@ describe('validated API and central error bus', () => {
       expect(caught.isValidationError).toBe(true)
       expect(caught.status).toBe(422)
     }
-    expect(errors).toContain(caught)
+    expect(errors).not.toContain(caught)
   })
 
   it('실제 Mutation failure도 같은 중앙 error bus로 전달한다', async () => {

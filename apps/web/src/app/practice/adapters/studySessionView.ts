@@ -52,7 +52,6 @@ export interface StudySessionView {
     expiresAt: string | null
     submittedAt: string | null
     durationSec: number | null
-    practiceContractVersion: 1 | 2
   }
   questions: StudyQuestionView[]
   requestedCount: number
@@ -80,11 +79,7 @@ export const toCanonicalStudySessionView = (
     startedAt: response.session.startedAt,
     expiresAt: response.session.expiresAt,
     submittedAt: response.session.submittedAt,
-    durationSec: response.session.durationSec,
-    practiceContractVersion:
-      'practiceContractVersion' in response.session
-        ? response.session.practiceContractVersion
-        : 1
+    durationSec: response.session.durationSec
   },
   questions: withSamePassage(
     response.questions.map(({ ordinal, question, sessionQuestionId }) => ({

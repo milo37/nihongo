@@ -1,7 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { DEFAULT_UI_LOCALE, UI_LOCALES } from './types'
-import { readUiLocalePreference } from '../libs/localeStorage'
+import { readInitialUiLocale } from '../libs/localeStorage'
 
 // Both locales are ready before first render, including immediate offline
 // switching. The admin namespace starts with only what the learner app shows
@@ -34,7 +34,7 @@ const i18nResources = {
     a11y: jaA11y
   }
 }
-const initialLocale = readUiLocalePreference()
+const initialLocale = readInitialUiLocale()
 
 void i18n.use(initReactI18next).init({
   resources: i18nResources,

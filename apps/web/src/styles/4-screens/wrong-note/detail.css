@@ -71,13 +71,6 @@
   .wrong-note-action-restricted {
     margin-top: 0.75rem;
   }
-  .wrong-note-action-error {
-    margin-top: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-red-800);
-  }
   .wrong-note-action-status {
     margin-top: 0.75rem;
     min-height: 1.5rem;

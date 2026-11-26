@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { linkConsent } from '@app/login/components/linkConsent'
 import { isNickname, NicknameField } from '@app/login/components/NicknameField'
 import { useSignupConsent } from '@app/login/hooks/useSignupConsent'
@@ -24,10 +25,10 @@ export const SignupConsentPage = ({
   redirect,
   onExit
 }: SignupConsentPageProps): ReactElement | null => {
-  const { t } = useTranslation('auth')
+  const { i18n, t } = useTranslation('auth')
   const heading = useRef<HTMLHeadingElement>(null)
   const [checked, setChecked] = useState({ age: false, terms: false })
-  const [missing, setMissing] = useState(false)
+  const { addToast } = useToast()
   const [typed, setTyped] = useState<string | null>(null)
   const [nicknameInvalid, setNicknameInvalid] = useState(false)
   const nicknameInput = useRef<HTMLInputElement>(null)
@@ -61,7 +62,6 @@ export const SignupConsentPage = ({
 
   const toggle = (name: CheckName, value: boolean): void => {
     setChecked((current) => ({ ...current, [name]: value }))
-    setMissing(false)
   }
   const showNicknameInvalid = (): void => {
     setNicknameInvalid(true)
@@ -72,13 +72,28 @@ export const SignupConsentPage = ({
     const badNickname = !isNickname(nickname)
     const empty = (['age', 'terms'] as const).find((name) => !checked[name])
     setNicknameInvalid(badNickname)
-    setMissing(Boolean(empty))
+    // #1292: an unticked required box is a toast, not a line; [가입하기]
+    // stays pressable and the focus goes to the box.
+    if (empty)
+      addToast({
+        key: 'signup-missing',
+        title: t('signup.missing'),
+        variant: 'warning'
+      })
     if (badNickname) nicknameInput.current?.focus()
     else if (empty) document.getElementById(`signup-consent-${empty}`)?.focus()
     if (badNickname || empty) return
     consent.onAgree(nickname.trim(), showNicknameInvalid)
   }
   const existing = kind === 'EXISTING'
+  // #1285: '(필수)' after each required item, a space before it in ko; ja's
+  // full-width （必須） sits right against the text. Read aloud as written.
+  const required = (
+    <>
+      {i18n.resolvedLanguage === 'ja' ? null : ' '}
+      <span className="signup-required">{t('signup.required')}</span>
+    </>
+  )
   return (
     <div className="auth-panel signup-consent">
       <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
@@ -89,6 +104,7 @@ export const SignupConsentPage = ({
         value={nickname}
         invalid={nicknameInvalid}
         inputRef={nicknameInput}
+        labelMark={required}
         onChange={(value) => {
           setTyped(value)
           setNicknameInvalid(false)
@@ -103,7 +119,10 @@ export const SignupConsentPage = ({
             aria-describedby="signup-consent-age-hint"
             onChange={(event) => toggle('age', event.currentTarget.checked)}
           />
-          <span>{t('signup.age')}</span>
+          <span>
+            {t('signup.age')}
+            {required}
+          </span>
         </label>
         <p id="signup-consent-age-hint" className="signup-consent-hint">
           {t('signup.ageHint')}
@@ -115,14 +134,12 @@ export const SignupConsentPage = ({
             checked={checked.terms}
             onChange={(event) => toggle('terms', event.currentTarget.checked)}
           />
-          <span>{linkConsent(t('signup.terms'), true)}</span>
+          <span>
+            {linkConsent(t('signup.terms'), true)}
+            {required}
+          </span>
         </label>
       </div>
-      {missing ? (
-        <p className="signup-consent-error" role="alert">
-          {t('signup.missing')}
-        </p>
-      ) : null}
       <Button
         className="signup-consent-submit"
         size="lg"

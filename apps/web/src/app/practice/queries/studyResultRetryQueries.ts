@@ -92,6 +92,7 @@ export const studyResultRetryMutations = {
         'result-retry'
       ] as const,
       networkMode: 'online',
+      meta: { localErrorUi: true },
       onMutate: (input: CreateResultRetryActionInput) => {
         retryActionFence.capture(input)
         const attempt = getOrCreateResultRetryAttempt(

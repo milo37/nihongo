@@ -79,7 +79,6 @@
   .bookmark-practice-text {
     margin-top: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
@@ -117,25 +116,12 @@
     background-color: var(--color-amber-50);
     padding: 1rem;
   }
-  .bookmark-start-error {
-    margin-top: 1.25rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: var(--color-red-200);
-    background-color: var(--color-red-50);
-    padding: 1rem;
-  }
   .bookmark-practice-start {
     height: 3rem;
   }
   .bookmark-changed-title {
     font-weight: var(--font-weight-bold);
     color: var(--color-amber-900);
-  }
-  .bookmark-start-error-title {
-    font-weight: var(--font-weight-bold);
-    color: var(--color-red-800);
   }
   /* Page notices and the load error. */
   .bookmark-warn {
@@ -168,8 +154,5 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-  .bookmark-stale-title {
-    font-weight: var(--font-weight-semibold);
   }
 }
