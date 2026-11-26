@@ -15,3 +15,10 @@ body [lang='ja'][data-ja-spaced],
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* A held piece of Japanese text (JaText): no break inside it. */
+@layer utilities {
+  .ja-held {
+    white-space: nowrap;
+  }
+}
