@@ -287,7 +287,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "typescript": "5.9.3",
