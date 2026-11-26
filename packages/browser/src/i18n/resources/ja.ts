@@ -436,11 +436,15 @@ export const jaCoreResources = {
     },
     // #1090 '学習の目標' page (scenario O-5, O-r7).
     studyGoal: {
-      // Two lines as drawn (r11); the page keeps the line break.
-      title: '学習の目標を\n決めましょう',
-      hint: 'あとからマイページで変更できます。',
-      level: '目標レベル',
-      daily: '1日の目標',
+      title: '毎日すこしずつ、いっしょに',
+      hint: 'マイページからいつでも変えられます',
+      level: 'どのレベルを目指しますか？',
+      daily: '1日に何問解きますか？',
+      push: '朝8時にお知らせしましょうか？',
+      pushDenied: 'ブラウザの設定で通知を許可してください。',
+      pushIos: 'ホーム画面に追加すると受け取れます。',
+      pushFailed:
+        '通知をオンにできませんでした。目標の画面からもう一度オンにしてください。',
       unit: '問',
       count: '{{count}}問',
       decrease: '10問減らす',
@@ -1132,7 +1136,8 @@ export const jaCoreResources = {
       label: '学習の目標',
       set: '目標 {{level}}・1日{{count}}問・今日 {{today}}',
       unset: '1日に解く問題数を決めると、今日解いた数を数えます。',
-      action: '目標を決める'
+      action: '目標を決める',
+      pushOn: '通知オン'
     },
     // #1154 M-2f: this month's stamps under the goal row.
     // #1055 today's omikuji (members only).
