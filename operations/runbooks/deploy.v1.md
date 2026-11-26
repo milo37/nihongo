@@ -133,7 +133,7 @@ bash scripts/question-set-publish.sh confirm   # 가져오기 → 검수 요청 
 
 서버 운영 명령 `api/dist/content/explanationJaPublishCommand.js`가 `content/translations/explanations-ja.v1.json`의 문제마다 일본어 해설만 바꾼 새 버전을 만들고 검수 요청 → 승인 → 공개합니다. 실행 조건·권한·기록은 부록 B와 같습니다(SSM Run Command로만, ACTIVE 관리자 1명 이름으로 감사 기록, SSM comment `explanation-ja-publish <mode>`). STAGING에서 먼저 돌립니다.
 
-전제: 그 명령이 들어간 release가 배포됨, 문제 500이 이미 공개됨(부록 B).
+전제: 그 명령이 들어간 release가 배포됨, 해설 파일의 문제 888(n5~n1 v1·add·add2·kanji 20개 파일)이 이미 공개됨(부록 B).
 
 `aws login`된 터미널, `infra/aws`(해당 환경 state)에서:
 
@@ -142,7 +142,7 @@ bash scripts/explanation-ja-publish.sh dry-run   # 쓰기 없음, 계획만
 bash scripts/explanation-ja-publish.sh confirm   # 새 버전 → 검수 요청 → 승인 → 공개
 ```
 
-- 서버에서 배포된 SHA의 `content/question-imports/` 10개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`, 그리고 #936 직전 커밋(f2e2e171)의 같은 10개 파일(그 문장으로 공개된 문제 찾기용, `QUESTION_SET_PREVIOUS_DIR`)을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
+- 서버에서 배포된 SHA의 `content/question-imports/` 20개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`, 그리고 #936 직전 커밋(f2e2e171)의 v1·add 10개 파일(그 문장으로 공개된 문제 찾기용, `QUESTION_SET_PREVIOUS_DIR`)을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
 - 출력은 `status …`와 JSON 한 줄뿐입니다. dry run 기대: `"event":"explanation_ja_dry_run"`, 빈 `conflicts`·`failures`. confirm 기대: `"event":"explanation_ja_published"`, 빈 `conflicts`·`failures`, 처음이면 `published`와 `items`가 같음.
-- 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 셉니다.
+- 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 셉니다. 처음 500(2026-11 공개) 뒤 #1243 388개를 더한 파일(888)이면 dry run 기대는 `skippedPublished` 500, `pending.CREATE` 388입니다.
 - `explanation_ja_publish_failed`면 `code`(또는 `conflicts`·`failures`)를 보고 고친 뒤 dry run부터 다시 합니다.
