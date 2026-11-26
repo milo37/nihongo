@@ -20,6 +20,7 @@ import { runBrowserSuites } from '../runBrowser.ts'
 
 import {
   apiIntegrationShardGroups,
+  changesBrowserToolchain,
   classifyChangedFiles,
   qualityCommands,
   readSelection,
@@ -831,6 +832,101 @@ test('dev pull requests select real browser execution for the accessibility data
     })
     assert.equal(selection.browser, true, file)
     assert.equal(selection.browser_mock, false, file)
+  }
+})
+
+test('browser tool version lines in the root manifest or lockfile are recognized', () => {
+  for (const line of [
+    '-    "@playwright/test": "^1.62.1",',
+    '+    "@axe-core/playwright": "4.14.1",',
+    "+  '@playwright/test@1.65.1':",
+    "-  '@axe-core/playwright@4.13.0(playwright-core@1.62.1)':",
+    '+  playwright@1.65.1:',
+    '+  playwright-core@1.65.1: {}',
+    '+  axe-core@4.14.1: {}',
+    '+      playwright: 1.65.1'
+  ]) {
+    assert.equal(changesBrowserToolchain(`@@ -1 +1 @@\n${line}\n`), true, line)
+  }
+  for (const diff of [
+    '+++ b/package.json\n--- a/package.json\n',
+    '+  eslint-plugin-playwright@2.2.0:\n',
+    "+  '@vitejs/plugin-react@6.3.0':\n",
+    '+    "vite": "^8.3.8",\n',
+    '   playwright@1.62.1:\n',
+    '+        specifier: ^1.65.1\n',
+    ''
+  ]) {
+    assert.equal(changesBrowserToolchain(diff), false, diff)
+  }
+})
+
+test('dev pull requests select both browser suites when the browser tool versions change', () => {
+  const changedFiles = ['package.json', 'pnpm-lock.yaml']
+  const changed = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent(),
+    changedFiles,
+    browserToolchainChanged: true
+  })
+  assert.equal(changed.browser, true)
+  assert.equal(changed.browser_mock, true)
+  const unchanged = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent(),
+    changedFiles
+  })
+  assert.equal(unchanged.browser, false)
+  assert.equal(unchanged.browser_mock, false)
+})
+
+test('pull request selection reads browser tool versions from the manifest diff', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'nihongo-selection-'))
+  try {
+    const eventPath = path.join(directory, 'event.json')
+    writeFileSync(eventPath, JSON.stringify(pullRequestEvent()))
+    const env = {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_PATH: eventPath,
+      GITHUB_REF: 'refs/pull/1/merge',
+      GITHUB_SHA: sha('c')
+    }
+    const select = (manifestDiff) => {
+      const manifestCalls = []
+      const selection = readSelection(env, (command, args) => {
+        assert.equal(command, 'git')
+        if (args.includes('--name-only')) {
+          return 'package.json\0pnpm-lock.yaml\0'
+        }
+        if (args.includes('-U0')) {
+          manifestCalls.push(args)
+          return manifestDiff
+        }
+        return ''
+      })
+      return { selection, manifestCalls }
+    }
+    const toolchain = select('+    "@playwright/test": "^1.65.1",\n')
+    assert.equal(toolchain.selection.browser, true)
+    assert.equal(toolchain.selection.browser_mock, true)
+    assert.deepEqual(toolchain.manifestCalls, [
+      [
+        'diff',
+        '--no-renames',
+        '-U0',
+        `${sha('a')}...${sha('b')}`,
+        '--',
+        'package.json',
+        'pnpm-lock.yaml'
+      ]
+    ])
+    const other = select('+    "vite": "^8.3.8",\n')
+    assert.equal(other.selection.browser, false)
+    assert.equal(other.selection.browser_mock, false)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
   }
 })
 
