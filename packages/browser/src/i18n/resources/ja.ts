@@ -440,7 +440,7 @@ export const jaCoreResources = {
       hint: 'マイページからいつでも変えられます',
       level: 'どのレベルを目指しますか？',
       daily: '1日に何問解きますか？',
-      push: '毎朝8時、学習の通知を受け取りますか？',
+      push: '毎朝8時、学習通知を受け取りませんか？',
       pushDenied: 'ブラウザの設定で通知を許可してください。',
       pushIos: 'ホーム画面に追加すると受け取れます。',
       pushFailed:
