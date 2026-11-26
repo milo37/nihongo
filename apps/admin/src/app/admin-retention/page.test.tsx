@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { GetAdminRetentionResponse } from '@nihongo/contracts/admin/retention'
@@ -136,6 +142,40 @@ it('adds up the counted days into headline numbers and draws both charts', async
     screen.getByText('숫자 표로 보기').closest('details')
   ).not.toHaveAttribute('open')
   vi.useRealTimers()
+})
+
+it('moves the tooltip with a pressed drag and closes on a press elsewhere', async () => {
+  // jsdom has no PointerEvent; a MouseEvent carries clientX the same way.
+  if (!('PointerEvent' in window))
+    vi.stubGlobal(
+      'PointerEvent',
+      class extends MouseEvent {
+        readonly pointerType: string
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init)
+          this.pointerType = init.pointerType ?? 'mouse'
+        }
+      }
+    )
+  vi.spyOn(retentionApi, 'getAdminRetention').mockResolvedValue(response)
+  renderRoute()
+  const chart = await screen.findByRole('img', {
+    name: '첫 주 재방문율, 회원과 비회원, 최근 8주'
+  })
+  vi.spyOn(chart, 'getBoundingClientRect').mockReturnValue(
+    DOMRect.fromRect({ x: 0, y: 0, width: 324, height: 150 })
+  )
+  const tip = () => within(chart.parentElement!).queryByRole('status')
+  // Plot runs 40..240 for the three cohort days 11-09, 11-10 and 11-22.
+  fireEvent.pointerDown(chart, { clientX: 45, pointerType: 'touch' })
+  expect(tip()).toHaveTextContent('2026-11-09')
+  fireEvent.pointerMove(chart, { clientX: 235, pointerType: 'touch' })
+  expect(tip()).toHaveTextContent('2026-11-22')
+  fireEvent.pointerLeave(chart, { pointerType: 'touch' })
+  expect(tip()).toHaveTextContent('2026-11-22')
+  fireEvent.pointerDown(document.body)
+  expect(tip()).toBeNull()
+  vi.unstubAllGlobals()
 })
 
 it('says so when nothing is counted yet and when loading fails', async () => {
