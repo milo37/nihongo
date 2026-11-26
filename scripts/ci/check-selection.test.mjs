@@ -20,6 +20,7 @@ import { runBrowserSuites } from '../runBrowser.ts'
 
 import {
   apiIntegrationShardGroups,
+  changesBrowserInstallStep,
   changesBrowserToolchain,
   classifyChangedFiles,
   qualityCommands,
@@ -397,7 +398,15 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   assert.ok(install.includes('Acquire::Retries'))
   assert.ok(install.includes('for attempt in 1 2 3; do'))
   assert.ok(install.includes('timeout-minutes: 30'))
-  assert.ok(install.includes('sudo dpkg -i "${cached_debs[@]}"'))
+  // #1328: apt (not dpkg -i) orders the cached files against the runner image,
+  // and a failed cached install falls back to the online install.
+  assert.ok(
+    install.includes(
+      'sudo apt-get install -y --no-install-recommends "${cached_debs[@]}"'
+    )
+  )
+  assert.ok(!install.includes('dpkg -i'))
+  assert.ok(install.includes('install_args="--with-deps chromium"'))
   for (const name of [
     'Playwright system package key',
     'Restore Playwright system packages',
@@ -923,6 +932,66 @@ test('pull request selection reads browser tool versions from the manifest diff'
       ]
     ])
     const other = select('+    "vite": "^8.3.8",\n')
+    assert.equal(other.selection.browser, false)
+    assert.equal(other.selection.browser_mock, false)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('browser install step changes are recognised in the workflow diff', () => {
+  for (const line of [
+    '-            if [ "${#cached_debs[@]}" -gt 0 ]; then sudo dpkg -i "${cached_debs[@]}"; fi',
+    '+          install_args="--with-deps chromium"',
+    '+            if pnpm exec playwright install $install_args; then',
+    '-      - name: Install Playwright Chromium',
+    '+          path: ~/.cache/playwright-debs'
+  ]) {
+    assert.equal(
+      changesBrowserInstallStep(`@@ -1 +1 @@\n${line}\n`),
+      true,
+      line
+    )
+  }
+  for (const diff of [
+    '+++ b/.github/workflows/ci.yml\n--- a/.github/workflows/ci.yml\n',
+    '+        run: pnpm run test:unit\n',
+    '   if pnpm exec playwright install $install_args; then\n',
+    ''
+  ]) {
+    assert.equal(changesBrowserInstallStep(diff), false, diff)
+  }
+})
+
+test('pull request selection turns on both browser suites when the workflow browser install changes', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'nihongo-selection-'))
+  try {
+    const eventPath = path.join(directory, 'event.json')
+    writeFileSync(eventPath, JSON.stringify(pullRequestEvent()))
+    const env = {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_PATH: eventPath,
+      GITHUB_REF: 'refs/pull/1/merge',
+      GITHUB_SHA: sha('c')
+    }
+    const select = (workflowDiff) => {
+      const diffCalls = []
+      const selection = readSelection(env, (command, args) => {
+        assert.equal(command, 'git')
+        if (args.includes('--name-only')) return '.github/workflows/ci.yml\0'
+        if (args.includes('-U0')) {
+          diffCalls.push(args.at(-1))
+          return workflowDiff
+        }
+        return ''
+      })
+      return { selection, diffCalls }
+    }
+    const install = select('+          install_args="--with-deps chromium"\n')
+    assert.equal(install.selection.browser, true)
+    assert.equal(install.selection.browser_mock, true)
+    assert.deepEqual(install.diffCalls, ['.github/workflows/ci.yml'])
+    const other = select('+        run: pnpm run test:unit\n')
     assert.equal(other.selection.browser, false)
     assert.equal(other.selection.browser_mock, false)
   } finally {
