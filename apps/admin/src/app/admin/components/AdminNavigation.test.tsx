@@ -17,6 +17,7 @@ it.each([
   ['/questions/q-1/edit', '문제'],
   ['/questions/import', '가져오기'],
   ['/reports/r-1', '버그 리포트'],
+  ['/retention', '재방문율'],
   ['/audit-log', '감사 이력']
 ])('marks only the current menu item for %s', (path, current) => {
   renderAt(path)
