@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { expect } from '@playwright/test'
-import { trackNavigationAborts } from './navigation-abort'
+import { isReadMethod, trackNavigationAborts } from './navigation-abort'
 import type {
   BrowserContext,
   Frame,
@@ -84,7 +84,8 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
   }
   // A document that is replaced or detached aborts its open fetches, but
   // Playwright does not always emit requestfailed for them. Record them as the
-  // same network failure Playwright reports, marked as cut off by navigation.
+  // same network failure Playwright reports; only a cut-off GET or HEAD is
+  // marked as cut off by navigation, a cut-off write stays counted.
   const abortOpenRequests = (
     frame: Frame,
     startedBefore = Number.POSITIVE_INFINITY
@@ -99,7 +100,7 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
         if (entry.status !== null) continue
         entry.status = 'NETWORK_ERROR'
         entry.provenance = 'network-failure'
-        entry.navigationAborted = true
+        entry.navigationAborted = isReadMethod(entry.method)
       }
     }
   }

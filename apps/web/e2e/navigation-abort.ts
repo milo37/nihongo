@@ -5,11 +5,17 @@ import type { BrowserContext, Frame, Request } from '@playwright/test'
 // (net::ERR_FAILED), so test faults never match.
 const ABORTED_ERROR = /net::ERR_ABORTED|NS_BINDING_ABORTED|cancelled/iu
 
+// Only reads may be dropped: a write cut off by navigation can lose a save,
+// which is a real app fault and must stay counted.
+export const isReadMethod = (method: string): boolean =>
+  method === 'GET' || method === 'HEAD'
+
 export interface NavigationAbortTracker {
   /**
-   * True only when the browser cancelled the request because its frame moved
-   * on: the frame started a new document, or was detached, after the request
-   * began. Any other failure, aborted or not, stays a real failure.
+   * True only when the browser cancelled a GET or HEAD request because its
+   * frame moved on: the frame started a new document, or was detached, after
+   * the request began. Any other failure, aborted or not, and any cut-off
+   * write stays a real failure.
    */
   readonly isNavigationAbort: (request: Request) => boolean
 }
@@ -48,6 +54,7 @@ export const trackNavigationAborts = (
 
   return {
     isNavigationAbort: (request) => {
+      if (!isReadMethod(request.method())) return false
       if (!ABORTED_ERROR.test(request.failure()?.errorText ?? '')) return false
       const frame = frameOf(request)
       const started = startedAt.get(request)
