@@ -5,6 +5,7 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
+import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminRetention } from '@app/admin-retention/hooks/useAdminRetention'
 import { RetentionChart } from '@app/admin-retention/components/RetentionChart'
@@ -20,6 +21,10 @@ import {
   type RetentionMeasure
 } from '@app/admin-retention/libs/retentionSeries'
 
+/** Korean keeps words whole; Japanese has no spaces, so it breaks anywhere. */
+const useKeepWords = (): string =>
+  useUiLocale().locale === 'ko' ? '[word-break:keep-all]' : ''
+
 /** #1271: headline numbers, two line charts, exact numbers folded below. */
 const RetentionView = ({
   rows
@@ -27,6 +32,7 @@ const RetentionView = ({
   rows: readonly AdminRetentionRow[]
 }): ReactElement => {
   const { t } = useAdminPresentation()
+  const keepWords = useKeepWords()
   const now = new Date()
   const days = cohortDays(rows)
   const seriesOf = (measure: RetentionMeasure) => ({
@@ -58,7 +64,9 @@ const RetentionView = ({
         days={days}
         series={week1}
       />
-      <p className="mt-3 max-w-prose text-[0.8125rem] text-muted [word-break:keep-all]">
+      <p
+        className={`mt-3 max-w-prose text-[0.8125rem] text-muted ${keepWords}`}
+      >
         {t('retention.chart.note')}
       </p>
       <RetentionTable rows={rows} />
@@ -98,13 +106,14 @@ const RetentionBody = (): ReactElement => {
 
 export const AdminRetentionPage = (): ReactElement => {
   const { t } = useAdminPresentation()
+  const keepWords = useKeepWords()
   return (
     <PageContainer width="6xl">
       <header className="border-b border-line pb-8">
         <h1 className="text-balance text-3xl font-black sm:text-4xl">
           {t('retention.title')}
         </h1>
-        <p className="mt-4 max-w-prose text-muted [word-break:keep-all]">
+        <p className={`mt-4 max-w-prose text-muted ${keepWords}`}>
           {t('retention.description')}
         </p>
       </header>
