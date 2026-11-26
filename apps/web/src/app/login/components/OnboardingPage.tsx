@@ -17,6 +17,7 @@ import {
   DailyGoalStepper
 } from '@app/login/components/DailyGoalStepper'
 import { LevelStrip } from '@app/login/components/LevelStrip'
+import { PenCircle } from '@app/login/components/PenCircle'
 import {
   useErrorToast,
   useToast
@@ -51,16 +52,19 @@ const GoalPushSwitch = ({
       <label className="study-goal-label" htmlFor={id}>
         {t('studyGoal.push')}
       </label>
-      <input
-        id={id}
-        className="study-goal-switch"
-        type="checkbox"
-        role="switch"
-        checked={push.checked}
-        disabled={disabled || hint !== null}
-        aria-describedby={hint ? id + '-hint' : undefined}
-        onChange={(event) => void push.toggle(event.currentTarget.checked)}
-      />
+      <span className="study-goal-switch-box">
+        <input
+          id={id}
+          className="study-goal-switch"
+          type="checkbox"
+          role="switch"
+          checked={push.checked}
+          disabled={disabled || hint !== null}
+          aria-describedby={hint ? id + '-hint' : undefined}
+          onChange={(event) => void push.toggle(event.currentTarget.checked)}
+        />
+        <PenCircle className="study-goal-switch-pen" />
+      </span>
       {hint ? (
         <p id={id + '-hint'} className="study-goal-push-hint">
           {hint}

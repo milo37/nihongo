@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import type { KeyboardEvent, ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { LEVELS } from '@nihongo/browser/common/types/domain'
+import { PenCircle } from '@app/login/components/PenCircle'
 
 export const LevelStrip = ({
   label,
@@ -54,6 +55,7 @@ export const LevelStrip = ({
             onClick={() => onChange(level)}
           >
             {level}
+            {picked ? <PenCircle className="study-goal-pen" /> : null}
           </button>
         )
       })}

@@ -37,25 +37,48 @@
   word-break: keep-all;
 }
 .study-goal-levels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+/* #1046 시그니처: light manuscript squares (a short pale rule between
+   levels, no box) and the red pen circle on the pick. */
 .study-goal-level {
-  min-width: 52px;
-  min-height: 44px;
-  padding-inline: 12px;
-  border: 1px solid rgb(var(--color-line-interactive) / 0.5);
-  border-radius: 999px;
-  background: rgb(var(--color-surface));
-  color: rgb(var(--color-ink));
-  font-size: 16px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 52px;
+  color: rgb(var(--color-muted));
+  font-size: 18px;
   font-weight: 600;
 }
+.study-goal-level + .study-goal-level::before {
+  position: absolute;
+  top: 30%;
+  bottom: 30%;
+  left: 0;
+  width: 1px;
+  background: rgb(var(--color-sheet-line) / 0.6);
+  content: '';
+}
 .study-goal-level[aria-checked='true'] {
-  border-color: rgb(var(--color-ink));
-  background: rgb(var(--color-ink));
-  color: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+  font-weight: 800;
+}
+.study-goal-pen {
+  position: absolute;
+  width: 48px;
+  height: 44px;
+  overflow: visible;
+  pointer-events: none;
+}
+.study-goal-pen path,
+.study-goal-switch-pen path {
+  fill: none;
+  stroke: rgb(var(--color-brand));
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 .study-goal-level:focus-visible,
 .study-goal-step:focus-visible,
@@ -117,41 +140,59 @@
   font-size: 13px;
   line-height: 20px;
 }
+/* The track stays pale either way; on, the knob carries the pen circle. */
+.study-goal-switch-box {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 32px;
+}
 .study-goal-switch {
   position: relative;
-  width: 48px;
-  height: 28px;
+  display: block;
+  width: 56px;
+  height: 32px;
   border-radius: 999px;
-  background: rgb(var(--color-line-interactive) / 0.45);
+  background: rgb(var(--color-line-interactive) / 0.3);
   cursor: pointer;
-  transition: background-color 150ms ease;
   appearance: none;
 }
 .study-goal-switch::before {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgb(var(--color-surface));
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
   content: '';
   transition: transform 150ms ease;
 }
-.study-goal-switch:checked {
-  background: rgb(var(--color-ink));
-}
 .study-goal-switch:checked::before {
-  transform: translateX(20px);
+  transform: translateX(24px);
+}
+.study-goal-switch-pen {
+  position: absolute;
+  top: 4px;
+  left: 27px;
+  width: 26px;
+  height: 24px;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.study-goal-switch:checked + .study-goal-switch-pen {
+  opacity: 1;
 }
 .study-goal-switch:disabled {
   opacity: 0.4;
   cursor: default;
 }
 @media (prefers-reduced-motion: reduce) {
-  .study-goal-switch,
-  .study-goal-switch::before {
+  .study-goal-switch::before,
+  .study-goal-switch-pen {
     transition: none;
   }
 }
