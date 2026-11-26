@@ -190,6 +190,10 @@
   opacity: 0.4;
   cursor: default;
 }
+/* The pen sits beside the input, so it dims with it by hand. */
+.study-goal-switch:checked:disabled + .study-goal-switch-pen {
+  opacity: 0.4;
+}
 @media (prefers-reduced-motion: reduce) {
   .study-goal-switch::before,
   .study-goal-switch-pen {
