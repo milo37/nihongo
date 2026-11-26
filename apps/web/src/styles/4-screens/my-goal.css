@@ -34,6 +34,10 @@
   font-size: 16px;
   font-weight: 600;
   line-height: 24px;
+}
+/* Korean wraps between words only; Japanese has no spaces, so it must be
+   free to wrap anywhere or a long line pushes the push switch off screen. */
+.study-goal-label:lang(ko) {
   word-break: keep-all;
 }
 .study-goal-levels {
@@ -127,10 +131,12 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-/* Question on the left, switch on the right; the why-line under both. */
+/* Question on the left, switch on the right; the why-line under both.
+   The question column may shrink below its text (minmax 0) so it wraps
+   instead of widening; the switch column keeps its own width. */
 .study-goal-push {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px 12px;
 }
