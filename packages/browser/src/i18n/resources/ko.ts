@@ -424,7 +424,7 @@ export const koCoreResources = {
       hint: '언제든 마이페이지에서 바꿀 수 있어요',
       level: '어느 급수를 준비해요?',
       daily: '하루에 몇 문제 풀까요?',
-      push: '아침 8시에 알려 드릴까요?',
+      push: '매일 아침 8시, 학습 알림 받을까요?',
       pushDenied: '브라우저 설정에서 알림을 허용해 주세요.',
       pushIos: '홈 화면에 추가하면 받을 수 있어요.',
       pushFailed: '알림을 켜지 못했어요. 목표 정하기에서 다시 켜 주세요.',
