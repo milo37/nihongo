@@ -43,18 +43,18 @@ describe('question set files (JLP-828)', () => {
     for (const file of files) expect(file.sha256).toMatch(/^[0-9a-f]{64}$/u)
   })
 
-  it('reads the 20 files of the Japanese explanation set (#1081, #1243)', async () => {
+  it('reads the 28 files of the Japanese explanation set (#1081, #1243, #1239)', async () => {
     const files = await readQuestionSet(
       await copySet(EXPLANATION_JA_SET_FILE_NAMES),
       EXPLANATION_JA_SET_FILE_NAMES
     )
     expect(files.map(({ name }) => name)).toEqual(EXPLANATION_JA_SET_FILE_NAMES)
     expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
-      888
+      1293
     )
-    // The B files came with their Japanese explanations.
+    // B9 and later came with their Japanese explanations and need no fix.
     for (const file of files)
-      expect(file.name).toMatch(/^n[1-5]\.(v1|add|add2|kanji)/u)
+      expect(file.name).toMatch(/^n[1-5]\.(v1|add|add2|kanji|b[1-8])\./u)
     const previous = await readQuestionSet(
       await copySet(EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES),
       EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES
