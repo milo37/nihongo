@@ -54,7 +54,7 @@
     "test:admin-build-boundary": "node --test scripts/operations/browser-artifact-check.test.mjs scripts/operations/release-contract.test.mjs scripts/architecture/admin-boundary.test.mjs"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.14.0",
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.65.1",
     "@tanstack/eslint-plugin-query": "^5.108.3",
