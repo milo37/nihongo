@@ -11,6 +11,7 @@ import {
   readExplanationJaFile
 } from './explanationJaPublish.js'
 import {
+  EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES,
   EXPLANATION_JA_SET_FILE_NAMES,
   QuestionSetInputError,
   readQuestionSet
@@ -56,7 +57,7 @@ export const runExplanationJaPublishCommand = async (
         ? undefined
         : await readQuestionSet(
             input.QUESTION_SET_PREVIOUS_DIR,
-            EXPLANATION_JA_SET_FILE_NAMES
+            EXPLANATION_JA_PREVIOUS_SET_FILE_NAMES
           )
     const explanations = await readExplanationJaFile(input.EXPLANATION_JA_FILE)
     // Validates the deployment and database target only; the operator
