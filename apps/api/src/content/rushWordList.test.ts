@@ -30,14 +30,14 @@ const parse = (items: unknown[]) =>
   parseRushWordList(encode({ version: 1, items }))
 
 describe('rush word list (#1043)', () => {
-  it('accepts the repository file: 40 words per level, dictionary forms', () => {
+  it('accepts the repository file: 52 words per level, dictionary forms', () => {
     const list = parseRushWordList(readFileSync(REPOSITORY_FILE))
     expect(list.sha256).toMatch(/^[0-9a-f]{64}$/u)
     expect(
       LEVELS.map(
         (level) => list.words.filter((entry) => entry.level === level).length
       )
-    ).toEqual([40, 40, 40, 40, 40])
+    ).toEqual([52, 52, 52, 52, 52])
   })
 
   it.each([

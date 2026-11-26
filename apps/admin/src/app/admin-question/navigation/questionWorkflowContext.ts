@@ -73,4 +73,6 @@ export const readQuestionFreshContext = (
 export const discardQuestionFreshContext = (
   actorId: string,
   questionId: string
-): void => cachedSessionStorage.removeItem(key(actorId, questionId))
+): void => {
+  cachedSessionStorage.removeItem(key(actorId, questionId))
+}

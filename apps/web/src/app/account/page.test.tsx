@@ -1053,6 +1053,42 @@ describe('마이페이지 계정 설정', () => {
     ).toBeEnabled()
     await waitFor(() => expect(screen.queryByText(unknown)).toBeNull())
   })
+  it('결과 모름에서 Esc로 닫으면 초점이 [다시 확인]으로, 다시 확인 뒤에도 그 버튼에 남는다 (JLP-981)', async () => {
+    freshActor()
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/auth/sso/deletion', () => HttpResponse.error())
+    )
+    const user = userEvent.setup()
+    // The dialog reopens by itself after the Google check: nothing was clicked.
+    renderAccount('/login?reauth=delete&ssoAccountFresh=REAUTHENTICATED')
+    const dialog = await screen.findByRole('dialog', {
+      name: '회원 탈퇴할까요?'
+    })
+    await user.click(
+      await within(dialog).findByRole('button', { name: '회원 탈퇴' })
+    )
+    await within(dialog).findByRole('alert')
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    const recheck = screen.getByRole('button', { name: '다시 확인' })
+    expect(recheck).toHaveFocus()
+    await user.keyboard('{Enter}')
+    const region = await screen.findByRole('region', { name: '알림' })
+    await within(region).findByText(
+      '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '다시 확인' })).toHaveFocus()
+    )
+  })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
@@ -1269,6 +1305,78 @@ describe('마이페이지 계정 설정', () => {
     expect(signouts).toBe(2)
   })
 
+  it('이 기기가 아침 알림을 받으면 목표 줄 화살표 앞에 「알림 켬」 (#1046)', async () => {
+    const member = mockDatabase.loginAs('USER')
+    mockDatabase.setStudyGoal(member.id, 'N3', 40)
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class {})
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: async () => ({
+          pushManager: {
+            getSubscription: async () => ({
+              endpoint: 'https://fcm.googleapis.com/x'
+            })
+          }
+        })
+      }
+    })
+    try {
+      renderAccount()
+      const row = await screen.findByRole('link', { name: /목표 N3/u })
+      expect(await within(row).findByText('알림 켬')).toBeVisible()
+    } finally {
+      vi.unstubAllGlobals()
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
+  it('로그아웃은 이 기기 알림을 먼저 끈다: 서버에 지우라고 하고, 실패해도 구독은 푼다 (#1046)', async () => {
+    mockDatabase.loginAs('USER')
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/device-1'
+    const unsubscribe = vi.fn(async () => true)
+    const subscription = { endpoint, unsubscribe }
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class {})
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: async () => ({
+          pushManager: { getSubscription: async () => subscription }
+        })
+      }
+    })
+    const calls: string[] = []
+    mockServer.use(
+      http.delete('*/api/v1/push/subscription', async ({ request }) => {
+        calls.push('push ' + JSON.stringify(await request.json()))
+        return HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'down' },
+          { status: 500 }
+        )
+      }),
+      http.post('*/api/auth/sign-out', () => {
+        calls.push('sign-out')
+        return undefined
+      })
+    )
+    try {
+      const router = renderAccount()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+      expect(calls).toEqual([
+        'push ' + JSON.stringify({ endpoint }),
+        'sign-out'
+      ])
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
   it('요청 extra field와 공급자 URL 불일치를 거부한다', async () => {
     const posts = vi.spyOn(apiClient, 'post')
     const input = {
