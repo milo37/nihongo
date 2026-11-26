@@ -86,7 +86,11 @@ export const ResultAnswerComparison = ({
   return (
     <dl className="study-result-answer-comparison">
       <div>
-        <dt className={item.isCorrect ? 'text-success' : 'text-danger'}>
+        <dt
+          className={
+            item.isCorrect ? 'result-mark-correct' : 'result-mark-wrong'
+          }
+        >
           {t('items.selectedAnswer')}
         </dt>
         <dd {...(selectedOption ? jaTextProps(selectedOption.text) : {})}>
@@ -100,7 +104,7 @@ export const ResultAnswerComparison = ({
         </dd>
       </div>
       <div>
-        <dt className="text-success">{t('items.correctAnswer')}</dt>
+        <dt className="result-mark-correct">{t('items.correctAnswer')}</dt>
         <dd {...(correctOption ? jaTextProps(correctOption.text) : {})}>
           {correctOption ? (
             <>

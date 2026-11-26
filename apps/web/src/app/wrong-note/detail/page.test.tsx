@@ -327,7 +327,7 @@ describe('wrong-note restricted account', () => {
     await user.click(within(dialog).getByRole('button', { name: '보내기' }))
     const notice = await within(dialog).findByText(restrictedMessage)
     expect(notice).toBeVisible()
-    expect(notice).toHaveClass('bg-amber-50')
+    expect(notice).toHaveClass('account-restricted-notice')
     expect(notice).not.toHaveClass('text-red-700')
     expect(
       within(dialog).queryByText('보내지 못했어요. 다시 시도해 주세요.')
