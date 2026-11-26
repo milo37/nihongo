@@ -9,14 +9,12 @@ import { AppErrorReportButton } from '@app/question-report/components/AppErrorRe
 type BookmarkListNoticesProps = {
   isCachedOffline: boolean
   isStaleError: boolean
-  mutationStatus: string | null
   onRetry: () => void
 }
 
 export const BookmarkListNotices = ({
   isCachedOffline,
   isStaleError,
-  mutationStatus,
   onRetry
 }: BookmarkListNoticesProps): ReactElement => {
   const { t } = useTranslation('bookmark')
@@ -44,11 +42,6 @@ export const BookmarkListNotices = ({
   }, [retryRef, isStaleError, addToast, dismissToast, t, commonT])
   return (
     <>
-      {mutationStatus ? (
-        <p className="bookmark-warn" role="status" aria-live="polite">
-          {mutationStatus}
-        </p>
-      ) : null}
       {isCachedOffline ? (
         <p className="bookmark-warn" role="status">
           {t('error.cachedOffline')}

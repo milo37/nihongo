@@ -1041,7 +1041,6 @@ export const koCoreResources = {
         '최신 목록을 불러오지 못했어요. 지금 보이는 목록은 그대로 둘게요.'
     },
     status: {
-      removing: '빼는 중…',
       removed: '책갈피에서 뺐어요.',
       restoreFailed: '책갈피에서 빼지 못했어요.'
     },
