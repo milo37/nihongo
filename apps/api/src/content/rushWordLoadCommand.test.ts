@@ -85,8 +85,8 @@ describe('rush word load operator CLI (#1043)', () => {
       event: 'rush_word_list_dry_run',
       environment: 'TEST',
       fileSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
-      wordCount: 200,
-      created: 200,
+      wordCount: 260,
+      created: 260,
       updated: 0,
       deleted: 1,
       unchanged: 0
@@ -100,7 +100,7 @@ describe('rush word load operator CLI (#1043)', () => {
     expect(process.exitCode).toBeUndefined()
     expect(line(stdout)).toMatchObject({
       event: 'rush_word_list_loaded',
-      created: 200,
+      created: 260,
       deleted: 1,
       occurredAt: expect.any(String)
     })
@@ -108,7 +108,7 @@ describe('rush word load operator CLI (#1043)', () => {
     expect(sql.indexOf('SET LOCAL ROLE nihongo_owner')).toBeLessThan(
       sql.findIndex((value) => value.includes('require_database_capability'))
     )
-    expect(writes()).toHaveLength(201)
+    expect(writes()).toHaveLength(261)
     expect(writes()[0]).toMatch(/^DELETE/u)
     expect(sql.at(-1)).toBe('COMMIT')
   })
