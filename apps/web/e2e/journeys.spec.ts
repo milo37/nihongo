@@ -45,6 +45,7 @@ import {
 import {
   assertAndAttachLedger,
   assertExactRequestMultiset,
+  countedLedger,
   ledgerEntriesFor,
   selectRequestLedger,
   trackRequestLedger,
@@ -200,7 +201,7 @@ for (const locale of ['ko', 'ja'] as const) {
               } as const
             ])
       ])
-      for (const entry of ledger.entries) {
+      for (const entry of countedLedger(ledger).entries) {
         expect(entry.provenance).toBe(
           mode === 'mock'
             ? 'canonical-mock-service-worker'
@@ -674,10 +675,11 @@ const forbiddenLedgerPath = (path: string): boolean =>
 // JLP-788: before failing, attach only the offending entries (the same six
 // safe fields as the ledger evidence) so CI can upload them as a diagnostic.
 const assertCanonicalLedger = async (
-  ledger: RequestLedger,
+  fullLedger: RequestLedger,
   testInfo: Pick<TestInfo, 'attach'>,
   label: string
 ): Promise<void> => {
+  const ledger = countedLedger(fullLedger)
   const offending = ledger.entries.filter(
     ({ path, provenance, status }) =>
       status === 'NETWORK_ERROR' ||
