@@ -397,7 +397,15 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   assert.ok(install.includes('Acquire::Retries'))
   assert.ok(install.includes('for attempt in 1 2 3; do'))
   assert.ok(install.includes('timeout-minutes: 30'))
-  assert.ok(install.includes('sudo dpkg -i "${cached_debs[@]}"'))
+  // #1328: apt (not dpkg -i) orders the cached files against the runner image,
+  // and a failed cached install falls back to the online install.
+  assert.ok(
+    install.includes(
+      'sudo apt-get install -y --no-install-recommends "${cached_debs[@]}"'
+    )
+  )
+  assert.ok(!install.includes('dpkg -i'))
+  assert.ok(install.includes('install_args="--with-deps chromium"'))
   for (const name of [
     'Playwright system package key',
     'Restore Playwright system packages',

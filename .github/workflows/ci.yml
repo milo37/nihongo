@@ -293,11 +293,20 @@ jobs:
         run: |
           debs="$HOME/.cache/playwright-debs"
           shopt -s nullglob
+          install_args="--with-deps chromium"
           if [ "$DEBS_CACHED" = "true" ]; then
             cached_debs=("$debs"/*.deb)
-            if [ "${#cached_debs[@]}" -gt 0 ]; then sudo dpkg -i "${cached_debs[@]}"; fi
-            install_args="chromium"
-          else
+            # apt orders the cached files against what the runner image already has
+            # (installing them with dpkg alone fails when a newer libasound2-data breaks the
+            # installed libasound2t64, #1328). If that still fails, install online instead.
+            if [ "${#cached_debs[@]}" -eq 0 ] \
+              || sudo apt-get install -y --no-install-recommends "${cached_debs[@]}"; then
+              install_args="chromium"
+            else
+              echo "::warning::Cached Playwright system packages did not install; installing online"
+            fi
+          fi
+          if [ "$install_args" != "chromium" ]; then
             echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
             echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/81-ci-keep-debs >/dev/null
             sudo find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -delete
