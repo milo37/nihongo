@@ -243,14 +243,12 @@
   .study-result-outcomes-note {
     margin-top: var(--spacing);
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
   .study-result-status-note {
     margin-top: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
@@ -270,22 +268,6 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .study-result-bookmark-error {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger));
-  }
   .study-result-bookmark[aria-disabled='true'] {
     cursor: wait;
     opacity: 70%;
@@ -295,11 +277,6 @@
     color: rgb(var(--color-brand));
   }
   /* Notices: stale result, retry warnings and errors. */
-  .study-result-retry-error-text {
-    margin-top: var(--spacing);
-    --tw-leading: 1.5rem;
-    line-height: 1.5rem;
-  }
   .study-result-no-retry {
     margin-top: 1rem;
     border-radius: var(--radius-lg);
@@ -311,30 +288,6 @@
   .study-result-restricted,
   .study-result-warning-spaced {
     margin-top: 1rem;
-  }
-  .study-result-retry-error {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-danger-strong));
-  }
-  .study-result-stale {
-    margin-bottom: 1.5rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-warning-strong));
   }
   .study-result-warning {
     border-radius: var(--radius-lg);
@@ -349,9 +302,6 @@
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-warning-strong));
   }
-  .study-result-retry-error-title {
-    font-weight: var(--font-weight-bold);
-  }
   /* Next steps: the buttons and the rush line. */
   .study-result-feedback {
     margin-top: 0.75rem;
@@ -362,7 +312,6 @@
   .study-result-rush-line {
     margin-top: 2.5rem;
     font-size: 14px;
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }

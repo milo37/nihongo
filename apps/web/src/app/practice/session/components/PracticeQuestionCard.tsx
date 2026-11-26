@@ -15,7 +15,6 @@ export type QuestionPush = 'in-next' | 'in-prev' | 'out-next' | 'out-prev'
 
 type PracticeQuestionCardProps = {
   actions: ReactNode
-  bookmarkStatus: ReactNode
   headingRef: RefObject<HTMLHeadingElement | null>
   isOptionsDisabled: boolean
   /**
@@ -36,7 +35,6 @@ const HEADING_CLASS = 'study-question-heading'
 
 export const PracticeQuestionCard = ({
   actions,
-  bookmarkStatus,
   headingRef,
   isOptionsDisabled,
   isDecorative = false,
@@ -102,8 +100,6 @@ export const PracticeQuestionCard = ({
         {/* The action bar stays outside: it is fixed on phones, and a
             transform on its ancestor would carry it along (JLP-870). */}
         <div className="study-push" data-push={push}>
-          {bookmarkStatus}
-
           <div className="study-question-head">
             {isDecorative ? (
               <div className={HEADING_CLASS}>{headingContent}</div>

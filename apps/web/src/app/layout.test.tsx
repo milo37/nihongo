@@ -129,7 +129,7 @@ it.each(['ko', 'ja'] as const)(
     mocks.role = 'ADMIN'
     mocks.user = { id: 'admin-1', name: '하루 관리자', role: 'ADMIN' }
     render(
-      <MemoryRouter initialEntries={['/dashboard?view=learning']}>
+      <MemoryRouter initialEntries={['/']}>
         <Layout />
       </MemoryRouter>
     )
@@ -139,7 +139,9 @@ it.each(['ko', 'ja'] as const)(
       expect(nav.querySelectorAll('[aria-current]')).toHaveLength(0)
     }
     const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:accountMenu.label')
+      name: appI18n.t('navigation:accountMenu.label', {
+        name: '하루 관리자'
+      })
     })
     expect(account).toHaveTextContent('하루')
     await userEvent.click(account)
@@ -275,7 +277,7 @@ it.each([
   'reaches home by the logo, lights no tab there and lights 학습 on the practice setup (JLP-873, %s)',
   async (locale, label, appName) => {
     await appI18n.changeLanguage(locale)
-    for (const path of ['/', '/dashboard?view=learning']) {
+    for (const path of ['/', '/ja']) {
       const { unmount } = render(
         <MemoryRouter initialEntries={[path]}>
           <Layout />

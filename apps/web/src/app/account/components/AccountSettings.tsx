@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import {
@@ -12,6 +12,7 @@ import {
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 
 // Logout and deletion share one button size.
 const ROW_BUTTON_CLASS = 'account-row-button'
@@ -22,12 +23,35 @@ export const AccountSettings = (): ReactElement => {
   const flow = useSsoAccountManagement()
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
-  const trigger = useRef<HTMLElement | null>(null)
+  // JLP-981: a deletion dialog always hands focus back to this button, also
+  // when it reopened by itself after the Google check (no click to remember).
+  const deleteButton = useRef<HTMLButtonElement>(null)
   const logoutButton = useRef<HTMLButtonElement>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { caps } = flow
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
+  // #1292: without the sign-in methods deletion cannot run either, so its
+  // row hides with the sign-in row until the toast's retry loads them.
+  const methodsFailed = !flow.capabilities.isPending && !caps
+  // #1292: a result left after the dialog closes is a toast, not a line.
+  // Cancelling is a notice; an unknown result stays up, and a check that
+  // still cannot tell shows it again even after it was closed.
+  const { addToast, dismissToast } = useToast()
+  const pageFeedback = flow.dialog === null ? flow.feedback : null
+  const { uncertain, unknownChecks } = flow
+  // While the result is unknown the deletion button itself is [다시 확인].
+  const pageRecheck = uncertain && flow.dialog === null
+  useEffect(() => {
+    if (!pageFeedback) return
+    const id = addToast({
+      key: 'account-feedback',
+      title: authT(ACCOUNT_FEEDBACK_KEY[pageFeedback]),
+      variant: pageFeedback === 'reauthCancelled' ? 'info' : 'warning',
+      persistent: uncertain
+    })
+    return () => dismissToast(id)
+  }, [pageFeedback, uncertain, unknownChecks, addToast, dismissToast, authT])
   return (
     <section
       className="account-section account-settings"
@@ -61,58 +85,50 @@ export const AccountSettings = (): ReactElement => {
           <p className="account-strong">{authT('sso.logoutAction')}</p>
           <p className="account-muted">{t('settings.logoutDescription')}</p>
         </SettingRow>
-        <SettingRow
-          action={
-            <Button
-              className={ROW_BUTTON_CLASS}
-              variant="danger-outline"
-              disabled={controlsDisabled || !caps?.canDelete}
-              aria-describedby={
-                caps && !caps.canDelete ? deleteReasonId : undefined
-              }
-              onClick={(event) => {
-                trigger.current = event.currentTarget
-                flow.request({ kind: 'delete' })
-              }}
-            >
-              {t('danger.action')}
-            </Button>
-          }
-        >
-          <p className="account-danger-title">{t('danger.title')}</p>
-          <p className="account-danger-text">{t('danger.description')}</p>
-          {caps && !caps.canDelete ? (
-            <p id={deleteReasonId} className="account-delete-reason">
-              {authT(
-                caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
-                  ? 'sso.lastAdminDeletionBlocked'
-                  : 'sso.openAdminWork'
-              )}
-            </p>
-          ) : null}
-        </SettingRow>
+        {methodsFailed ? null : (
+          <SettingRow
+            action={
+              <Button
+                ref={deleteButton}
+                className={ROW_BUTTON_CLASS}
+                variant={pageRecheck ? 'outline' : 'danger-outline'}
+                disabled={
+                  pageRecheck ? flow.busy : controlsDisabled || !caps?.canDelete
+                }
+                aria-describedby={
+                  caps && !caps.canDelete ? deleteReasonId : undefined
+                }
+                onClick={() => {
+                  if (pageRecheck) {
+                    void flow.recheck()
+                    return
+                  }
+                  flow.request({ kind: 'delete' })
+                }}
+              >
+                {pageRecheck ? authT('sso.recheck') : t('danger.action')}
+              </Button>
+            }
+          >
+            <p className="account-danger-title">{t('danger.title')}</p>
+            <p className="account-danger-text">{t('danger.description')}</p>
+            {caps && !caps.canDelete ? (
+              <p id={deleteReasonId} className="account-delete-reason">
+                {authT(
+                  caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
+                    ? 'sso.lastAdminDeletionBlocked'
+                    : 'sso.openAdminWork'
+                )}
+              </p>
+            ) : null}
+          </SettingRow>
+        )}
       </div>
-      {flow.feedback && flow.dialog === null ? (
-        <p
-          className="account-feedback"
-          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
-        >
-          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
-        </p>
-      ) : null}
-      {flow.uncertain && flow.dialog === null ? (
-        <Button
-          className="account-recheck"
-          variant="outline"
-          disabled={flow.busy}
-          onClick={() => void flow.recheck()}
-        >
-          {authT('sso.recheck')}
-        </Button>
-      ) : null}
       <TwoStepConfirmDialog
         flow={flow}
-        returnFocusRef={trigger}
+        returnFocusRef={
+          flow.dialog?.kind === 'unlink' ? undefined : deleteButton
+        }
         fallbackFocusRef={heading}
       />
       <LogoutDialog

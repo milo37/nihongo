@@ -353,6 +353,34 @@ describe('PracticePage setup', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('한도 카드의 Google 시작이 실패하면 카드에 줄 없이 토스트로 알린다 (#1292)', async () => {
+    mockGuestAllowance.setRemaining(0)
+    mockServer.use(
+      http.post('*/api/auth/sign-in/social', () =>
+        HttpResponse.json(
+          { code: 'SSO_UNAVAILABLE', message: 'private' },
+          { status: 503 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderPractice('?level=N5&subject=VOCABULARY')
+    const card = (
+      await screen.findByRole('heading', { name: '오늘 3번을 다 풀었어요' })
+    ).closest('section') as HTMLElement
+    await user.click(
+      within(card).getByRole('button', { name: 'Google로 로그인' })
+    )
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(await within(region).findByText(/Google/u)).toBeVisible()
+    expect(within(card).queryByRole('alert')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        within(card).getByRole('button', { name: 'Google로 로그인' })
+      ).toBeEnabled()
+    )
+  })
+
   it('서버가 하루 상한으로 거절하면 같은 카드를 보이고 금지 화면으로 가지 않는다', async () => {
     mockGuestAllowance.enforce()
     mockGuestAllowance.setRemaining(1)

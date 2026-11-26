@@ -32,7 +32,7 @@ export const adminRoutes: RouteObject[] = [
           </AppLayout>
         )}
       >
-        <AuthErrorHandlerProvider />
+        <AuthErrorHandlerProvider keepsObjectForbidden />
         <AppLayout
           robots="noindex,follow"
           reviewReturnContext={null}

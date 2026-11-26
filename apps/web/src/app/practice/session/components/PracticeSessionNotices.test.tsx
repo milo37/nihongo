@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
-import type { PracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { PracticeSessionNotices } from '@app/practice/session/components/PracticeSessionNotices'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
@@ -17,8 +17,7 @@ const sessionData = (mode: Mode): StudySessionView => ({
     startedAt: '2026-11-13T09:00:00.000Z',
     expiresAt: null,
     submittedAt: null,
-    durationSec: null,
-    practiceContractVersion: 2
+    durationSec: null
   },
   questions: [],
   requestedCount: 20,
@@ -29,21 +28,15 @@ const sessionData = (mode: Mode): StudySessionView => ({
 
 const notices = (mode: Mode) => (
   <I18nProvider>
-    <PracticeSessionNotices
-      draftActionMessage={null}
-      // Only read when isV2Session shows the draft status.
-      draftController={{} as PracticeDraftController}
-      hasUnresolvedConflictCheck={false}
-      isCompactDraftStatus={false}
-      isFirstQuestion
-      isInlineDraftStatus={false}
-      isSessionError={false}
-      isSessionPaused={false}
-      isV2Session={false}
-      onRetryDraftSave={() => undefined}
-      onRetrySession={() => undefined}
-      sessionData={sessionData(mode)}
-    />
+    <ToastProvider>
+      <PracticeSessionNotices
+        draftActionMessage={null}
+        isFirstQuestion
+        isSessionError={false}
+        onRetrySession={() => undefined}
+        sessionData={sessionData(mode)}
+      />
+    </ToastProvider>
   </I18nProvider>
 )
 

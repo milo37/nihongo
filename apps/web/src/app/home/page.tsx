@@ -1,7 +1,5 @@
 import { useRef } from 'react'
-import { Navigate, useLocation } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
-import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { HeroStartCard } from '@app/home/components/HeroStartCard'
 import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
@@ -55,22 +53,5 @@ export const LearningHome = ({
   )
 }
 
-export const HomePage = (): ReactElement => {
-  const { isReady, role } = useAuth()
-  const location = useLocation()
-  if (isReady && role !== 'GUEST') {
-    const searchParams = new URLSearchParams(location.search)
-    searchParams.set('view', 'learning')
-    return (
-      <Navigate
-        to={{
-          pathname: '/dashboard',
-          search: `?${searchParams.toString()}`,
-          hash: location.hash
-        }}
-        replace
-      />
-    )
-  }
-  return <LearningHome />
-}
+/** The guest home at /; a member's / is MemberHome (dashboard router). */
+export const HomePage = (): ReactElement => <LearningHome />

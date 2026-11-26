@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import {
   FALLBACK_LEVEL,
   getInitialLevel
@@ -34,6 +36,7 @@ export const RushPage = (): ReactElement | null => {
 
 const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
   const { t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
   const navigate = useNavigate()
   const learnHref = `/practice?level=${level}`
   const pairs = useRushPairs(level)
@@ -50,6 +53,8 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
     notice,
     previousBest,
     result,
+    saveFailed,
+    retrySave,
     start,
     pick
   } = useRushRound({ level, userId, pairs: pairs.data?.pairs, best })
@@ -78,6 +83,8 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
         best={result?.best.best ?? null}
         isNewBest={result?.isNewBest ?? false}
         previousBest={previousBest}
+        saveFailed={saveFailed}
+        onRetrySave={retrySave}
         learnHref={learnHref}
         onAgain={start}
         onWrong={() => setPhase('wrong')}
@@ -132,7 +139,22 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
       {best !== null ? (
         <p className="rush-best">{t('rush.best', { b: best })}</p>
       ) : null}
-      {pairs.isError ? <p role="alert">{t('rush.loadError')}</p> : null}
+      {pairs.isError ? (
+        <ErrorState
+          density="inline"
+          title={commonT('state.requestFailed')}
+          description={t('rush.loadError')}
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void pairs.refetch()}
+            >
+              {commonT('actions.retry')}
+            </Button>
+          }
+        />
+      ) : null}
       <button
         type="button"
         className="rush-main"

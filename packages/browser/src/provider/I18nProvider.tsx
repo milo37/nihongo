@@ -13,7 +13,7 @@ import { DEFAULT_UI_LOCALE } from '../i18n/types'
 import {
   parseUiLocalePreference,
   readFreshUiLocalePreference,
-  readUiLocalePreference,
+  readInitialUiLocale,
   UI_LOCALE_STORAGE_KEY,
   writeUiLocalePreference
 } from '../libs/localeStorage'
@@ -37,7 +37,7 @@ export const I18nProvider = ({
   fixedLocale
 }: I18nProviderProps): ReactElement => {
   const [locale, setLocaleState] = useState<UiLocale>(() => {
-    const initialLocale = fixedLocale ?? readUiLocalePreference()
+    const initialLocale = fixedLocale ?? readInitialUiLocale()
     // i18n starts on the saved language; switch before the first render.
     if (appI18n.resolvedLanguage !== initialLocale) {
       void appI18n.changeLanguage(initialLocale)

@@ -27,6 +27,8 @@ import {
 } from '../observability/httpLog.js'
 import { createHealthRoutes } from '../routes/health.js'
 import { createClientErrorRoutes } from '../routes/clientErrors.js'
+import { createWebPushRoutes } from '../routes/webPush.js'
+import type { PushSubscriptionStore } from '../notification/pushSubscriptionStore.js'
 import { createDailyQuestionRoutes } from '../routes/dailyQuestion.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -159,6 +161,8 @@ interface CreateApiAppDependencies {
     readonly environment: ApiEnvironment
     readonly rateLimiter: ApplicationRateLimiter
   }
+  /** #1046: the daily web push subscriptions; mounted with questionReadSecurity. */
+  webPushStore?: PushSubscriptionStore
   auth?: {
     environment: ApiEnvironment
     gateway: AuthGateway
@@ -451,6 +455,7 @@ export const createApiApp = ({
   learning,
   dailyQuestionReader,
   questionReadSecurity,
+  webPushStore,
   questionReports,
   userReports,
   releaseId = '0000000000000000000000000000000000000000',
@@ -791,6 +796,19 @@ export const createApiApp = ({
           rateLimiter: questionReadSecurity.rateLimiter
         })
       )
+      if (webPushStore) {
+        // #1046: subscribe needs a member; the same per-IP limiter.
+        app.route(
+          '/api/v1/push',
+          createWebPushRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            publicKey: auth.environment.WEB_PUSH_PUBLIC_KEY ?? null,
+            rateLimiter: questionReadSecurity.rateLimiter,
+            store: webPushStore
+          })
+        )
+      }
     }
     app.route(
       '/api/v1',

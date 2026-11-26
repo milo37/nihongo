@@ -1,7 +1,12 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import {
+  useErrorToast,
+  useToast
+} from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { useReviewDue } from '@app/dashboard/hooks/useReviewDue'
 import { useStartReview } from '@app/wrong-note/hooks/useStartReview'
@@ -16,7 +21,22 @@ export const ReviewDueLine = (): ReactElement | null => {
   const { t: wrongNoteT } = useTranslation('wrongNote')
   const due = useReviewDue()
   const review = useStartReview(() => void due.refetch())
-  if (due.count === 0 && !review.notice) return null
+  useErrorToast(
+    review.notice === 'error' ? wrongNoteT('startError') : null,
+    'set-create'
+  )
+  // #1292: nothing left to review is news, not an error: an info toast.
+  const { addToast } = useToast()
+  const isEmpty = review.notice === 'empty'
+  useEffect(() => {
+    if (isEmpty)
+      addToast({
+        key: 'set-create',
+        title: wrongNoteT('startEmpty'),
+        variant: 'info'
+      })
+  }, [isEmpty, addToast, wrongNoteT])
+  if (due.count === 0 && review.notice !== 'accountRestricted') return null
   return (
     <>
       {due.count > 0 ? (
@@ -38,10 +58,6 @@ export const ReviewDueLine = (): ReactElement | null => {
       ) : null}
       {review.notice === 'accountRestricted' ? (
         <AccountRestrictedNotice className="home-more-notice" focusOnMount />
-      ) : review.notice ? (
-        <p className="home-more-error" role="alert">
-          {wrongNoteT(review.notice === 'empty' ? 'startEmpty' : 'startError')}
-        </p>
       ) : null}
     </>
   )

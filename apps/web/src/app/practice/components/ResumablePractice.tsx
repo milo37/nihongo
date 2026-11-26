@@ -56,10 +56,7 @@ export const ResumablePractice = ({
         {t('setup.resume.title')}
       </h2>
 
-      <ResumableStatusNotices
-        query={query}
-        sourceUnavailable={sourceUnavailable}
-      />
+      <ResumableStatusNotices query={query} />
 
       {query.isPending ? (
         query.fetchStatus === 'paused' ? (
@@ -74,7 +71,11 @@ export const ResumablePractice = ({
           />
         )
       ) : query.isError && !data ? (
-        <ResumableError query={query} description={t('setup.resume.error')} />
+        <ResumableError
+          query={query}
+          description={t('setup.resume.error')}
+          withRetry
+        />
       ) : recent ? (
         <div className="practice-recent practice-recent-single">
           <ResumableRecord

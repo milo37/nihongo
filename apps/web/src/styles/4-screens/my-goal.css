@@ -134,11 +134,6 @@
 .study-goal-actions {
   margin-top: 48px;
 }
-.study-goal-error {
-  margin-bottom: 12px;
-  color: rgb(var(--color-danger));
-  font-size: 14px;
-}
 .study-goal .study-goal-submit {
   min-height: 52px;
   font-size: 17px;

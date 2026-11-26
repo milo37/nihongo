@@ -362,23 +362,27 @@ describe('마이페이지 내 학습', () => {
     expect(within(section).getByText('문법')).toBeInTheDocument()
   })
 
-  it('통계 실패는 내 학습 안에서만 알리고 다시 시도하며 계정 영역은 그대로 둔다', async () => {
+  it('통계 실패는 내 학습을 숨기고 [다시 시도] 토스트 하나로 알리며 계정 영역은 그대로 둔다 (#1292)', async () => {
     const reads = useStats('error')
     const banner: unknown[] = []
     const unsubscribe = subscribeApiError((error) => banner.push(error))
     renderAccount()
-    const section = await screen.findByRole('region', { name: 'N2 학습' })
-    const alert = await within(section).findByRole('alert')
-    expect(alert).toHaveTextContent('학습 기록을 불러오지 못했어요.')
-    expect(alert).toHaveClass('auth-error')
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('학습 기록을 불러오지 못했어요.')
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('region', { name: 'N2 학습' })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeEnabled()
-    // The card owns this failure, so the shared error banner stays quiet.
+    // The toast is the one notice; the shared error path stays quiet.
     expect(banner).toEqual([])
     unsubscribe()
     const before = reads()
     await userEvent.click(
-      within(section).getByRole('button', { name: '다시 시도' })
+      within(region).getByRole('button', { name: '다시 시도' })
     )
-    expect(reads()).toBeGreaterThan(before)
+    await waitFor(() => expect(reads()).toBeGreaterThan(before))
   })
 })

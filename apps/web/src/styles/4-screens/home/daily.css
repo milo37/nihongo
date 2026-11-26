@@ -174,7 +174,6 @@
     /* Explanations keep their line breaks (operator, 2026-11-22). */
     white-space: pre-line;
     font-size: 15px;
-    --tw-leading: calc(var(--spacing) * 7);
     line-height: calc(var(--spacing) * 7);
     color: rgb(var(--color-muted) / 1);
   }
@@ -186,14 +185,6 @@
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-subtle) / 1);
   }
-  .home-daily-error {
-    margin-top: calc(var(--spacing) * 4);
-  }
-  .home-daily-error-text {
-    font-size: 15px;
-    color: rgb(var(--color-muted) / 1);
-  }
-  .home-daily-retry,
   .home-daily-loading {
     margin-top: calc(var(--spacing) * 3);
   }

@@ -55,3 +55,8 @@ output "audio_bucket" {
 output "audio_generator_role_arn" {
   value = aws_iam_role.audio_generator.arn
 }
+
+output "push_parameter_names" {
+  description = "SecureString names for the daily web push key pair (#1046)."
+  value       = [for name in local.push_parameter_names : "${local.param_path}/${name}"]
+}

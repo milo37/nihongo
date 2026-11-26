@@ -1,10 +1,9 @@
 import { http, HttpResponse } from 'msw'
 import { mockServer } from '@/test/server'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -24,11 +23,6 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useAppStore } from '@nihongo/browser/store/index'
-import {
-  clearSubmissionAttemptMemoryCache,
-  readStoredSubmissionAttempt,
-  writeStoredSubmissionAttempt
-} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import { createStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopy'
 import {
   clearStudyDraftWorkingCopyMemoryCache,
@@ -118,11 +112,6 @@ describe('PracticeSessionPage', () => {
           sessionId: otherSessionId
         })
       ].map(writeStudyDraftWorkingCopy)
-      const oldAttempt = {
-        logicalRequest: { answers: [], durationSec: 1 },
-        idempotencyKey: crypto.randomUUID()
-      }
-      writeStoredSubmissionAttempt(sessionId, oldAttempt)
       mockServer.use(
         http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
           HttpResponse.json(
@@ -137,7 +126,6 @@ describe('PracticeSessionPage', () => {
           name: '이 학습을 찾을 수 없어요'
         })
       ).toBeVisible()
-      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
       copies.forEach((copy) =>
         expect(
           readStudyDraftWorkingCopy(copy.principalScope, copy.sessionId)
@@ -145,9 +133,7 @@ describe('PracticeSessionPage', () => {
       )
       await userEvent.click(screen.getByRole('link', { name: '새로 시작하기' }))
       expect(router.state.location.pathname).toBe('/practice')
-      clearSubmissionAttemptMemoryCache()
       clearStudyDraftWorkingCopyMemoryCache()
-      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
       // After a reload only members' copies remain; a guest's lived in memory.
       copies.forEach((copy) =>
         expect(
@@ -156,39 +142,6 @@ describe('PracticeSessionPage', () => {
       )
     }
   )
-  it('clears a stored attempt after an owned V2 terminal response', async () => {
-    const created = await createStudySessionV2({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    const sessionId = created.data.session.id
-    writeStoredSubmissionAttempt(sessionId, {
-      logicalRequest: { answers: [], durationSec: 1 },
-      idempotencyKey: crypto.randomUUID()
-    })
-    mockServer.use(
-      http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
-        HttpResponse.json(
-          {
-            ...created.data,
-            session: { ...created.data.session, status: 'EXPIRED' }
-          },
-          {
-            headers: {
-              'Cache-Control': 'private, no-store',
-              'X-Nihongo-Practice-Contract': '2'
-            }
-          }
-        )
-      )
-    )
-    renderSession(sessionId)
-    await waitFor(() =>
-      expect(readStoredSubmissionAttempt(sessionId)).toBeNull()
-    )
-  })
   it.each([
     [404, 'RESOURCE_NOT_FOUND'],
     [500, 'INTERNAL_SERVER_ERROR']
@@ -231,15 +184,10 @@ describe('PracticeSessionPage', () => {
     }
   )
   it.each(['ko', 'ja'] as const)(
-    'shows an ended-session notice for an older owned session and keeps its stored attempt (%s)',
+    'shows an ended-session notice for an older owned session (%s)',
     async (locale) => {
       writeUiLocalePreference(locale)
       const sessionId = crypto.randomUUID()
-      const oldAttempt = {
-        logicalRequest: { answers: [], durationSec: 1 },
-        idempotencyKey: crypto.randomUUID()
-      }
-      writeStoredSubmissionAttempt(sessionId, oldAttempt)
       let submissions = 0
       mockServer.use(
         http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
@@ -270,7 +218,6 @@ describe('PracticeSessionPage', () => {
           name: locale === 'ko' ? '제출하기' : '提出する'
         })
       ).not.toBeInTheDocument()
-      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
       expect(submissions).toBe(0)
       await userEvent.click(
         screen.getByRole('link', {
@@ -278,10 +225,11 @@ describe('PracticeSessionPage', () => {
         })
       )
       expect(router.state.location.pathname).toBe('/practice')
-      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
     }
   )
-  it('preserves an old stored attempt if a legacy expired payload is unexpectedly returned', async () => {
+  // #978: the web reads contract 2 only; a contract 1 body is refused at the
+  // read like any malformed reply, never drawn as a session.
+  it('refuses a contract 1 session body as a failed read', async () => {
     const created = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
@@ -289,11 +237,6 @@ describe('PracticeSessionPage', () => {
       count: 1
     })
     const sessionId = created.data.session.id
-    const oldAttempt = {
-      logicalRequest: { answers: [], durationSec: 1 },
-      idempotencyKey: crypto.randomUUID()
-    }
-    writeStoredSubmissionAttempt(sessionId, oldAttempt)
     mockServer.use(
       http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
         HttpResponse.json(
@@ -316,11 +259,9 @@ describe('PracticeSessionPage', () => {
     )
     renderSession(sessionId)
     expect(
-      await screen.findByRole('heading', {
-        name: '이 학습은 끝났어요'
-      })
+      await screen.findByText('주소가 맞는지 확인하거나 새로 시작해 주세요.')
     ).toBeVisible()
-    expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+    expect(screen.queryByRole('radio')).toBeNull()
   })
   it('숫자 키와 클릭 선택이 같은 답안 상태와 radio 상태를 갱신한다', async () => {
     const user = userEvent.setup()
@@ -461,7 +402,7 @@ describe('PracticeSessionPage', () => {
     ['ko', '다른 곳에서 푼 답을 불러왔어요. 답을 확인해 주세요.'],
     ['ja', '別の場所で解いた答えを読み込みました。答えを確認してください。']
   ] as const)(
-    'announces the applied server record after a 409 and clears it on the next answer (%s)',
+    'announces the applied server record after a 409 in a toast (%s)',
     async (locale, message) => {
       // Server drafts are members only (guests keep answers locally).
       await loginAsUser()
@@ -510,15 +451,12 @@ describe('PracticeSessionPage', () => {
       )
       await user.click(radio)
       const notice = await screen.findByText(message, {}, { timeout: 6000 })
-      expect(notice.closest('[role=status]')).toHaveAttribute(
-        'aria-live',
-        'polite'
-      )
+      // #1262: said once in a toast, not a line under the options.
+      expect(notice.closest('article')).not.toBeNull()
+      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(puts).toBe(1)
       expect(radio).not.toBeChecked()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      await user.click(radio)
-      expect(screen.queryByText(message)).not.toBeInTheDocument()
     },
     10_000
   )
@@ -568,41 +506,29 @@ describe('PracticeSessionPage', () => {
         { timeout: 4000 }
       )
       // Saving is quiet (direction §6-4).
-      expect(
-        document.querySelector('[data-save-state="saving"]')
-      ).not.toBeVisible()
       expect(screen.queryByText('저장하는 중…')).not.toBeInTheDocument()
-      expect(screen.queryByText('자동 저장됨')).not.toBeInTheDocument()
-      expect(document.querySelector('.study-save-toast')).toBeNull()
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toBeNull()
+      expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
     } finally {
       finish?.()
     }
-    await screen.findByText('저장하지 못했어요', {}, { timeout: 4000 })
-    const retry = screen.getByRole('button', { name: '다시 저장' })
-    expect(retry).toHaveTextContent('다시 시도')
-    expect(retry.closest('[role="status"]')).toHaveAttribute(
-      'data-tone',
-      'danger'
+    // #1262: the failure is a toast that stays, with [다시 시도] in it.
+    const failure = await screen.findByText(
+      '저장하지 못했어요. 고른 답은 그대로 있어요. 다시 시도해 주세요.',
+      {},
+      { timeout: 4000 }
     )
-    expect(screen.queryByText('답안이 저장되었습니다.')).not.toBeInTheDocument()
+    const toast = failure.closest('article')
+    if (!(toast instanceof HTMLElement)) throw new Error('Toast required')
     expect(radio).toBeChecked()
-    await user.click(retry)
-    await waitFor(
-      () =>
-        expect(screen.queryByText('저장하지 못했어요')).not.toBeInTheDocument(),
-      { timeout: 6000 }
-    )
-    expect(screen.queryByText('자동 저장됨')).not.toBeInTheDocument()
-    expect(document.querySelector('.study-save-toast')).toBeNull()
+    await user.click(within(toast).getByRole('button', { name: '다시 시도' }))
     expect(
-      screen.queryByText(/^서버에 저장했어요. 마지막 저장/)
+      await screen.findByText('저장했어요.', {}, { timeout: 6000 })
+    ).toBeVisible()
+    expect(
+      screen.queryByText(
+        '저장하지 못했어요. 고른 답은 그대로 있어요. 다시 시도해 주세요.'
+      )
     ).not.toBeInTheDocument()
-    expect(
-      document.querySelector('[role="status"][data-save-state]')
-    ).toBeNull()
     expect(radio).toBeChecked()
     expect(
       (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
@@ -645,8 +571,7 @@ describe('PracticeSessionPage', () => {
       expect(back).toHaveAttribute('href', '/practice')
       expect(back).toHaveTextContent(/^$/)
       expect(back.querySelectorAll('svg')).toHaveLength(1)
-      // Routine saving is quiet; only a failure shows a line (direction §6-4).
-      expect(document.querySelector('.study-inline-save')).toBeNull()
+      // Routine saving is quiet (direction §6-4).
       expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       await user.click(firstRadio)
       await waitFor(
@@ -673,43 +598,22 @@ describe('PracticeSessionPage', () => {
         (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
           ?.selectedOptionId
       ).toBe(second.id)
+      // #1262: offline is the one connection toast, never a line.
       act(() => useAppStore.getState().setDraftSaveState('offline'))
-      const statusRow = document.querySelector('.study-inline-save')
-      expect(statusRow).not.toBeNull()
       expect(
-        statusRow?.previousElementSibling?.querySelector('fieldset')
-      ).toContainElement(firstRadio)
-      expect(
-        screen.getByText(
+        await screen.findByText(
           locale === 'ko'
-            ? '연결 끊김 · 이 기기에만 저장 중'
-            : '接続なし · この端末にだけ保存中'
+            ? '인터넷 연결이 끊겼어요. 답은 이 기기에 보관했다가 연결되면 저장할게요.'
+            : 'インターネット接続が切れました。答えはこの端末に残しておき、つながったら保存します。'
         )
-      ).toBeInTheDocument()
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toBeNull()
-      expect(
-        within(statusRow as HTMLElement).getByRole('button')
-      ).toHaveTextContent(locale === 'ko' ? '다시 시도' : '再試行')
+      ).toBeVisible()
+      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(secondRadio).toHaveFocus()
       act(() => useAppStore.setState({ isDraftConflictPending: true }))
       expect(
         document.querySelector('[role="status"][data-save-state]')
-      ).toHaveAttribute('data-save-state', 'offline')
-      const detailedStatus = document.querySelector(
-        '[role="status"][data-save-state]'
-      )
-      expect(detailedStatus).toHaveTextContent(
-        locale === 'ko'
-          ? '인터넷 연결이 끊겼어요. 답은 이 기기에 보관했다가 연결되면 저장할게요.'
-          : 'インターネット接続が切れました。答えはこの端末に残しておき、つながったら保存します。'
-      )
-      expect(
-        within(detailedStatus as HTMLElement).getByRole('button')
-      ).toHaveTextContent(locale === 'ko' ? '다시 저장' : 'もう一度保存')
+      ).toBeNull()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       expect(secondRadio).toBeDisabled()
     },
@@ -795,6 +699,123 @@ describe('PracticeSessionPage', () => {
     expect(await within(toasts).findByText('책갈피에서 뺐어요.')).toBeVisible()
     // One bookmark toast at a time: the second replaced the first.
     expect(within(toasts).getAllByRole('article')).toHaveLength(1)
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('책갈피 확인 실패는 토스트 한 번, 아이콘은 빈 채로 눌러 담을 수 있다 (#1262)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    mockServer.use(
+      // The check keeps failing, so the icon has no list to read from.
+      http.get('*/api/v1/bookmarks', () =>
+        HttpResponse.json({}, { status: 500 })
+      )
+    )
+    renderSession(payload.session.id)
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(toasts).findByText('책갈피를 확인하지 못했어요.')
+    ).toBeVisible()
+    // No line or [다시 확인] above the question.
+    expect(screen.queryByRole('button', { name: '다시 확인' })).toBeNull()
+    const add = screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    expect(add).toHaveAttribute('aria-pressed', 'false')
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    await user.click(add)
+    expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
+    expect(within(toasts).getAllByRole('article')).toHaveLength(1)
+    const remove = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에서 빼기'
+    })
+    expect(remove).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(remove).not.toHaveAttribute('aria-disabled'))
+    await user.click(remove)
+    expect(await within(toasts).findByText('책갈피에서 뺐어요.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('책갈피 담기 실패는 아이콘을 되돌리고 토스트로 알린다 (#1262)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    mockServer.use(
+      http.put(
+        '*/api/v1/bookmarks/:questionId',
+        () => HttpResponse.json({}, { status: 500 }),
+        { once: true }
+      )
+    )
+    renderSession(payload.session.id)
+    const add = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에 담기'
+    })
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    await user.click(add)
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(toasts).findByText('책갈피에 담지 못했어요.')
+    ).toBeVisible()
+    expect(
+      within(toasts).queryByRole('button', { name: '다시 시도' })
+    ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('끊긴 채 책갈피를 누르면 기다리지 않고 아이콘을 되돌리고 토스트로 알린다 (#978)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    renderSession(payload.session.id)
+    const add = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에 담기'
+    })
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    act(() => onlineManager.setOnline(false))
+    try {
+      await user.click(add)
+      const toasts = await screen.findByRole('region', { name: '알림' })
+      expect(
+        await within(toasts).findByText('책갈피에 담지 못했어요.')
+      ).toBeVisible()
+      const again = screen.getByRole('button', {
+        name: '1번 문제를 책갈피에 담기'
+      })
+      expect(again).toHaveAttribute('aria-pressed', 'false')
+      // Still offline, the icon is not locked: a second press fails at once
+      // too, not silently.
+      await waitFor(() =>
+        expect(
+          queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['bookmark', 'list'] })
+            .some((query) => query.state.fetchStatus === 'paused')
+        ).toBe(true)
+      )
+      expect(again).not.toHaveAttribute('aria-disabled')
+      const failed = (): number =>
+        queryClient.getMutationCache().findAll({ status: 'error' }).length
+      const before = failed()
+      await user.click(again)
+      await waitFor(() => expect(failed()).toBe(before + 1))
+      expect(within(toasts).getByText('책갈피에 담지 못했어요.')).toBeVisible()
+    } finally {
+      onLine.mockRestore()
+      act(() => onlineManager.setOnline(true))
+    }
+    // Nothing was kept to send once the connection is back.
+    await waitFor(() =>
+      expect(
+        queryClient.getMutationCache().findAll({ status: 'pending' })
+      ).toHaveLength(0)
+    )
     expect(
       screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
     ).toHaveAttribute('aria-pressed', 'false')
@@ -1239,33 +1260,159 @@ describe('PracticeSessionPage', () => {
     await waitFor(() => expect(radio).toBeEnabled())
   })
 
-  it('보관된 제출 시도가 있으면 beforeunload를 막고 없으면 막지 않는다', async () => {
-    const plain = await startSession(1)
-    const plainView = renderSession(plain.session.id)
-    const plainOption = plain.questions[0]?.options[0]
-    if (!plainOption) throw new Error('Public option required')
+  it('제출을 보내는 동안에만 beforeunload를 막는다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    let releaseSubmission: () => void = () => undefined
+    mockServer.use(
+      http.post(
+        `*/api/v1/study-sessions/${payload.session.id}/submission`,
+        () =>
+          new Promise<Response>((resolve) => {
+            releaseSubmission = () =>
+              resolve(HttpResponse.json({}, { status: 500 }))
+          })
+      )
+    )
+    renderSession(payload.session.id)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
     await waitFor(() =>
       expect(
-        screen.getByRole('radio', { name: `1. ${plainOption.text}` })
+        screen.getByRole('radio', { name: `1. ${option.text}` })
       ).toBeEnabled()
     )
-    const unfrozen = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(unfrozen)
-    expect(unfrozen.defaultPrevented).toBe(false)
-    plainView.dispose()
-    cleanup()
+    const idle = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(idle)
+    expect(idle.defaultPrevented).toBe(false)
 
-    const frozen = await startSession(1)
-    writeStoredSubmissionAttempt(frozen.session.id, {
-      logicalRequest: { answers: [], durationSec: 1 },
-      idempotencyKey: crypto.randomUUID()
+    await user.click(screen.getByRole('button', { name: '제출하기' }))
+    const dialog = await screen.findByRole('dialog', { name: '제출할까요?' })
+    await user.click(
+      within(dialog).getByRole('button', { name: '제출하고 결과 보기' })
+    )
+    await waitFor(() => {
+      const sending = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(sending)
+      expect(sending.defaultPrevented).toBe(true)
     })
-    renderSession(frozen.session.id)
+    releaseSubmission()
+  })
+
+  it('a failed submit locks nothing; [제출하기] sends the answers on screen with a new key (#1262)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const question = payload.questions[0]
+    const option = question?.options[0]
+    if (!question?.sessionQuestionId || !option)
+      throw new Error('Public option required')
+    let failing = true
+    const sent: { body: unknown; key: string | null }[] = []
+    mockServer.use(
+      http.post(
+        `*/api/v1/study-sessions/${payload.session.id}/submission`,
+        async ({ request }) => {
+          sent.push({
+            body: await request.clone().json(),
+            key: request.headers.get('Idempotency-Key')
+          })
+          if (failing) return HttpResponse.json({}, { status: 500 })
+          return undefined
+        }
+      )
+    )
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: '제출하기' }))
+    const dialog = await screen.findByRole('dialog', { name: '제출할까요?' })
+    await user.click(
+      within(dialog).getByRole('button', { name: '제출하고 결과 보기' })
+    )
+    const region = await screen.findByRole(
+      'region',
+      { name: '알림' },
+      { timeout: 8000 }
+    )
     expect(
-      await screen.findByRole('dialog', { name: '제출할까요?' })
-    ).toBeInTheDocument()
-    const blocked = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(blocked)
-    expect(blocked.defaultPrevented).toBe(true)
+      await within(region).findByText(
+        '제출하지 못했어요. 잠시 뒤에 다시 시도해 주세요.'
+      )
+    ).toBeVisible()
+    expect(
+      within(region).queryByRole('button', { name: '다시 시도' })
+    ).toBeNull()
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: '제출할까요?' })
+      ).not.toBeInTheDocument()
+    )
+    const failedKeys = new Set(sent.map((request) => request.key))
+    expect(failedKeys.size).toBe(1)
+
+    // The answer can still change, and the next press sends it.
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    failing = false
+    await user.click(screen.getByRole('button', { name: '제출하기' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/practice/result/${payload.session.id}`
+      )
+    )
+    // #1311: the result screen does not keep saying the submit failed.
+    await waitFor(() =>
+      expect(
+        screen.queryByText('제출하지 못했어요. 잠시 뒤에 다시 시도해 주세요.')
+      ).not.toBeInTheDocument()
+    )
+    const last = sent.at(-1)
+    expect(failedKeys.has(last?.key ?? null)).toBe(false)
+    expect(last?.body).toMatchObject({
+      answers: [
+        {
+          studySessionQuestionId: question.sessionQuestionId,
+          selectedOptionId: option.id
+        }
+      ]
+    })
+  })
+
+  it('goes to the result when the server already graded this session (#1262)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const question = payload.questions[0]
+    const option = question?.options[0]
+    if (!question?.sessionQuestionId || !option)
+      throw new Error('Public option required')
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    // An earlier press reached the server, but its answer never came back.
+    await submitStudySessionV2(
+      payload.session.id,
+      {
+        answers: [
+          {
+            elapsedSec: 1,
+            selectedOptionId: option.id,
+            studySessionQuestionId: question.sessionQuestionId
+          }
+        ],
+        durationSec: 1
+      },
+      crypto.randomUUID()
+    )
+    await user.click(radio)
+    await user.click(screen.getByRole('button', { name: '제출하기' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/practice/result/${payload.session.id}`
+      )
+    )
   })
 })

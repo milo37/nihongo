@@ -12,7 +12,7 @@ export const useRushBest = (userId: string, level: JlptLevel) =>
     queryFn: getRushBest,
     staleTime: 60_000,
     retry: false,
-    meta: { localErrorUi: true },
+    // #1262: a failed read only hides the best score line, on purpose.
     select: (data: RushBests) =>
       data.bests.find(
         (row) => row.mode === 'KANJI_RUSH_30S' && row.level === level
@@ -23,8 +23,7 @@ export const useRushPairs = (level: JlptLevel) =>
   useQuery({
     queryKey: ['rush-pairs', level] as const,
     queryFn: () => getRushPairs(level),
-    staleTime: 300_000,
-    meta: { localErrorUi: true }
+    staleTime: 300_000
   })
 
 /** Sends a finished round; the server keeps it only when it is higher. */

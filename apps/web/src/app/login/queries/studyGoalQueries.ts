@@ -41,8 +41,7 @@ export const studyGoalQueries = {
       queryFn: getStudyGoal,
       staleTime: 0,
       retry: false,
-      refetchOnWindowFocus: false,
-      meta: { localErrorUi: true }
+      refetchOnWindowFocus: false
     })
 } as const
 

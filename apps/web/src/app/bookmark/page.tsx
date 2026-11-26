@@ -40,12 +40,6 @@ export const BookmarkPage = (): ReactElement => {
   }
 
   const { items, total } = bookmarksQuery.data
-  const mutationStatus = bookmarks.isMutationPaused
-    ? t('status.offline')
-    : bookmarks.statusMessage
-      ? t(`status.${bookmarks.statusMessage}`)
-      : null
-
   return (
     <section className="bookmark-page">
       <div className="bookmark-heading">
@@ -60,7 +54,6 @@ export const BookmarkPage = (): ReactElement => {
             isStarting={bookmarks.isPracticeStarting}
             noEligibleQuestions={bookmarks.noEligibleQuestions}
             onRefresh={bookmarks.refreshAfterNoEligible}
-            onRetry={bookmarks.retryBookmarkPractice}
             onStart={bookmarks.startBookmarkPractice}
             pendingGroup={bookmarks.pendingPracticeGroup}
           />
@@ -70,9 +63,6 @@ export const BookmarkPage = (): ReactElement => {
       <BookmarkListNotices
         isCachedOffline={bookmarks.isBookmarksPaused}
         isStaleError={bookmarksQuery.isError}
-        mutationStatus={
-          bookmarks.isRemovalPromptPending ? null : mutationStatus
-        }
         onRetry={() => void bookmarksQuery.refetch()}
       />
 

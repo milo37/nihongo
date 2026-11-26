@@ -3,9 +3,8 @@ import { createBrowserRouter } from 'react-router'
 import type { RouteObject } from 'react-router'
 import { bookmarkRoutes } from '@app/bookmark/router'
 import { accountRoutes } from '@app/account/router'
-import { dashboardRoutes } from '@app/dashboard/router'
+import { dashboardRoutes, homeRoutes } from '@app/dashboard/router'
 import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
-import { homeRoutes } from '@app/home/router'
 import { Layout } from '@app/layout'
 import { AccountRestoreNotice } from '@app/login/components/AccountRestoreNotice'
 import { GuestResultCarry } from '@app/login/components/GuestResultCarry'
@@ -32,6 +31,19 @@ const developmentRoutes: RouteObject[] = import.meta.env.DEV
   ? (await import('@app/development/router')).developmentRoutes
   : []
 
+// #1268: /ja, /ja/practice, /ja/legal and /ja/support open the same screens
+// as /, /practice, /legal and /support (the first visit shows Japanese). Links
+// inside the screens keep their usual addresses.
+const publicRoutes: RouteObject[] = [
+  ...homeRoutes,
+  ...practiceRoutes.filter((route) => route.path === 'practice'),
+  ...operationsRoutes
+]
+const japanesePublicRoutes: RouteObject[] = publicRoutes.map((route) => ({
+  path: route.index ? 'ja' : `ja/${route.path ?? ''}`,
+  element: route.element
+}))
+
 export const appRoutes: RouteObject[] = [
   ...developmentRoutes,
   {
@@ -54,6 +66,7 @@ export const appRoutes: RouteObject[] = [
       ...loginRoutes,
       ...operationsRoutes,
       ...practiceRoutes,
+      ...japanesePublicRoutes,
       ...wrongNoteRoutes.filter((route) => route.path === 'wrong-notes'),
       {
         element: (

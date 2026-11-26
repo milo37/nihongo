@@ -616,9 +616,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     ])
     await expect(page).toHaveURL(
       (url) =>
-        url.origin === origin &&
-        url.pathname === '/dashboard' &&
-        url.search === '?view=learning'
+        url.origin === origin && url.pathname === '/' && url.search === ''
     )
     await settleJourneyPage(page)
     // Both modes now finish in the page: the confirming refresh, then the
@@ -977,7 +975,7 @@ const openMyPage = async (page: Page): Promise<void> => {
       )
     ).toBe(true)
   })
-  await page.getByRole('button', { name: '계정 메뉴', exact: true }).click()
+  await page.getByRole('button', { name: / 계정 메뉴$/ }).click()
   await page.getByRole('menuitem', { name: '마이페이지', exact: true }).click()
   await expect(page).toHaveURL(/\/account$/u)
   await accountResponse
@@ -1291,7 +1289,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
   }
   await loginThroughUi(page)
   // JLP-873: the member home lights no tab; 학습 goes to practice setup.
-  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await expect(page).toHaveURL(
+    (url) => url.pathname === '/' && url.search === ''
+  )
   await expect(page.locator('#primary-navigation [aria-current]')).toHaveCount(
     0
   )
@@ -1610,7 +1610,9 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     })
   }
   await home.click()
-  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await expect(page).toHaveURL(
+    (url) => url.pathname === '/' && url.search === ''
+  )
   // Let home finish loading before the account menu opens; a menu opened
   // while home still renders can close under the click (#992 CI).
   await expect(
@@ -1738,7 +1740,9 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   await page.goto('/login')
   await settleJourneyPage(page)
   await loginThroughUi(page)
-  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await expect(page).toHaveURL(
+    (url) => url.pathname === '/' && url.search === ''
+  )
   const landingReads = ledgerEntriesFor(ledger, 'GET', '/api/v1/study-sessions')
   expect(landingReads).toHaveLength(1)
   expect(landingReads[0]).toMatchObject({

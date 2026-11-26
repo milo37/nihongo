@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { usePracticeResultController } from '@app/practice/hooks/usePracticeResultController'
 import { ResultQuestionDetail } from '@app/practice/result/ResultQuestionDetail'
@@ -18,7 +17,6 @@ export const SelectedResultItem = ({
   items: readonly ResultItem[]
   item: ResultItem
 }): ReactElement => {
-  const { t } = useTranslation('result')
   const { bookmark } = result
   const samePassageIndex = samePassageStart(
     items.map(({ question }) => question),
@@ -44,14 +42,6 @@ export const SelectedResultItem = ({
           bookmark.isUnavailable || result.isResultSourceUnavailable
         }
         isResultSourceUnavailable={result.isResultSourceUnavailable}
-        bookmarkMessage={
-          bookmark.message?.questionId === item.question.id
-            ? {
-                text: t(`bookmark.${bookmark.message.code}`),
-                isError: bookmark.message.code !== 'unavailable'
-              }
-            : null
-        }
         onToggleBookmark={result.toggleSelectedBookmark}
       />
     </div>

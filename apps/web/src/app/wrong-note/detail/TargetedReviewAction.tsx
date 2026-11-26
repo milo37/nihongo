@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { useTargetedReviewStart } from '@app/wrong-note/hooks/useTargetedReviewStart'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 
@@ -18,6 +19,16 @@ export const TargetedReviewAction = ({
   targeted
 }: TargetedReviewActionProps): ReactElement => {
   const { t } = useTranslation('wrongNote')
+  useErrorToast(
+    targeted.isError && !targeted.isAccountRestricted
+      ? t(
+          targeted.isUnavailableError
+            ? 'detail.targeted.unavailable'
+            : 'detail.targeted.error'
+        )
+      : null,
+    'set-create'
+  )
   const { reviewAvailability } = data.wrongNote
   const isArchived = reviewAvailability === 'ARCHIVED'
   return (
@@ -54,12 +65,6 @@ export const TargetedReviewAction = ({
               className="wrong-note-action-restricted"
               focusOnMount
             />
-          ) : targeted.isError ? (
-            <p className="wrong-note-action-error" role="alert">
-              {targeted.isUnavailableError
-                ? t('detail.targeted.unavailable')
-                : t('detail.targeted.error')}
-            </p>
           ) : null}
         </>
       ) : (

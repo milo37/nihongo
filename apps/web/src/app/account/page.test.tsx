@@ -506,6 +506,36 @@ describe('마이페이지 계정 설정', () => {
     mockServer.events.removeAllListeners('request:start')
   })
 
+  it('닉네임 저장이 실패하면 쓴 이름은 그대로 두고 토스트로 알린다 (#1292)', async () => {
+    mockDatabase.loginAs('USER')
+    mockServer.use(
+      http.put('*/api/v1/me/nickname', () =>
+        HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'private error' },
+          { status: 500 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    await user.click(await screen.findByRole('button', { name: '바꾸기' }))
+    const field = screen.getByRole('textbox', { name: '닉네임' })
+    await user.clear(field)
+    await user.type(field, '하루')
+    const form = field.closest('form')
+    if (!form) throw new Error('The nickname form is missing.')
+    await user.click(within(form).getByRole('button', { name: '저장' }))
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '닉네임을 바꾸지 못했어요. 잠시 뒤 다시 저장해 주세요.'
+      )
+    ).toBeVisible()
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
+    expect(field).toHaveValue('하루')
+    expect(within(form).getByRole('button', { name: '저장' })).toBeEnabled()
+  })
+
   it('12자보다 긴 이름은 앞 12자로 채워 연다 (#1096)', async () => {
     const member = mockDatabase.loginAs('USER')
     mockDatabase.setName(member.id, '가나다라마바사아자차카타파하')
@@ -528,6 +558,36 @@ describe('마이페이지 계정 설정', () => {
       screen.getByRole('heading', { level: 1, name: '데모 학습자' })
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
+  })
+
+  it('로그인 방법을 못 불러오면 그 행과 회원 탈퇴 행을 숨기고 [다시 시도] 토스트로 알린다 (#1292)', async () => {
+    mockDatabase.loginAs('USER')
+    let failing = true
+    mockServer.use(
+      http.get('*/api/auth/sso/accounts', () =>
+        failing
+          ? HttpResponse.json(
+              { code: 'SERVER_ERROR', message: 'private' },
+              { status: 500 }
+            )
+          : undefined
+      )
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('로그인 방법을 불러오지 못했어요.')
+    ).toBeVisible()
+    expect(screen.queryByText('로그인 방법')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '회원 탈퇴' })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    failing = false
+    await user.click(within(region).getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByText('Google')).toBeVisible()
+    expect(screen.getByRole('button', { name: '회원 탈퇴' })).toBeEnabled()
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
@@ -915,12 +975,21 @@ describe('마이페이지 계정 설정', () => {
     const reads = deletionReads()
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
+    // #1292: the line sits below the fold at ② on a phone.
+    const original = Element.prototype.scrollIntoView
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
     renderAccount()
     const dialog = await openDeleteDialog(user)
     await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
     await waitFor(() => expect(finish).toBeDefined())
     await act(async () => finish?.())
-    await within(dialog).findByRole('alert')
+    const line = await within(dialog).findByRole('alert')
+    expect(line).toHaveClass('two-step-notice-error')
+    expect(line).toHaveTextContent(
+      '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    )
+    expect(scroll.mock.contexts).toContain(line)
     expect(
       within(dialog).queryByRole('button', { name: '회원 탈퇴' })
     ).not.toBeInTheDocument()
@@ -928,6 +997,97 @@ describe('마이페이지 계정 설정', () => {
     await waitFor(() => expect(reads()).toBe(1))
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
     expect(mockDatabase.getCurrentUser()).not.toBeNull()
+    Element.prototype.scrollIntoView = original
+  })
+  it('결과 모름에서 창을 닫으면 탈퇴 버튼이 [다시 확인]이 되고, 또 모르면 토스트를 다시, 처리 안 됨이면 [회원 탈퇴]로 돌아온다 (#1292)', async () => {
+    freshActor()
+    let receipt: 'down' | 'none' = 'down'
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/auth/sso/deletion', () =>
+        receipt === 'down'
+          ? HttpResponse.error()
+          : HttpResponse.json(
+              { code: 'SSO_DELETION_RECEIPT_UNAVAILABLE', message: '없음' },
+              { status: 404 }
+            )
+      )
+    )
+    const unknown = '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    const user = userEvent.setup()
+    renderAccount()
+    const dialog = await openDeleteDialog(user)
+    await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
+    await within(dialog).findByRole('alert')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(await within(region).findByText(unknown)).toBeVisible()
+    expect(screen.queryByRole('alert')).toBeNull()
+    // One button where deletion was: no grey [회원 탈퇴] without a reason.
+    expect(
+      screen.queryByRole('button', { name: '회원 탈퇴' })
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '다시 확인' })).toHaveLength(1)
+    await user.click(within(region).getByRole('button', { name: '알림 닫기' }))
+    // The region leaves when it is empty: look it up again.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('region', { name: '알림' })
+      ).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: '다시 확인' }))
+    const again = await screen.findByRole('region', { name: '알림' })
+    expect(await within(again).findByText(unknown)).toBeVisible()
+    receipt = 'none'
+    await user.click(screen.getByRole('button', { name: '다시 확인' }))
+    expect(
+      await screen.findByRole('button', { name: '회원 탈퇴' })
+    ).toBeEnabled()
+    await waitFor(() => expect(screen.queryByText(unknown)).toBeNull())
+  })
+  it('결과 모름에서 Esc로 닫으면 초점이 [다시 확인]으로, 다시 확인 뒤에도 그 버튼에 남는다 (JLP-981)', async () => {
+    freshActor()
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/auth/sso/deletion', () => HttpResponse.error())
+    )
+    const user = userEvent.setup()
+    // The dialog reopens by itself after the Google check: nothing was clicked.
+    renderAccount('/login?reauth=delete&ssoAccountFresh=REAUTHENTICATED')
+    const dialog = await screen.findByRole('dialog', {
+      name: '회원 탈퇴할까요?'
+    })
+    await user.click(
+      await within(dialog).findByRole('button', { name: '회원 탈퇴' })
+    )
+    await within(dialog).findByRole('alert')
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    const recheck = screen.getByRole('button', { name: '다시 확인' })
+    expect(recheck).toHaveFocus()
+    await user.keyboard('{Enter}')
+    const region = await screen.findByRole('region', { name: '알림' })
+    await within(region).findByText(
+      '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '다시 확인' })).toHaveFocus()
+    )
   })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')
@@ -985,7 +1145,7 @@ describe('마이페이지 계정 설정', () => {
       'alert'
     ]
   ] as const)(
-    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(실패·만료는 빨간 상자, 취소는 중립 상자)',
+    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(창 안 한 줄: 실패·만료는 빨강, 취소는 회색)',
     async (outcome, copy, role) => {
       mockDatabase.loginAs('USER')
       renderAccount('/login?reauth=delete&ssoAccountFresh=' + outcome)
@@ -995,9 +1155,9 @@ describe('마이페이지 계정 설정', () => {
       expect(dialog).toHaveTextContent(copy)
       const box = within(dialog).getByText(copy)
       expect(box).toHaveAttribute('role', role)
-      expect(box).toHaveClass('auth-notice')
-      if (role === 'alert') expect(box).toHaveClass('auth-error')
-      else expect(box).not.toHaveClass('auth-error')
+      expect(box).toHaveClass(
+        role === 'alert' ? 'two-step-notice-error' : 'two-step-notice-muted'
+      )
       expect(
         within(dialog).queryByRole('button', { name: '회원 탈퇴' })
       ).not.toBeInTheDocument()
@@ -1021,7 +1181,13 @@ describe('마이페이지 계정 설정', () => {
     await act(async () => {
       await router.navigate('/login?ssoAccountFresh=CANCELLED')
     })
-    await screen.findByText('본인 확인을 취소했어요.')
+    // #1292: a notice toast, not a line on the page.
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('본인 확인을 취소했어요.')
+    ).toBeVisible()
+    expect(region.querySelector('.ui-toast-info')).not.toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
     expect(router.state.location.pathname).toBe('/account')
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toEqual({
       owner: actor.id
@@ -1087,35 +1253,56 @@ describe('마이페이지 계정 설정', () => {
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
   })
 
-  it('불명확한 로그아웃은 명령을 반복하지 않고 canonical 상태부터 다시 확인한다', async () => {
+  it('불명확한 로그아웃은 창을 닫고 토스트로 알리고, 다시 누르면 상태부터 확인한 뒤 로그아웃한다 (#1292)', async () => {
     mockDatabase.loginAs('USER')
     let signouts = 0
+    let failSignOut = true
+    const calls: string[] = []
     mockServer.use(
+      http.get('*/api/v1/me', () => {
+        calls.push('check')
+        return undefined
+      }),
       http.post('*/api/auth/sign-out', () => {
         signouts += 1
+        calls.push('sign-out')
+        if (!failSignOut) return undefined
         return HttpResponse.json(
           { code: 'SERVER_ERROR', message: 'private error' },
           { status: 500 }
         )
       })
     )
-    renderAccount()
+    const router = renderAccount()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    const pageButton = await screen.findByRole('button', { name: '로그아웃' })
+    await user.click(pageButton)
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      '로그아웃됐는지 확인하지 못했어요.'
-    )
-    expect(signouts).toBe(1)
-    await user.click(within(dialog).getByRole('button', { name: '다시 확인' }))
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '로그아웃하지 못했어요. 다시 눌러 주세요.'
+      )
+    ).toBeVisible()
     await waitFor(() =>
-      expect(
-        within(dialog).getByRole('button', { name: '로그아웃' })
-      ).toBeEnabled()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
-    expect(mockDatabase.getCurrentUser()?.id).toBe(DEMO_USER_ID)
+    expect(within(region).queryByRole('button')).not.toHaveTextContent(
+      '다시 시도'
+    )
     expect(signouts).toBe(1)
+    expect(mockDatabase.getCurrentUser()?.id).toBe(DEMO_USER_ID)
+
+    // The next press asks the server first; still signed in, so it logs out.
+    failSignOut = false
+    calls.length = 0
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    const reopened = await screen.findByRole('dialog')
+    await user.click(within(reopened).getByRole('button', { name: '로그아웃' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(calls.indexOf('check')).toBeLessThan(calls.indexOf('sign-out'))
+    expect(signouts).toBe(2)
   })
 
   it('요청 extra field와 공급자 URL 불일치를 거부한다', async () => {

@@ -161,6 +161,23 @@ test('post-deploy smoke rejects redirects, external assets and mock worker avail
     /cross-origin asset/u
   )
 
+  // #1268: canonical and hreflang links name public addresses, not assets.
+  const seoLinks =
+    '<link rel="canonical" href="https://harumaru.app/" /><link rel="alternate" hreflang="ja" href="https://harumaru.app/ja" />'
+  const { fetchImpl: seoShellFetch } = createSuccessfulFetch()
+  const seoFetch = async (url, init) =>
+    url.pathname === '/' || url.pathname === '/login'
+      ? createResponse(html.replace('<script', `${seoLinks}<script`), 200, {
+          'Content-Type': 'text/html'
+        })
+      : seoShellFetch(url, init)
+  await runPostDeploySmoke({
+    environment: 'STAGING',
+    fetchImpl: seoFetch,
+    origin,
+    releaseId
+  })
+
   const { fetchImpl } = createSuccessfulFetch()
   const workerFetch = async (url, init) => {
     if (url.pathname === '/mockServiceWorker.js') {

@@ -1,5 +1,4 @@
 import {
-  act,
   fireEvent,
   render as baseRender,
   screen,
@@ -7,13 +6,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LAST_PRACTICE_CHOICE_KEY } from '@app/practice/lastPracticeChoice'
-import {
-  createMemoryRouter,
-  MemoryRouter,
-  Route,
-  RouterProvider,
-  Routes
-} from 'react-router'
+import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getResponse, http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
@@ -29,7 +22,7 @@ const render = (ui: ReactElement) =>
     </QueryClientProvider>
   )
 import { appI18n } from '@nihongo/browser/i18n/config'
-import { HomePage, LearningHome } from '@app/home/page'
+import { LearningHome } from '@app/home/page'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
 import { mockServer } from '@/test/server'
@@ -79,55 +72,6 @@ beforeEach(async () => {
     user: { id: 'member' }
   })
 })
-
-it('opens the member learning page through the existing protected dashboard route', async () => {
-  render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<h1>학습 노트 진입</h1>} />
-      </Routes>
-    </MemoryRouter>
-  )
-  expect(
-    await screen.findByRole('heading', { name: '학습 노트 진입' })
-  ).toBeVisible()
-})
-
-it.each([
-  '?level=N5&subject=READING&count=20&mode=RANDOM&resumePage=3',
-  '?level=N1&subject=GRAMMAR&count=10&mode=WRONG_NOTE&view=insights&view=invalid'
-])(
-  'preserves learning conditions and replaces the home history entry (%s)',
-  async (search) => {
-    const router = createMemoryRouter(
-      [
-        { path: '/', element: <HomePage /> },
-        { path: '/dashboard', element: <h1>Member learning</h1> },
-        { path: '/previous', element: <h1>Previous page</h1> }
-      ],
-      { initialEntries: ['/previous', `/${search}#learning`], initialIndex: 1 }
-    )
-    const view = render(<RouterProvider router={router} />)
-    await screen.findByRole('heading', { name: 'Member learning' })
-    expect(router.state.location.pathname).toBe('/dashboard')
-    expect(router.state.location.hash).toBe('#learning')
-    const expected = new URLSearchParams(search)
-    expected.set('view', 'learning')
-    expect(new URLSearchParams(router.state.location.search).toString()).toBe(
-      expected.toString()
-    )
-    expect(
-      new URLSearchParams(router.state.location.search).getAll('view')
-    ).toEqual(['learning'])
-    await act(async () => {
-      await router.navigate(-1)
-    })
-    expect(router.state.location.pathname).toBe('/previous')
-    view.unmount()
-    router.dispose()
-  }
-)
 
 const renderHome = (
   initial = '/',
@@ -250,7 +194,7 @@ it('starts a member from the last level and subject, changed by the underlined w
     user: { id: 'member', name: '데모', targetLevel: null }
   })
   const user = userEvent.setup()
-  renderHome('/dashboard?view=learning')
+  renderHome('/')
   // JLP-859: no greeting line above the daily question.
   expect(screen.queryByText(/왔네요/u)).toBeNull()
   expect(
@@ -289,7 +233,7 @@ it('tells a member how many wrong answers wait and starts the same review as the
     counts: { toReview: 4, reviewed: 1 },
     oldestToReview: { level: 'N4', subject: 'GRAMMAR' }
   } as never)
-  renderHome('/dashboard?view=learning', <ReviewDueLine />)
+  renderHome('/', <ReviewDueLine />)
   expect(await screen.findByText('복습할 문제도 4개 남아 있어요')).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: '복습' }))
   expect(mocks.mutate).toHaveBeenCalledWith(
@@ -303,7 +247,7 @@ it('shows nothing about review when no wrong answers wait', async () => {
     counts: { toReview: 0, reviewed: 3 },
     oldestToReview: null
   } as never)
-  renderHome('/dashboard?view=learning', <ReviewDueLine />)
+  renderHome('/', <ReviewDueLine />)
   await vi.waitFor(() => expect(list).toHaveBeenCalled())
   expect(screen.queryByRole('button', { name: '복습' })).toBeNull()
 })
@@ -378,7 +322,7 @@ it('puts the unfinished set, then review, under [시작하기] for a member (#99
   vi.spyOn(dashboardApi, 'getDashboardStatsV1').mockResolvedValue(
     week([0, 0, 0, 0, 0, 0, 0]) as never
   )
-  renderHome('/dashboard?view=learning', <ReviewDueLine />, true)
+  renderHome('/', <ReviewDueLine />, true)
   const resume = await screen.findByText('풀던 N2 문법, 10문제 중 4번까지')
   expect(
     within(resume).getByRole('link', { name: '이어 풀기' })
@@ -396,7 +340,7 @@ it("counts this level's last 7 days at a member's foot and links to 마이 (#995
   const stats = vi
     .spyOn(dashboardApi, 'getDashboardStatsV1')
     .mockResolvedValue(week([3, 0, 12, 5, 0, 10, 2]) as never)
-  renderHome('/dashboard?view=learning', undefined, true)
+  renderHome('/', undefined, true)
   const line = await screen.findByText('최근 7일 동안 N2 32문제를 풀었어요')
   expect(line).toHaveClass('home-foot')
   expect(within(line).getByRole('link', { name: '마이' })).toHaveAttribute(
@@ -406,11 +350,16 @@ it("counts this level's last 7 days at a member's foot and links to 마이 (#995
   expect(stats).toHaveBeenCalledWith({ level: 'N2' })
 })
 
-it('shows the start error in place and allows another try', () => {
+it('says a failed start in a toast and allows another try (#1262)', () => {
   mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
   mocks.failed = true
   renderHome()
-  expect(screen.getByRole('alert')).toBeVisible()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(
+    within(screen.getByRole('region', { name: '알림' })).getByText(
+      appI18n.t('practice:setup.createError')
+    )
+  ).toBeVisible()
   const start = screen.getByRole('button', { name: '시작하기' })
   fireEvent.click(start)
   fireEvent.click(start)

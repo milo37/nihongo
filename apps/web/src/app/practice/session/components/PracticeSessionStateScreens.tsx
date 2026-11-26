@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
@@ -34,42 +33,6 @@ export const SessionSetupLinkError = ({
     />
   )
   return framed ? <FramedSection>{errorState}</FramedSection> : errorState
-}
-
-type SessionRecoveryStateProps = {
-  connectivityMessage: SubmissionConnectivityCode | null
-  description: string
-  idleStatus: string
-  onRetry: () => void
-}
-
-export const SessionRecoveryState = ({
-  connectivityMessage,
-  description,
-  idleStatus,
-  onRetry
-}: SessionRecoveryStateProps): ReactElement => {
-  const { t } = useTranslation('practice')
-  return (
-    <FramedSection>
-      <ErrorState
-        autoFocus
-        headingLevel={1}
-        title={t('session.recovery.title')}
-        description={description}
-        action={
-          <div className="study-state-stack">
-            <Button onClick={onRetry}>{t('session.recovery.retry')}</Button>
-            <p className="study-recovery-note" role="status" aria-live="polite">
-              {connectivityMessage
-                ? t(`session.submit.connectivity.${connectivityMessage}`)
-                : idleStatus}
-            </p>
-          </div>
-        }
-      />
-    </FramedSection>
-  )
 }
 
 type SessionLoadErrorProps = {
