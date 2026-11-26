@@ -76,4 +76,6 @@ export const readReauthKeep = (
 export const clearReauthKeep = (
   actorId: string,
   screen: ReauthKeepScreen
-): void => cachedSessionStorage.removeItem(key(actorId, screen))
+): void => {
+  cachedSessionStorage.removeItem(key(actorId, screen))
+}

@@ -14,7 +14,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 interface MemoryStorage {
   getItem: (key: string) => string | null
   setItem: (key: string, value: string) => boolean
-  removeItem: (key: string) => void
+  removeItem: (key: string) => boolean
 }
 
 const createMemoryStorage = (): MemoryStorage => {
