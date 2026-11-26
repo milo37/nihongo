@@ -1362,6 +1362,12 @@ describe('PracticeSessionPage', () => {
         `/practice/result/${payload.session.id}`
       )
     )
+    // #1311: the result screen does not keep saying the submit failed.
+    await waitFor(() =>
+      expect(
+        screen.queryByText('제출하지 못했어요. 잠시 뒤에 다시 시도해 주세요.')
+      ).not.toBeInTheDocument()
+    )
     const last = sent.at(-1)
     expect(failedKeys.has(last?.key ?? null)).toBe(false)
     expect(last?.body).toMatchObject({
