@@ -44,10 +44,8 @@ export const ResultManageButtons = ({
         disabled={!item.question.questionVersionId}
         // Focus stays here while busy (a toast closed with Esc returns to it).
         aria-disabled={bookmarkDisabled || undefined}
-        aria-label={t(
-          isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
-          { formattedOrdinal }
-        )}
+        // The name is the visible word with the question number before it
+        // (WCAG 2.5.3 label in name); aria-pressed says whether it is in.
         aria-pressed={isBookmarked}
         data-selected={isBookmarked}
         onClick={() => {
@@ -55,6 +53,9 @@ export const ResultManageButtons = ({
         }}
       >
         <Icon name="bookmark" />
+        <span className="sr-only">
+          {t('bookmark.namePrefix', { formattedOrdinal })}
+        </span>
         {t('bookmark.add')}
       </Button>
       {canReport &&
