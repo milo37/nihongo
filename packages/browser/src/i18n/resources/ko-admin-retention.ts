@@ -19,5 +19,18 @@ export const koAdminRetentionResources = {
     weekCohortSize: '7일째 집계 크기',
     day7: '7일째 재방문',
     week1: '첫 주 재방문'
-  }
+  },
+  summary: {
+    day1: '다음 날 재방문 · 최근 7일',
+    week1: '첫 주 재방문 · 최근 7일',
+    base: '{{count}}명 중'
+  },
+  chart: {
+    day1: '다음 날 재방문율',
+    week1: '첫 주 재방문율',
+    label: '{{title}}, 회원과 비회원, 최근 8주',
+    count: '{{base}}명 중 {{returned}}명',
+    note: '가로축은 처음 학습한 날(코호트)입니다. 점을 누르면 그날 인원과 재방문 수가 보입니다. 위 숫자는 집계가 끝난 최근 7일을 합친 값입니다.'
+  },
+  tableToggle: '숫자 표로 보기'
 } as const

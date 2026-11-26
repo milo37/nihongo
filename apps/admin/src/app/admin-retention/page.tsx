@@ -5,67 +5,64 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
-import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
-import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminRetention } from '@app/admin-retention/hooks/useAdminRetention'
+import { RetentionChart } from '@app/admin-retention/components/RetentionChart'
+import {
+  RetentionLegend,
+  RetentionSummary
+} from '@app/admin-retention/components/RetentionSummary'
+import { RetentionTable } from '@app/admin-retention/components/RetentionTable'
+import {
+  cohortDays,
+  headlineCount,
+  retentionPoints,
+  type RetentionMeasure
+} from '@app/admin-retention/libs/retentionSeries'
 
-/** A returned count and its share of the people it is counted against. */
-const ReturnCell = ({
-  returned,
-  base
+/** #1271: headline numbers, two line charts, exact numbers folded below. */
+const RetentionView = ({
+  rows
 }: {
-  returned: number | null
-  base: number | null
+  rows: readonly AdminRetentionRow[]
 }): ReactElement => {
-  const { locale } = useUiLocale()
   const { t } = useAdminPresentation()
-  if (returned === null || base === null)
-    return <span className="text-muted">{t('retention.pending')}</span>
+  const now = new Date()
+  const days = cohortDays(rows)
+  const seriesOf = (measure: RetentionMeasure) => ({
+    MEMBER: retentionPoints(rows, 'MEMBER', measure, now),
+    GUEST: retentionPoints(rows, 'GUEST', measure, now)
+  })
+  const day1 = seriesOf('day1')
+  const week1 = seriesOf('week1')
   return (
-    <>
-      <span className="font-semibold">{formatNumber(returned, locale)}</span>
-      <span className="ml-2 text-muted">
-        {base === 0
-          ? t('common.none')
-          : formatNumber(returned / base, locale, {
-              style: 'percent',
-              maximumFractionDigits: 1
-            })}
-      </span>
-    </>
-  )
-}
-
-const RetentionRow = ({ row }: { row: AdminRetentionRow }): ReactElement => {
-  const { locale } = useUiLocale()
-  const { t } = useAdminPresentation()
-  return (
-    <tr>
-      <th scope="row" className="px-3 py-3 font-semibold tabular-nums">
-        <time dateTime={row.cohortDate}>{row.cohortDate}</time>
-      </th>
-      <td className="px-3 py-3">{t(`retention.audience.${row.audience}`)}</td>
-      <td className="px-3 py-3 text-right tabular-nums">
-        {formatNumber(row.cohortSize, locale)}
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums">
-        <ReturnCell returned={row.day1Returned} base={row.cohortSize} />
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums">
-        {row.weekCohortSize === null ? (
-          <span className="text-muted">{t('retention.pending')}</span>
-        ) : (
-          formatNumber(row.weekCohortSize, locale)
-        )}
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums">
-        <ReturnCell returned={row.day7Returned} base={row.weekCohortSize} />
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums">
-        <ReturnCell returned={row.week1Returned} base={row.weekCohortSize} />
-      </td>
-    </tr>
+    <section aria-label={t('retention.title')} className="mt-8">
+      <RetentionLegend />
+      <RetentionSummary
+        day1={{
+          MEMBER: headlineCount(day1.MEMBER),
+          GUEST: headlineCount(day1.GUEST)
+        }}
+        week1={{
+          MEMBER: headlineCount(week1.MEMBER),
+          GUEST: headlineCount(week1.GUEST)
+        }}
+      />
+      <RetentionChart
+        title={t('retention.chart.day1')}
+        days={days}
+        series={day1}
+      />
+      <RetentionChart
+        title={t('retention.chart.week1')}
+        days={days}
+        series={week1}
+      />
+      <p className="mt-3 max-w-prose text-[0.8125rem] text-muted [word-break:keep-all]">
+        {t('retention.chart.note')}
+      </p>
+      <RetentionTable rows={rows} />
+    </section>
   )
 }
 
@@ -96,48 +93,7 @@ const RetentionBody = (): ReactElement => {
         description={t('retention.emptyDescription')}
       />
     )
-  return (
-    <div
-      role="region"
-      aria-label={t('retention.title')}
-      tabIndex={0}
-      className="mt-8 overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-    >
-      <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
-        <caption className="sr-only">{t('retention.tableLabel')}</caption>
-        <thead className="border-b border-line bg-surface-muted text-muted">
-          <tr>
-            <th scope="col" className="px-3 py-3 font-semibold">
-              {t('retention.columns.cohortDate')}
-            </th>
-            <th scope="col" className="px-3 py-3 font-semibold">
-              {t('retention.columns.audience')}
-            </th>
-            <th scope="col" className="px-3 py-3 text-right font-semibold">
-              {t('retention.columns.cohortSize')}
-            </th>
-            <th scope="col" className="px-3 py-3 text-right font-semibold">
-              {t('retention.columns.day1')}
-            </th>
-            <th scope="col" className="px-3 py-3 text-right font-semibold">
-              {t('retention.columns.weekCohortSize')}
-            </th>
-            <th scope="col" className="px-3 py-3 text-right font-semibold">
-              {t('retention.columns.day7')}
-            </th>
-            <th scope="col" className="px-3 py-3 text-right font-semibold">
-              {t('retention.columns.week1')}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {retention.data.rows.map((row) => (
-            <RetentionRow key={`${row.cohortDate}-${row.audience}`} row={row} />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+  return <RetentionView rows={retention.data.rows} />
 }
 
 export const AdminRetentionPage = (): ReactElement => {

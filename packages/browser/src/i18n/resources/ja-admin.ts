@@ -921,7 +921,20 @@ export const jaAdminResources = {
       weekCohortSize: '7日目集計時の人数',
       day7: '7日目の再訪',
       week1: '初週の再訪'
-    }
+    },
+    summary: {
+      day1: '翌日の再訪・直近7日',
+      week1: '初週の再訪・直近7日',
+      base: '{{count}}人中'
+    },
+    chart: {
+      day1: '翌日の再訪率',
+      week1: '初週の再訪率',
+      label: '{{title}}、会員とゲスト、直近8週間',
+      count: '{{base}}人中{{returned}}人',
+      note: '横軸は初めて学習した日(コホート)です。点を押すとその日の人数と再訪数が表示されます。上の数値は集計が終わった直近7日の合計です。'
+    },
+    tableToggle: '数値を表で見る'
   },
   questionReportDialog: learner.questionReportDialog,
   userReport: {
