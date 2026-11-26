@@ -124,8 +124,8 @@ bash scripts/question-set-publish.sh confirm   # 가져오기 → 검수 요청 
 ```
 
 - 스크립트는 SSM 상태를 최대 31분(서버 쪽 제한 30분 + 1분) 기다리고, 넘으면 command id를 찍고 실패로 끝납니다. 그때는 같은 id로 `aws ssm get-command-invocation`을 확인합니다.
-- 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 20개 파일(`n5~n1.v1`·`.add.v1`·`.add2.v1`, #1081·`.kanji.v1`, #1043)을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
-- 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 888. 이미 공개된 문제는 `skippedPublished`로 세고 새 문제만 공개합니다(예: 750이 공개된 환경이면 kanji 138만).
+- 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 30개 파일(`n5~n1.v1`·`.add.v1`·`.add2.v1`, #1081·`.kanji.v1`, #1043·`b1`~`b10`, #1239)을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
+- 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 1413. 이미 공개된 문제는 `skippedPublished`로 세고 새 문제만 공개합니다(예: 1293이 공개된 환경이면 B9·B10 120만).
 - 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 세고, 중간에 끊겼으면 남은 단계부터 이어 갑니다. 내용이 다른 같은 문제가 있으면 `conflicts`로 멈춥니다.
 - `question_set_publish_failed`면 `code`를 보고 고친 뒤 dry run부터 다시 합니다. 확인은 [question-import.v1.md](question-import.v1.md) "Check"와 같습니다(공개본 1413, Tag 18).
 
