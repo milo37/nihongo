@@ -301,6 +301,7 @@ jobs:
             # installed libasound2t64, #1328). If that still fails, install online instead.
             if [ "${#cached_debs[@]}" -eq 0 ] \
               || sudo apt-get install -y --no-install-recommends "${cached_debs[@]}"; then
+              echo "cached system packages installed with apt: ${#cached_debs[@]}"
               install_args="chromium"
             else
               echo "::warning::Cached Playwright system packages did not install; installing online"

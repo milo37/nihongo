@@ -103,6 +103,13 @@ const browserToolchainLinePattern =
   /^[+-](?![+-]).*(?:@playwright\/test|@axe-core\/playwright|(?<![\w@/-])playwright(?:-core)?|(?<![\w/-])axe-core)(?:@\d|['"]?\s*:)/mu
 export const changesBrowserToolchain = (diff) =>
   browserToolchainLinePattern.test(diff)
+// The CI workflow installs the browser and its system packages, which select no browser run by path.
+// A change to those install lines needs both browser suites on dev PRs, or it merges untested (#1328).
+const browserInstallWorkflowPath = '.github/workflows/ci.yml'
+const browserInstallLinePattern =
+  /^[+-](?![+-]).*(?:playwright|cached_debs|install_args)/imu
+export const changesBrowserInstallStep = (diff) =>
+  browserInstallLinePattern.test(diff)
 
 // Injected test faults need real and Mock provenance proof on dev PRs.
 const browserFaultProvenancePaths = new Set([
@@ -360,12 +367,8 @@ const readChangedFiles = ({ eventName, event, env, git }) => {
 }
 
 const readBrowserToolchainChange = ({ event, changedFiles, git }) => {
-  const manifests = changedFiles.filter((file) =>
-    browserToolchainManifestPaths.has(file)
-  )
-  if (manifests.length === 0) return false
   const { base, head } = event.pull_request
-  return changesBrowserToolchain(
+  const diffOf = (paths) =>
     git(
       'git',
       [
@@ -374,10 +377,19 @@ const readBrowserToolchainChange = ({ event, changedFiles, git }) => {
         '-U0',
         `${base.sha}...${head.sha}`,
         '--',
-        ...manifests
+        ...paths
       ],
       { encoding: 'utf8', stdio: 'pipe' }
     )
+  const manifests = changedFiles.filter((file) =>
+    browserToolchainManifestPaths.has(file)
+  )
+  if (manifests.length > 0 && changesBrowserToolchain(diffOf(manifests))) {
+    return true
+  }
+  return (
+    changedFiles.includes(browserInstallWorkflowPath) &&
+    changesBrowserInstallStep(diffOf([browserInstallWorkflowPath]))
   )
 }
 
