@@ -11,9 +11,7 @@
         "passage": null,
         "explanationKo": "핵심: 장소 + を + 이동 동사 = ~를(지나가는 곳)\n정답은 「を」입니다. 공원 안을 걸어 다니는 것이라 지나가는 장소를 나타내는 を를 씁니다. に·へ는 도착점·방향, が는 주어라 「さんぽします」와 맞지 않습니다.",
         "explanationJa": "ポイント：ばしょ＋を＋あるく・さんぽする（とおる ところ）\nこうえんの 中を あるくので「を」です。「に」「へ」は 行く さき、「が」は 「だれが」の いみなので あいません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -46,9 +44,7 @@
         "passage": null,
         "explanationKo": "핵심: 장소 + を + 出る = ~에서 나오다(떠나는 곳)\n정답은 「を」입니다. 방을 나서는 것이라 떠나는 곳을 나타내는 を입니다. で는 동작하는 장소, が는 주어, の는 명사를 잇는 말이라 「出て」 앞에 오지 않습니다.",
         "explanationJa": "ポイント：ばしょ＋を＋出る（はなれる ところ）\nへやから 外へ 出るので「を」です。「で」は なにかを する ばしょ、「が」「の」は 「出て」の まえに つかいません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -81,9 +77,7 @@
         "passage": null,
         "explanationKo": "핵심: 장소 + に + つく = ~에 도착하다\n정답은 「に」입니다. 도착하는 곳에는 に를 씁니다. を는 지나가거나 떠나는 곳, で는 동작하는 장소, と는 「~와」라 도착점을 나타내지 못합니다.",
         "explanationJa": "ポイント：ばしょ＋に＋つく\nつく ところには「に」を つかいます。「を」は とおる・はなれる ところ、「で」は なにかを する ばしょ、「と」は「〜と いっしょに」の いみです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -116,9 +110,7 @@
         "passage": null,
         "explanationKo": "핵심: 장소 + で + 동작 = ~에서(동작하는 곳)\n정답은 「で」입니다. 숙제를 한 곳이라 で입니다. に는 있는 곳·도착점, を는 목적어, へ는 방향이라 「しました」의 장소가 되지 못합니다.",
         "explanationJa": "ポイント：ばしょ＋で＋する こと\nしゅくだいを した ばしょなので「で」です。「に」は いる ところや つく ところ、「を」は 「なにを」、「へ」は 行く ほうです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -151,9 +143,7 @@
         "passage": null,
         "explanationKo": "핵심: 언어 + で = ~로(수단)\n정답은 「で」입니다. 중국어를 써서 이야기하는 것이라 수단의 で입니다. へ는 방향, に는 도착점, が는 주어라 「무슨 말로」를 나타내지 못합니다.",
         "explanationJa": "ポイント：ことば＋で（つかう もの）\nちゅうごくごを つかって はなすので「で」です。「へ」は 行く ほう、「に」は つく ところ、「が」は「だれが」の いみで、どの ことばを つかうかを あらわせません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -186,9 +176,7 @@
         "passage": null,
         "explanationKo": "핵심: 범위 + で + いちばん = ~에서 가장\n정답은 「で」입니다. 반 안에서 가장 키가 크다는 범위를 나타냅니다. に·を·から는 「いちばん」의 범위를 나타내지 못합니다.",
         "explanationJa": "ポイント：はんい＋で＋いちばん\nクラスの 中で いちばん たかいと いう いみなので「で」です。「に」「を」「から」は「いちばん」の はんいを あらわしません。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -221,9 +209,7 @@
         "passage": null,
         "explanationKo": "핵심: Aや Bなど = A랑 B 등(몇 개만 예로 듦)\n정답은 「や」입니다. 뒤에 「など」가 있어 몇 가지를 예로 드는 や를 씁니다. も는 ~도, か는 ~나(둘 중 하나), の는 ~의라 「など」와 이어지지 않습니다.",
         "explanationJa": "ポイント：Aや Bなど（いくつか れいを 言う）\nうしろに「など」が あるので「や」です。「も」は「〜も」、「か」は どちらか 一つ、「の」は「〜の もの」の いみです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -256,9 +242,7 @@
         "passage": null,
         "explanationKo": "핵심: Aと B、どちらが ~ = A와 B 중 어느 쪽이 ~\n정답은 「と」입니다. 둘을 나란히 놓고 고르게 하는 말입니다. に·で·を는 두 명사를 「와」로 잇지 못합니다.",
         "explanationJa": "ポイント：Aと B、どちらが 〜ですか\nコーヒーと こうちゃの 二つから えらぶので「と」です。「に」「で」「を」は 二つの ものを ならべられません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -291,9 +275,7 @@
         "passage": null,
         "explanationKo": "핵심: Aも Bも = A도 B도\n정답은 「も」입니다. 뒤에 「さかなも」가 있어 「고기도 생선도」가 됩니다. を·で·へ는 「すき」의 대상을 나타내지 못합니다.",
         "explanationJa": "ポイント：Aも Bも＝どちらも\nあとに「さかなも」が あるので、「にくも さかなも」に なります。「を」「で」「へ」は「すき」の まえに つかいません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -326,9 +308,7 @@
         "passage": null,
         "explanationKo": "핵심: 명사 + が すきだ = ~을 좋아하다\n정답은 「が」입니다. すき·だいすき의 대상에는 が를 씁니다. 한국어로 「을」이라도 を를 쓰지 않고, で·に도 맞지 않습니다.",
         "explanationJa": "ポイント：めいし＋が すき・だいすき\n「すき」の まえは「が」です。「を」「で」「に」は つかいません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -361,9 +341,7 @@
         "passage": null,
         "explanationKo": "핵심: 사람 + に + あげる = ~에게 주다\n정답은 「に」입니다. 꽃을 받는 사람에게는 に를 씁니다. を는 주는 물건(花), で는 장소·수단, が는 주는 사람이라 이 자리에 맞지 않습니다.",
         "explanationJa": "ポイント：人＋に＋あげる\n花を もらう 人には「に」を つかいます。「を」は あげる もの、「で」は ばしょや どうぐ、「が」は あげる 人です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -396,9 +374,7 @@
         "passage": null,
         "explanationKo": "핵심: 사람 + から + もらう = ~에게서 받다\n정답은 「から」입니다. 책을 준 사람에게는 から를 씁니다(に도 쓰지만 보기에 없음). を는 받는 물건, で는 장소·수단, へ는 방향이라 맞지 않습니다.",
         "explanationJa": "ポイント：人＋から＋もらう\nほんを くれた 人には「から」を つかいます。「を」は もらう もの、「で」は ばしょや どうぐ、「へ」は 行く ほうです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -431,9 +407,7 @@
         "passage": null,
         "explanationKo": "핵심: 시각 + ごろ = ~쯤(때)\n정답은 「ごろ」입니다. 집을 나서는 「때」라 시각 뒤 ごろ를 씁니다. ぐらい는 걸리는 시간·양의 「~정도」, ずつ는 「~씩」, しか는 부정과 함께 「~밖에」입니다.",
         "explanationJa": "ポイント：じこく＋ごろ（だいたいの とき）\nうちを 出る「とき」なので「ごろ」です。「ぐらい」は かかる じかんや りょう、「ずつ」は「おなじ かずを」、「しか」は「〜しか ない」です。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -466,9 +440,7 @@
         "passage": null,
         "explanationKo": "핵심: 시간·양 + ぐらい = ~정도\n정답은 「ぐらい」입니다. 걸리는 시간의 대략을 말합니다. ごろ는 시각(때)에 쓰고, しか는 부정이 필요하며, など는 예를 들 때 씁니다.",
         "explanationJa": "ポイント：じかん・りょう＋ぐらい（だいたい）\nかかる じかんが だいたい じゅっぷんと いう いみです。「ごろ」は じこく、「しか」は「〜しか ない」、「など」は れいを 言う ときです。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -501,9 +473,7 @@
         "passage": null,
         "explanationKo": "핵심: 기간 + に + 횟수 = ~에 ~번\n정답은 「に」입니다. 일주일에 두 번이라는 빈도입니다. で·を·から는 빈도를 나타내지 못합니다.",
         "explanationJa": "ポイント：きかん＋に＋かいすう\n「一しゅうかんに 二かい」は どのくらい するかの いみです。「で」「を」「から」は かいすうの いみに なりません。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -536,9 +506,7 @@
         "passage": null,
         "explanationKo": "핵심: 형용사 + の = ~것(앞에 나온 명사 대신)\n정답은 「の」입니다. 「あおい かさ」의 かさ를 다시 말하지 않고 の로 받습니다. が·を·も는 명사를 대신하지 못합니다.",
         "explanationJa": "ポイント：けいようし＋の（まえの めいしの かわり）\n「あおい かさ」の「かさ」を「の」で 言って います。「が」「を」「も」は めいしの かわりに なりません。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -571,9 +539,7 @@
         "passage": null,
         "explanationKo": "핵심: しか + 부정 = ~밖에 없다\n정답은 「しか」입니다. 뒤가 「ありません」(부정)이라 しか입니다. だけ는 긍정문에 쓰고(「百えんだけ あります」), ぐらい는 대략을 나타내고, 「百えんを ありません」이라는 꼴은 쓰지 않습니다(ある 앞에는 が).",
         "explanationJa": "ポイント：しか＋ない形＝それだけ\nうしろが「ありません」なので「しか」です。「だけ」は「百えんだけ あります」の ように つかいます。「ぐらい」は だいたいの いみです。「ある」の まえに「を」は つかいません。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -606,9 +572,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜ね = ~네요(상대도 아는 일에 동의를 구함)\n정답은 「ね」입니다. 상대가 「ええ、ほんとうに」라고 맞장구치므로 함께 느끼는 날씨에 ね를 붙입니다. か는 질문, を·の는 문장 끝에 오지 않습니다.",
         "explanationJa": "ポイント：〜ね（あいても しって いる ことを いっしょに かんじる）\nあいてが「ええ、ほんとうに」と こたえて いるので「ね」です。「か」は しつもん、「を」「の」は ここでは 文の おわりに つかいません。",
-        "tagNames": [
-          "grammar.contrast-connect"
-        ],
+        "tagNames": ["grammar.contrast-connect"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -641,9 +605,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜よ = ~해요(상대가 모르는 것을 알려 줌)\n정답은 「よ」입니다. 가게를 처음 본 상대에게, 아는 사람이 새 정보를 알려 줍니다. か는 질문, ね는 상대도 이미 아는 일에 쓰고, も는 문장 끝에 오지 않습니다.",
         "explanationJa": "ポイント：〜よ（あいてが しらない ことを おしえる）\nみせを はじめて 見た あいてに、ケーキが おいしい ことを おしえて いるので「よ」です。「か」は しつもん、「ね」は あいても しって いる とき、「も」は 文の おわりに つかいません。",
-        "tagNames": [
-          "grammar.contrast-connect"
-        ],
+        "tagNames": ["grammar.contrast-connect"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -676,9 +638,7 @@
         "passage": null,
         "explanationKo": "핵심: 의문사 + か = 무언가(정해지지 않은 것)\n정답은 「か」입니다. 「なにか のみませんか」는 뭔가 마시자는 권유입니다. なにも는 부정과 함께 「아무것도」, なにが·なにを는 질문이 되어 권유와 맞지 않습니다.",
         "explanationJa": "ポイント：ぎもんし＋か（きまって いない もの）\n「なにか のみませんか」は なにかを のもうと さそって います。「なにも」は「なにも ない」の いみ、「なにが」「なにを」は しつもんに なります。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -711,9 +671,7 @@
         "passage": null,
         "explanationKo": "핵심: どうして = 왜(이유를 물음)\n정답은 「どうして」입니다. 대답이 「감기에 걸렸기 때문입니다」로 이유이므로 이유를 묻는 말입니다. どこで는 장소, いつ는 때, だれと는 함께한 사람을 묻습니다.",
         "explanationJa": "ポイント：どうして＝りゆうを きく\nこたえが「〜からです」と りゆうなので「どうして」です。「どこで」は ばしょ、「いつ」は とき、「だれと」は いっしょの 人を ききます。",
-        "tagNames": [
-          "grammar.cause-purpose"
-        ],
+        "tagNames": ["grammar.cause-purpose"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -746,9 +704,7 @@
         "passage": null,
         "explanationKo": "핵심: いくら = 얼마(값)\n정답은 「いくら」입니다. 대답이 「1500엔」이라 값을 묻는 말입니다. いくつ는 개수·나이, なんじ는 시각, どれ는 여럿 중 어느 것을 묻습니다.",
         "explanationJa": "ポイント：いくら＝ねだんを きく\nこたえが「せんごひゃくえん」なので「いくら」です。「いくつ」は かずや とし、「なんじ」は じかん、「どれ」は どの ものかを ききます。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -781,9 +737,7 @@
         "passage": null,
         "explanationKo": "핵심: Aと Bと どちらが ~ = A와 B 중 어느 쪽이 ~\n정답은 「どちら」입니다. 두 가지 중 하나를 물을 때 どちら를 씁니다. どれ는 셋 이상에서, どこ는 장소, だれ는 사람을 묻습니다.",
         "explanationJa": "ポイント：Aと Bと どちらが 〜ですか（二つから えらぶ）\n二つの 中から きくので「どちら」です。「どれ」は 三つ いじょう、「どこ」は ばしょ、「だれ」は 人を ききます。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -816,9 +770,7 @@
         "passage": null,
         "explanationKo": "핵심: どれ = 어느 것(셋 이상 중에서)\n정답은 「どれ」입니다. 여러 가방 가운데 어느 것인지 묻습니다. どちら는 둘 중에서, どこ는 장소, どう는 상태·방법을 묻습니다.",
         "explanationJa": "ポイント：どれ＝三つ いじょうの 中の どの もの\nたくさんの かばんの 中から きくので「どれ」です。「どちら」は 二つの とき、「どこ」は ばしょ、「どう」は ようすを ききます。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -851,9 +803,7 @@
         "passage": null,
         "explanationKo": "핵심: どうでしたか = 어땠습니까(감상을 물음)\n정답은 「どうでした」입니다. 대답이 「아주 즐거웠습니다」라 감상·상태를 묻는 말입니다. なん은 무엇, どこ는 장소, だれ는 사람을 묻습니다.",
         "explanationJa": "ポイント：どうでしたか＝ようすや かんそうを きく\nこたえが「たのしかったです」なので「どうでした」です。「なん」は もの、「どこ」は ばしょ、「だれ」は 人を ききます。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -886,9 +836,7 @@
         "passage": null,
         "explanationKo": "핵심: 과거 부정 = 〜ませんでした\n정답은 「たべませんでした」입니다. 「きのう」라 과거이고, 「なにも」 뒤에는 부정이 옵니다. たべました는 긍정, たべません은 과거가 아니고, たべましょう는 권유입니다.",
         "explanationJa": "ポイント：すぎた ことの ない形＝〜ませんでした\n「きのう」なので すぎた こと、「なにも」の あとは ない形です。「たべました」は ない形では なく、「たべません」は すぎた ことでは なく、「たべましょう」は さそう ことばです。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -921,9 +869,7 @@
         "passage": null,
         "explanationKo": "핵심: な형용사 + な + 명사\n정답은 「しずかな」입니다. な형용사가 명사 「へや」를 꾸밀 때는 な를 붙입니다. しずかの·しずかだ는 명사 앞에 쓰지 않고, しずかに는 동사를 꾸밉니다.",
         "explanationJa": "ポイント：な形容詞＋な＋めいし\n「へや」の まえなので「しずかな」です。「しずかの」「しずかだ」は めいしの まえに つかわず、「しずかに」は どうしの まえに つかいます。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -956,9 +902,7 @@
         "passage": null,
         "explanationKo": "핵심: な형용사 과거 부정 = 〜じゃ ありませんでした\n정답은 「かんたんじゃ ありませんでした」입니다. 지난주 숙제 이야기라 과거이고, 「あまり」 뒤에는 부정이 옵니다. かんたんでした는 긍정, かんたんく는 い형용사처럼 바꾼 잘못된 꼴, かんたんな でした는 없는 꼴입니다.",
         "explanationJa": "ポイント：な形容詞の すぎた ない形＝〜じゃ ありませんでした\n「あまり」の あとは ない形です。「かんたんでした」は ない形では なく、「かんたんく」「かんたんな でした」と いう かたちは ありません。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -991,9 +935,7 @@
         "passage": null,
         "explanationKo": "핵심: い형용사 부정 = 〜くないです\n정답은 「たかくないです」입니다. 「あまり」 뒤에는 부정이 와서 「그다지 비싸지 않다」가 됩니다. たかいです는 긍정, たかいじゃ ないです·たかく です는 잘못된 꼴입니다.",
         "explanationJa": "ポイント：い形容詞の ない形＝〜くないです\n「あまり」の あとは ない形です。「たかいです」は ない形では なく、「たかいじゃ ないです」「たかく です」は まちがった かたちです。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1026,9 +968,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て いる = ~하고 있다(지금 진행 중)\n정답은 「きいて います」입니다. 「지금 무엇을 하고 있어요?」에 대한 대답이라 진행을 나타냅니다. ききました는 과거, きいて ください는 부탁, ききたいです는 바람이라 질문과 맞지 않습니다.",
         "explanationJa": "ポイント：〜て いる（いま して いる こと）\n「いま なにを して いますか」の こたえなので「きいて います」です。「ききました」は すぎた こと、「きいて ください」は おねがい、「ききたいです」は したい ことです。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1061,9 +1001,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て いる = ~하고 있다(계속되는 상태)\n정답은 「すんで います」입니다. 「いまは」 지금 계속 살고 있는 상태입니다. すみます는 앞으로의 일, すみました는 과거, すみましょう는 권유입니다.",
         "explanationJa": "ポイント：〜て いる（いまも つづいて いる ようす）\n「いまは」とうきょうに すんで いる ようすなので「すんで います」です。「すみます」は これからの こと、「すみました」は すぎた こと、「すみましょう」は さそう ことばです。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1096,9 +1034,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て、〜て = ~하고, ~하고(순서대로)\n정답은 「あらって」입니다. 일어나서 → 세수하고 → 밥을 먹는 순서를 て형으로 잇습니다. あらいます는 문장을 끝내는 꼴이고 あらった는 과거라 「、ごはんを たべます」로 이어지지 않으며, あらうと는 「씻으면」이라 순서가 아닙니다.",
         "explanationJa": "ポイント：〜て、〜て（じゅんばんに する こと）\nおきる → かおを あらう → ごはんを たべる の じゅんばんを て形で つなぎます。「あらいます」は 文を おわる かたち、「あらった」は すぎた ことで、うしろに つながりません。「あらうと」は じょうけんの いみです。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1131,9 +1067,7 @@
         "passage": null,
         "explanationKo": "핵심: な형용사 + に なる = ~해지다\n정답은 「きれいに」입니다. な형용사 뒤에 なる가 올 때는 に를 붙입니다. きれいく는 い형용사처럼 바꾼 잘못된 꼴, きれいな는 명사 앞, きれいで는 「깨끗하고」라 なる와 이어지지 않습니다.",
         "explanationJa": "ポイント：な形容詞＋に なる\n「なりました」の まえなので「きれいに」です。「きれいく」と いう かたちは なく、「きれいな」は めいしの まえ、「きれいで」は「なる」に つながりません。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1166,9 +1100,7 @@
         "passage": null,
         "explanationKo": "핵심: 명사 + に する = ~로 하다(고르다)\n정답은 「します」입니다. 여러 음료 중 오렌지주스로 고른다는 뜻입니다. あります·います는 있다, なります는 「~가 되다」라 고르는 말이 아닙니다.",
         "explanationJa": "ポイント：めいし＋に する（えらぶ）\nのみものの 中から オレンジジュースを えらぶ いみです。「あります」「います」は ある・いる、「なります」は かわる いみです。",
-        "tagNames": [
-          "grammar.must-will"
-        ],
+        "tagNames": ["grammar.must-will"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1201,9 +1133,7 @@
         "passage": null,
         "explanationKo": "핵심: もう けっこうです = 이제 됐습니다(정중한 거절)\n정답은 「けっこうです」입니다. 「いいえ」 뒤라 한 잔 더를 거절하는 말입니다. のみたいです·おねがいします는 더 마시겠다는 뜻이라 「いいえ」와 맞지 않고, もう のみました는 질문에 대한 대답이 되지 않습니다.",
         "explanationJa": "ポイント：もう けっこうです（ていねいに ことわる）\n「いいえ」の あとなので、もう いらないと ことわる ことばです。「のみたいです」「おねがいします」は もっと のむ いみで、「もう のみました」は こたえに なりません。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1236,9 +1166,7 @@
         "passage": null,
         "explanationKo": "핵심: ぜんぜん + 부정 = 전혀 ~않다\n정답은 「ぜんぜん」입니다. 싫어해서 전혀 먹지 않는다는 뜻으로, 부정과 함께 씁니다. とても·よく·たくさん은 보통 긍정과 써서 「싫어해서」와 맞지 않습니다.",
         "explanationJa": "ポイント：ぜんぜん＋ない形\nきらいなので まったく たべないと いう いみです。「とても」「よく」「たくさん」は ない形と いっしょに つかいません。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1271,9 +1199,7 @@
         "passage": null,
         "explanationKo": "핵심: よく = 자주\n정답은 「よく」입니다. 축구를 좋아해서 주말에 자주 본다는 뜻입니다. ぜんぜん·あまり는 부정과 함께 쓰고, まだ는 「아직」이라 맞지 않습니다.",
         "explanationJa": "ポイント：よく＝なんかいも\nサッカーが すきなので、しゅうまつに なんかいも みます。「ぜんぜん」「あまり」は ない形と つかい、「まだ」は いみが あいません。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1306,9 +1232,7 @@
         "passage": null,
         "explanationKo": "핵심: それから = 그러고 나서(다음 일)\n정답은 「それから」입니다. 쇼핑 다음에 영화를 본 순서입니다. でも는 반대, だから는 이유·결과, じゃあ는 「그럼」으로 상대 말을 받을 때 씁니다.",
         "explanationJa": "ポイント：それから（つぎに した こと）\nかいものの つぎに えいがを みたので「それから」です。「でも」は はんたい、「だから」は りゆうと けっか、「じゃあ」は あいての はなしを うけて 言う ことばです。",
-        "tagNames": [
-          "grammar.contrast-connect"
-        ],
+        "tagNames": ["grammar.contrast-connect"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1341,9 +1265,7 @@
         "passage": null,
         "explanationKo": "핵심: じゃあ = 그럼(상대 말을 받아 정함)\n정답은 「じゃあ」입니다. 빨간 펜이 없다는 말을 듣고 「그럼 검은 펜을 주세요」라고 정합니다. それから·そして는 이어지는 일, でも는 반대라 맞지 않습니다.",
         "explanationJa": "ポイント：じゃあ（あいての はなしを うけて きめる）\nあかい ペンが ないと きいて、「じゃあ くろい ペン」と きめて います。「それから」「そして」は つづく こと、「でも」は はんたいです。",
-        "tagNames": [
-          "grammar.contrast-connect"
-        ],
+        "tagNames": ["grammar.contrast-connect"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1376,9 +1298,7 @@
         "passage": null,
         "explanationKo": "핵심: 명사 + でした = ~였습니다\n정답은 「でした」입니다. 어제(일요일) 일이라 과거형입니다. です·じゃ ありません은 현재, でしょう는 추측이라 「きのう」와 맞지 않습니다.",
         "explanationJa": "ポイント：めいし＋でした（すぎた こと）\n「きのう」の ことなので「でした」です。「です」「じゃ ありません」は いまの こと、「でしょう」は「たぶん」の いみです。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1411,9 +1331,7 @@
         "passage": null,
         "explanationKo": "핵심: 동사 보통형 + 명사 = ~한 ~(명사 꾸밈)\n정답은 「かった」입니다. 「어제 백화점에서 산 신발」로 과거 보통형이 명사를 꾸밉니다. かって는 명사 앞에 오지 않고, かいます·かいましょう는 정중형이라 명사를 꾸미지 않습니다.",
         "explanationJa": "ポイント：どうしの ふつう形＋めいし\n「きのう かった くつ」で、すぎた ふつう形が「くつ」を くわしく します。「かって」は めいしの まえに こず、「かいます」「かいましょう」は めいしの まえに つかいません。",
-        "tagNames": [
-          "grammar.conjugation"
-        ],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1446,9 +1364,7 @@
         "passage": null,
         "explanationKo": "핵심: うすい 것 + まい = ~장\n정답은 「まい」입니다. 종이처럼 얇은 것은 まい로 셉니다. ほん은 가늘고 긴 것, さつ는 책, だい는 차·기계를 셀 때 씁니다.",
         "explanationJa": "ポイント：うすい もの＋まい\nかみは「まい」で かぞえます。「ほん」は ほそながい もの、「さつ」は ほん、「だい」は くるまや きかいです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1481,9 +1397,7 @@
         "passage": null,
         "explanationKo": "핵심: ひとつ·ふたつ·みっつ = 하나·둘·셋\n정답은 「つ」입니다. 「みっ」 뒤에 붙어 「みっつ」(셋)가 됩니다. こ는 「さんこ」로 써야 하고, ほん은 긴 것, ひき는 작은 동물을 셀 때 씁니다.",
         "explanationJa": "ポイント：ひとつ・ふたつ・みっつ\n「みっ」の あとは「つ」で「みっつ」です。「こ」は「さんこ」、「ほん」は ほそながい もの、「ひき」は ちいさい どうぶつです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1516,9 +1430,7 @@
         "passage": null,
         "explanationKo": "핵심: どの + 명사 = 어느 ~\n정답은 「どの」입니다. 바로 뒤에 명사 「くつ」가 있어 どの를 씁니다. どれ·どこ는 명사 앞에 붙지 않고, どう는 상태를 묻습니다.",
         "explanationJa": "ポイント：どの＋めいし\nすぐ あとに「くつ」が あるので「どの」です。「どれ」「どこ」は めいしの まえに つかわず、「どう」は ようすを ききます。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1551,9 +1463,7 @@
         "passage": null,
         "explanationKo": "핵심: 사람 + に + あう = ~를 만나다\n정답은 「に」입니다. あう(만나다) 앞의 사람에는 に를 씁니다. 한국어 「를」에 끌려 を를 고르기 쉽지만 맞지 않고, で는 장소, へ는 방향입니다.",
         "explanationJa": "ポイント：人＋に＋あう\n「あう」の まえの 人には「に」を つかいます。「を」は つかわず、「で」は ばしょ、「へ」は 行く ほうです。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1586,9 +1496,7 @@
         "passage": null,
         "explanationKo": "핵심: 명사が + ほしい + です = ~을 갖고 싶습니다\n바른 문장: わたしは あたらしい くるまが ほしい です。 ★ 자리는 「くるまが」입니다.",
         "explanationJa": "ポイント：めいしが＋ほしい＋です\nただしい 文：わたしは あたらしい くるまが ほしい です。 ★は「くるまが」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1621,9 +1529,7 @@
         "passage": null,
         "explanationKo": "핵심: だれと いっしょに + ます형 줄기に 行く = 누구와 함께 ~하러 갔습니까\n바른 문장: きのうの えいがは だれと いっしょに みに 行きましたか。 ★ 자리는 「みに」입니다.",
         "explanationJa": "ポイント：だれと いっしょに＋〜に 行きましたか\nただしい 文：きのうの えいがは だれと いっしょに みに 行きましたか。 ★は「みに」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1656,9 +1562,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜の なかで + 명사が + いちばん = ~ 중에서 ~가 가장\n바른 문장: くだものの なかで りんごが いちばん おいしい と おもいます。 ★ 자리는 「なかで」입니다.",
         "explanationJa": "ポイント：〜の なかで＋めいしが＋いちばん\nただしい 文：くだものの なかで りんごが いちばん おいしい と おもいます。 ★は「なかで」です。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1691,9 +1595,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て から = ~하고 나서(순서)\n바른 문장: うちへ かえって、シャワーを あびて から ばんごはんを たべました。 ★ 자리는 「ばんごはんを」입니다.",
         "explanationJa": "ポイント：〜てから（じゅんばん）\nただしい 文：うちへ かえって、シャワーを あびて から ばんごはんを たべました。 ★は「ばんごはんを」です。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1726,9 +1628,7 @@
         "passage": null,
         "explanationKo": "핵심: 사람に あげた + 명사 = ~에게 준 ~\n바른 문장: たんじょうびに いもうとに あげた かばんは あか です。 ★ 자리는 「いもうとに」입니다.",
         "explanationJa": "ポイント：人に あげた＋めいし\nただしい 文：たんじょうびに いもうとに あげた かばんは あか です。 ★は「いもうとに」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1761,9 +1661,7 @@
         "passage": null,
         "explanationKo": "핵심: 사람から もらった + 명사 = ~에게서 받은 ~\n바른 문장: きのう とどいたのは にほんの ともだちから もらった てがみ です。 ★ 자리는 「もらった」입니다.",
         "explanationJa": "ポイント：人から もらった＋めいし\nただしい 文：きのう とどいたのは にほんの ともだちから もらった てがみ です。 ★は「もらった」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1796,9 +1694,7 @@
         "passage": null,
         "explanationKo": "핵심: なにか + 형용사 + もの = 뭔가 ~한 것\n바른 문장: つかれたので、なにか つめたい ものを のみ たいです。 ★ 자리는 「なにか」입니다.",
         "explanationJa": "ポイント：なにか＋けいようし＋もの\nただしい 文：つかれたので、なにか つめたい ものを のみ たいです。 ★は「なにか」です。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1831,9 +1727,7 @@
         "passage": null,
         "explanationKo": "핵심: 수량 + しか + 부정 = ~밖에 없다\n바른 문장: この クラスには がくせいが ごにん しか いません から、すぐ おわります。 ★ 자리는 「しか」입니다.",
         "explanationJa": "ポイント：かず＋しか＋ない形\nただしい 文：この クラスには がくせいが ごにん しか いません から、すぐ おわります。 ★は「しか」です。",
-        "tagNames": [
-          "grammar.scope-emphasis"
-        ],
+        "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1866,9 +1760,7 @@
         "passage": null,
         "explanationKo": "핵심: 시각 + ごろ = ~쯤(때)\n바른 문장: まいばん じゅういちじ ごろ に ねて います。 ★ 자리는 「ごろ」입니다.",
         "explanationJa": "ポイント：じこく＋ごろ\nただしい 文：まいばん じゅういちじ ごろ に ねて います。 ★は「ごろ」です。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1901,9 +1793,7 @@
         "passage": null,
         "explanationKo": "핵심: 기간に + 횟수 + ぐらい = ~에 ~번 정도\n바른 문장: わたしは 一しゅうかんに さんかい ぐらい およぎ ます。 ★ 자리는 「さんかい」입니다.",
         "explanationJa": "ポイント：きかんに＋かいすう＋ぐらい\nただしい 文：わたしは 一しゅうかんに さんかい ぐらい およぎ ます。 ★は「さんかい」です。",
-        "tagNames": [
-          "grammar.time-change"
-        ],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1936,9 +1826,7 @@
         "passage": null,
         "explanationKo": "핵심: 명사が + 형용사 + 명사 = ~가 ~한 ~(꾸밈)\n바른 문장: まどの ちかくに いる かみが ながい おんなの ひと は だれですか。 ★ 자리는 「ながい」입니다.",
         "explanationJa": "ポイント：めいしが＋けいようし＋めいし（くわしく する）\nただしい 文：まどの ちかくに いる かみが ながい おんなの ひと は だれですか。 ★は「ながい」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -1971,9 +1859,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て、それから = ~하고, 그러고 나서\n바른 문장: えきまで バスで 行って、それから でんしゃに のります。 ★ 자리는 「でんしゃに」입니다.",
         "explanationJa": "ポイント：〜て、それから（つぎに する こと）\nただしい 文：えきまで バスで 行って、それから でんしゃに のります。 ★は「でんしゃに」です。",
-        "tagNames": [
-          "grammar.contrast-connect"
-        ],
+        "tagNames": ["grammar.contrast-connect"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -2006,9 +1892,7 @@
         "passage": null,
         "explanationKo": "핵심: 장소に ある + 명사 = ~에 있는 ~\n바른 문장: ゆうびんきょくは ぎんこうの となりに ある たてもの です。 ★ 자리는 「ある」입니다.",
         "explanationJa": "ポイント：ばしょに ある＋めいし\nただしい 文：ゆうびんきょくは ぎんこうの となりに ある たてもの です。 ★は「ある」です。",
-        "tagNames": [
-          "grammar.particle"
-        ],
+        "tagNames": ["grammar.particle"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -2041,9 +1925,7 @@
         "passage": null,
         "explanationKo": "핵심: 〜て いるから = ~하고 있으니까(이유)\n바른 문장: あめが ふって いる から タクシーで かえりましょう。 ★ 자리는 「から」입니다.",
         "explanationJa": "ポイント：〜て いるから（りゆう）\nただしい 文：あめが ふって いる から タクシーで かえりましょう。 ★は「から」です。",
-        "tagNames": [
-          "grammar.cause-purpose"
-        ],
+        "tagNames": ["grammar.cause-purpose"],
         "options": [
           {
             "clientOptionKey": "option-1",
@@ -2076,9 +1958,7 @@
         "passage": null,
         "explanationKo": "핵심: 사전형 + と = ~하면(늘 그렇게 됨)\n바른 문장: この ボタンを おすと へやの でんきが つき ます。 ★ 자리는 「でんきが」입니다.",
         "explanationJa": "ポイント：じしょ形＋と（いつも そう なる）\nただしい 文：この ボタンを おすと へやの でんきが つき ます。 ★は「でんきが」です。",
-        "tagNames": [
-          "grammar.condition"
-        ],
+        "tagNames": ["grammar.condition"],
         "options": [
           {
             "clientOptionKey": "option-1",
