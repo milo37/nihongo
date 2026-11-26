@@ -1,7 +1,7 @@
 # Question import v1 (STAGING and PRODUCTION)
 
-How to put the reviewed question set (1293 questions, 18 tags) on a new
-environment after its first deploy: load the tag list, import the twenty-eight files,
+How to put the reviewed question set (1413 questions, 18 tags) on a new
+environment after its first deploy: load the tag list, import the thirty files,
 then request review, approve and publish in bulk from the admin question list.
 The same path ran end to end on an empty local database (see "Local
 rehearsal").
@@ -15,10 +15,10 @@ runbook. The API starts without tags; the import refuses unknown tags.
 
 ## Inputs (in the repository)
 
-| What             | File                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tag list (18)    | `content/taxonomy/tags.v2.json`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Questions (1293) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785), `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816), `n5.add2.v1.json` … `n1.add2.v1.json` (50 each, #1081) and `n5.kanji.v1.json` … `n1.kanji.v1.json` (27/28/28/27/28 kanji reading, #1043) and `n1.b1.v1.json` (45 N1 reading on 30 passages, #1239) and `n2.b2.v1.json` (45 N2 reading on 30 passages, #1239), `n3.b3.v1.json` (45 N3 reading on 30 passages, #1239) `n2.b4.v1.json` (60 N2 grammar, #1239) `n3.b5.v1.json` (60 N3 grammar, #1239) `n4.b6.v1.json` (45 N4 reading on 30 passages, #1239) `n5.b7.v1.json` (45 N5 reading on 30 passages, #1239) and `n1.b8.v1.json` (60 N1 grammar, #1239); 100 per file at most |
+| What             | File                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag list (18)    | `content/taxonomy/tags.v2.json`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Questions (1413) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785), `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816), `n5.add2.v1.json` … `n1.add2.v1.json` (50 each, #1081) and `n5.kanji.v1.json` … `n1.kanji.v1.json` (27/28/28/27/28 kanji reading, #1043) and `n1.b1.v1.json` (45 N1 reading on 30 passages, #1239) and `n2.b2.v1.json` (45 N2 reading on 30 passages, #1239), `n3.b3.v1.json` (45 N3 reading on 30 passages, #1239) `n2.b4.v1.json` (60 N2 grammar, #1239) `n3.b5.v1.json` (60 N3 grammar, #1239) `n4.b6.v1.json` (45 N4 reading on 30 passages, #1239) `n5.b7.v1.json` (45 N5 reading on 30 passages, #1239) `n1.b8.v1.json` (60 N1 grammar, #1239) `n4.b9.v1.json` (60 N4 grammar, 9 on passages, #1239) and `n5.b10.v1.json` (60 N5 grammar, #1239); 100 per file at most |
 
 Use the files of the release that is deployed (`/opt/harumaru/current-release`).
 
@@ -49,7 +49,7 @@ docker compose --profile operator run --rm --no-deps -T \
   as in `first-admin.v1.md`, and read the line with
   `aws ssm get-command-invocation`.
 
-## 2. Import the twenty-eight files (admin, browser)
+## 2. Import the thirty files (admin, browser)
 
 As the first admin, open `/admin/questions/import`. For each file, in the
 order of the table above:
@@ -86,20 +86,20 @@ batches share one limit: **30 calls per 15 minutes**, per admin and per IP
 
 | Work                                    | Calls   |
 | --------------------------------------- | ------- |
-| Import apply (28 files)                 | 28      |
-| Review request (1293 drafts, 20 a call) | 65      |
-| Approve (13 pages)                      | 13      |
-| Publish (13 pages)                      | 13      |
-| **Total**                               | **119** |
+| Import apply (30 files)                 | 30      |
+| Review request (1413 drafts, 20 a call) | 71      |
+| Approve (15 pages)                      | 15      |
+| Publish (15 pages)                      | 15      |
+| **Total**                               | **131** |
 
 That is five 15-minute windows, about 60 minutes or more:
 
-1. Import apply files 1–28 (28).
+1. Import apply files 1–30 (30).
 2. Wait 15 minutes. Review request pages 1–6 (5 each, 30).
 3. Wait 15 minutes. Review request pages 7–12 (5 each, 30).
-4. Wait 15 minutes. Review request page 13 (5) + approve pages 1–13 (13) +
-   publish pages 1–12 (12).
-5. Wait 15 minutes. Publish page 13 (1).
+4. Wait 15 minutes. Review request pages 13–15 (5, 5, 1) + approve pages 1–15 (15) +
+   publish pages 1–4 (4).
+5. Wait 15 minutes. Publish pages 5–15 (11).
 
 At the limit the dialog shows **요청이 너무 많습니다** (HTTP 429), and the
 review request marks the batches it did not send as not sent. Wait 15
@@ -109,11 +109,11 @@ with Google again (fresh sign-in).
 
 ## Check
 
-- `/admin/questions` with the filter **공개본 있음** shows 1293.
+- `/admin/questions` with the filter **공개본 있음** shows 1413.
 - A learner account starts an N5 vocabulary session and gets questions.
 - On the host (optional):
   `docker compose exec -T postgres psql -U postgres -d nihongo -c 'SELECT count(*) FROM "Question" WHERE "currentPublishedVersionId" IS NOT NULL'`
-  returns 1293, and `SELECT count(*) FROM "Tag"` returns 18.
+  returns 1413, and `SELECT count(*) FROM "Tag"` returns 18.
 
 ## If something fails
 
