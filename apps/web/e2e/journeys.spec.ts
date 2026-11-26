@@ -270,6 +270,9 @@ const ssoRequestContract = [
   ...(mode === 'mock'
     ? []
     : ([
+        // #1046: the page reads the push setting once. The CI server runs
+        // without push (no subscription store), so the route is not there.
+        { method: 'GET', path: '/api/v1/push/config', statuses: [404] },
         {
           method: 'POST',
           path: '/api/v1/me/study-goal/skip',

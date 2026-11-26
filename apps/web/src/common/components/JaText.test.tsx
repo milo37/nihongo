@@ -35,7 +35,7 @@ describe('JaText ruby (#1182)', () => {
         text="「東京」へ"
       />
     )
-    const held = container.querySelectorAll('span.whitespace-nowrap')
+    const held = container.querySelectorAll('span.ja-held')
     // 「東 is held with its bracket; the piece grows to hold 東京, and 京」
     // joins it, so the reading never splits.
     expect([...held].map((span) => span.innerHTML)).toEqual([

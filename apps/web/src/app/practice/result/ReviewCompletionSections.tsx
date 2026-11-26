@@ -46,7 +46,7 @@ export const ReviewFeedback = ({
   const pending = current.isPending || current.isFetching
   return (
     <div
-      className={`review-feedback ${item.isCorrect ? 'text-success-strong' : 'text-danger-strong'}`}
+      className={`review-feedback ${item.isCorrect ? 'review-feedback-correct' : 'review-feedback-wrong'}`}
     >
       <h2>
         <OutlineIcon>

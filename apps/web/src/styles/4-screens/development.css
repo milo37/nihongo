@@ -1,0 +1,55 @@
+/* Connection check page (development builds only). */
+@layer utilities {
+  .connection-card {
+    margin-inline: auto;
+    display: flex;
+    width: 100%;
+    max-width: 40rem;
+    flex-direction: column;
+    gap: 1rem;
+    border-radius: var(--radius-card);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding: 1.25rem;
+  }
+  .connection-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .connection-state {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .connection-page {
+    min-height: 100vh;
+    background-color: rgb(var(--color-canvas));
+    padding-inline: var(--space-page-gutter);
+    padding-block: 2rem;
+    color: rgb(var(--color-ink));
+  }
+  .connection-retry {
+    width: 100%;
+  }
+  .connection-scope {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-muted));
+  }
+  .connection-title {
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+    font-weight: var(--font-weight-bold);
+  }
+  .connection-description {
+    color: rgb(var(--color-muted));
+  }
+  @media (width >= 40rem) {
+    .connection-retry {
+      width: fit-content;
+    }
+  }
+}
