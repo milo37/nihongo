@@ -62,7 +62,11 @@ export const ResultQuestionDetail = ({
       aria-labelledby="selected-result-question-title"
     >
       <div className="study-result-detail-heading">
-        <p className={item.isCorrect ? 'text-success' : 'text-danger'}>
+        <p
+          className={
+            item.isCorrect ? 'result-mark-correct' : 'result-mark-wrong'
+          }
+        >
           <ResultStatusIcon status={status} />
           {t(`items.${status}`)} ·{' '}
           {t('navigation.question', { formattedOrdinal })}

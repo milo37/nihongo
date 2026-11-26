@@ -19,7 +19,7 @@ const Held = ({ children, text }: { children: ReactNode; text: string }) => (
   <>
     {/* Inline stated outright so name computation that cannot read the
         stylesheet (jsdom) does not split the words with spaces. */}
-    <span className="whitespace-nowrap" style={INLINE}>
+    <span className="ja-held" style={INLINE}>
       {children}
     </span>
     {ENDS_PHRASE.test(text) ? <wbr style={INLINE} /> : null}

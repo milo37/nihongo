@@ -1,0 +1,2050 @@
+{
+  "items": [
+    {
+      "clientItemId": "n3-b11-vocabulary-01",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "旅行の「準備」はもう終わった。「準備」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 準備 = じゅんび(준비)\nじゅんぴ는 반탁음을 잘못 붙인 것, しゅんび는 탁음을 빠뜨린 것, じゅんぶ는 「備」를 잘못 읽은 것입니다.",
+        "explanationJa": "ポイント：準備＝じゅんび\n「じゅんぴ」は「ぴ」がまちがい、「しゅんび」はにごる音がなく、「じゅんぶ」は「備」の読み方がちがいます。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "じゅんぴ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しゅんび"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "じゅんぶ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じゅんび"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-02",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "山の上から見た「景色」はとてもきれいだった。「景色」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 景色 = けしき(경치)\nけいしき는 「形式」(형식)의 읽기, けしょく는 없는 읽기, かげいろ는 「景」을 「影(かげ)」과 혼동한 것입니다.",
+        "explanationJa": "ポイント：景色＝けしき\n「けいしき」は「形式」の読み方、「けしょく」という読み方はなく、「かげいろ」は「景」を「影」とまちがえたものです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けいしき"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けしょく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "けしき"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かげいろ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-03",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "昼休みは会社の「屋上」でお弁当を食べる。「屋上」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 屋上 = おくじょう(옥상)\nおくしょう는 탁음을 빠뜨린 것, やじょう는 「屋」를 훈독 「や」(本屋 등)로 읽은 것, おくうえ는 「上」을 훈독한 것입니다.",
+        "explanationJa": "ポイント：屋上＝おくじょう\n「おくしょう」はにごる音がなく、「やじょう」は「屋」を「本屋」の「や」と読んだもの、「おくうえ」は「上」を訓読みしたものです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おくじょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おくしょう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "やじょう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おくうえ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-04",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "雨の中を歩いたので、くつが「汚れた」。「汚れた」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 汚れる = よごれる(더러워지다)\nおごれた는 없는 읽기, よごえた는 「れ」를 잘못 쓴 것, きたなれた는 「汚い(きたない)」에서 잘못 가져온 것입니다.",
+        "explanationJa": "ポイント：汚れる＝よごれる\n「おごれた」「よごえた」という読み方はなく、「きたなれた」は「汚い」の読み方をまちがえて使ったものです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おごれた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "よごれた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "よごえた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きたなれた"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-05",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "昨日の試合はうちのチームが「勝った」。「勝った」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 勝つ = かつ(이기다)\nまけた는 반대말 「負けた」(졌다)의 읽기, しょうった는 「勝」의 음독 「しょう」를 붙인 것, がった는 탁음을 잘못 붙인 것입니다.",
+        "explanationJa": "ポイント：勝つ＝かつ\n「まけた」は反対の「負けた」の読み方、「しょうった」は「勝」の音「しょう」を使ったもの、「がった」はにごる音がまちがいです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まけた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しょうった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "がった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-06",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "このボタンを「押して」ください。「押して」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 押す = おす(누르다)\nひいて는 반대말 「引いて」(당겨서)의 읽기, おうして는 「押」의 음독 「おう」를 붙인 것, おさして는 없는 읽기입니다.",
+        "explanationJa": "ポイント：押す＝おす\n「ひいて」は反対の「引いて」の読み方、「おうして」は「押」の音「おう」を使ったもの、「おさして」という読み方はありません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おして"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひいて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おうして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おさして"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-07",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "日本語を話す「機会」が少ない。「機会」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 機会 = きかい(기회)\nきがい는 탁음을 잘못 붙인 것, ぎかい는 「議会」(의회)의 읽기, きけい는 없는 읽기입니다.",
+        "explanationJa": "ポイント：機会＝きかい\n「きがい」はにごる音がまちがい、「ぎかい」は「議会」の読み方、「きけい」という読み方はありません。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きがい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きかい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぎかい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きけい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-08",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「最近」、夜はあまり眠れない。「最近」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 最近 = さいきん(최근)\nさいぎん은 탁음을 잘못 붙인 것, さいちか는 「近」을 훈독 「ちかい」에서 잘못 가져온 것, もっきん은 「最」를 「もっとも」에서 잘못 가져온 것입니다.",
+        "explanationJa": "ポイント：最近＝さいきん\n「さいぎん」はにごる音がまちがい、「さいちか」は「近い」、「もっきん」は「最も」の読み方をまちがえて使ったものです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "さいぎん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "さいちか"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さいきん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "もっきん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-09",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "部屋の「温度」を二十度にした。「温度」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 温度 = おんど(온도)\nおんと는 탁음을 빠뜨린 것, おんどう는 없는 장음을 넣은 것, ぬくど는 「温」을 「ぬくい」에서 잘못 가져온 것입니다.",
+        "explanationJa": "ポイント：温度＝おんど\n「おんと」はにごる音がなく、「おんどう」はのばす音がまちがい、「ぬくど」は「温」の読み方をまちがえたものです。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おんと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おんどう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おんど"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ぬくど"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-10",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "遅刻して先生に「怒られた」。「怒られた」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 怒る = おこる(화내다)\nおどられた는 「踊る」(춤추다), おごられた는 「おごる」(한턱내다)에서 온 다른 말이고, どられた는 「怒」의 음독 「ど」를 붙인 것입니다.",
+        "explanationJa": "ポイント：怒る＝おこる\n「おどられた」は「踊る」、「おごられた」は「おごる」の形で、「どられた」は「怒」の音「ど」を使ったものです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おどられた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おこられた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "どられた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おごられた"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-11",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "兄は野球の「選手」だ。「選手」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 選手 = せんしゅ(선수)\nせんじゅ는 탁음을 잘못 붙인 것, せんて는 「手」를 훈독 「て」로 읽은 것, えらしゅ는 「選」을 「えらぶ」에서 잘못 가져온 것입니다.",
+        "explanationJa": "ポイント：選手＝せんしゅ\n「せんじゅ」はにごる音がまちがい、「せんて」は「手」を訓読みしたもの、「えらしゅ」は「選ぶ」の読み方を使ったものです。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せんじゅ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せんて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "えらしゅ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せんしゅ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-12",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "野菜を「細かく」切ってください。「細かく」の読み方として正しいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 細かい = こまかい(잘다, 자세하다)\nほそかく는 「細い(ほそい)」와 섞은 것, さいかく는 「細」의 음독 「さい」를 붙인 것, こまがく는 탁음을 잘못 붙인 것입니다.",
+        "explanationJa": "ポイント：細かい＝こまかい\n「ほそかく」は「細い」とまぜたもの、「さいかく」は「細」の音「さい」を使ったもの、「こまがく」はにごる音がまちがいです。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "こまかく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ほそかく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さいかく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "こまがく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-13",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "明日の朝八時に「しゅっぱつ」します。「しゅっぱつ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: しゅっぱつ = 出発(출발)\n髪(머리털 발)·廃(폐할 폐)는 発과 비슷한 다른 글자이고, 山은 出과 모양이 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：しゅっぱつ＝出発\n「髪」「廃」は「発」に形がにたべつの字、「山」は「出」に形がにたべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "出髪"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "山発"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "出発"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "出廃"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-14",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "この国は車の「ゆしゅつ」が多い。「ゆしゅつ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ゆしゅつ = 輸出(수출)\n輪(바퀴 륜)·諭(깨우칠 유)·愉(즐거울 유)는 輸와 오른쪽이 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：ゆしゅつ＝輸出\n「輪」「諭」「愉」は「輸」と右がわがにたべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "輸出"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "輪出"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "諭出"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "愉出"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-15",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "クラスのみんなからお金を「あつめた」。「あつめた」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あつめる = 集める(모으다)\n焦(탈 초)·隻(외짝 척)·準(준할 준)은 集처럼 「隹」가 들어간 다른 글자입니다.",
+        "explanationJa": "ポイント：あつめる＝集める\n「焦」「隻」「準」は「集」と同じように「隹」が入ったべつの字です。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "集めた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "焦めた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "隻めた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "準めた"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-16",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "この機械の使い方は「ふくざつ」だ。「ふくざつ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ふくざつ = 複雑(복잡)\n復(돌아올 복)·腹(배 복)은 複와 소리가 같은 다른 글자, 維(벼리 유)는 雑과 오른쪽이 같은 다른 글자입니다.",
+        "explanationJa": "ポイント：ふくざつ＝複雑\n「復」「腹」は「複」と音が同じべつの字、「維」は「雑」と右がわが同じべつの字です。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "複雑"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "復雑"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "腹雑"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "複維"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-17",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "友だちを誕生日のパーティーに「しょうたい」した。「しょうたい」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: しょうたい = 招待(초대)\n紹(이을 소)·召(부를 소)는 招와 비슷한 다른 글자, 持(가질 지)는 待와 오른쪽이 같은 다른 글자입니다.",
+        "explanationJa": "ポイント：しょうたい＝招待\n「紹」「召」は「招」ににたべつの字、「持」は「待」と右がわが同じべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "紹待"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "招待"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "招持"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "召待"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-18",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "子どもが育つ「かんきょう」を大切にしたい。「かんきょう」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: かんきょう = 環境(환경)\n還(돌아올 환)은 環과 소리가 같은 다른 글자, 鏡(거울 경)·竟(마침내 경)은 境과 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：かんきょう＝環境\n「還」は「環」と音が同じべつの字、「鏡」「竟」は「境」ににたべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "還境"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "環鏡"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "環竟"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "環境"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-19",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "毎日歩くのは「けんこう」にいい。「けんこう」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: けんこう = 健康(건강)\n建(세울 건)·鍵(열쇠 건)은 健과 비슷한 다른 글자, 庚(별 경)은 康과 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：けんこう＝健康\n「建」「鍵」は「健」ににたべつの字、「庚」は「康」ににたべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "建康"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "健庚"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "健康"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "鍵康"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-20",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "旅行のために毎月「ちょきん」している。「ちょきん」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ちょきん = 貯金(저금)\n財(재물 재)는 貯와 왼쪽이 같은 다른 글자, 全(온전 전)은 金과 비슷한 다른 글자, 著(나타날 저)는 소리가 같은 다른 글자입니다.",
+        "explanationJa": "ポイント：ちょきん＝貯金\n「財」は「貯」と左がわが同じべつの字、「全」は「金」ににた字、「著」は音が同じべつの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "財金"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "貯金"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "貯全"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "著金"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-21",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "強い風で木が「たおれた」。「たおれた」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: たおれる = 倒れる(쓰러지다)\n到(이를 도)는 倒의 오른쪽만 쓴 글자, 例(법식 례)·側(곁 측)은 왼쪽에 亻이 있는 다른 글자입니다.",
+        "explanationJa": "ポイント：たおれる＝倒れる\n「到」は「倒」の右がわだけの字、「例」「側」は左に「亻」があるべつの字です。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "到れた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "例れた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "倒れた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "側れた"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-22",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "かぜを「ふせぐ」ために、手をよく洗う。「ふせぐ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ふせぐ = 防ぐ(막다)\n妨(방해할 방)·坊(동네 방)·房(방 방)은 防처럼 「方」이 들어간 다른 글자입니다.",
+        "explanationJa": "ポイント：ふせぐ＝防ぐ\n「妨」「坊」「房」は「防」と同じように「方」が入ったべつの字です。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "防ぐ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "妨ぐ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "坊ぐ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "房ぐ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-23",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "あの先生は宿題に「きびしい」。「きびしい」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: きびしい = 厳しい(엄하다)\n険しい는 「けわしい」(험하다), 激しい는 「はげしい」(격하다)로 읽는 다른 말이고, 敵しい라는 말은 없습니다.",
+        "explanationJa": "ポイント：きびしい＝厳しい\n「険しい」は「けわしい」、「激しい」は「はげしい」と読むべつのことばで、「敵しい」ということばはありません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "険しい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "激しい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "敵しい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "厳しい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-24",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "大学で「せいじ」について勉強している。「せいじ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: せいじ = 政治(정치)\n正(바를 정)·制(절제할 제)는 「せい」로 읽지만 政治에는 쓰지 않고, 冶(풀무 야)는 治와 비슷한 다른 글자입니다.",
+        "explanationJa": "ポイント：せいじ＝政治\n「正」「制」も「せい」と読みますが「政治」には使いません。「冶」は「治」ににたべつの字です。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "正治"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "政治"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "政冶"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "制治"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-25",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "事故の原因を「ちょうさ」している。「ちょうさ」を漢字で書くとどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ちょうさ = 調査(조사)\n杳(아득할 묘)·香(향기 향)은 査와 비슷한 다른 글자, 周(두루 주)는 調의 오른쪽만 쓴 글자입니다.",
+        "explanationJa": "ポイント：ちょうさ＝調査\n「杳」「香」は「査」ににたべつの字、「周」は「調」の右がわだけの字です。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "調杳"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "周査"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "調査"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "調香"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-26",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "彼は約束の時間を（　）守る人だ。",
+        "passage": null,
+        "explanationKo": "핵심: きちんと = 제대로, 어김없이\n약속 시간을 제대로 지키는 사람이라는 뜻입니다. ぐっすり는 푹(잠), すっかり는 완전히(변화), そっと는 살며시라서 「守る」와 맞지 않습니다.",
+        "explanationJa": "ポイント：きちんと＝決まりどおりに\n約束の時間をいつも守る人という意味です。「ぐっすり」は眠るとき、「すっかり」は変化、「そっと」は静かに動くときに使います。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぐっすり"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きちんと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "すっかり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そっと"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-27",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "部屋が暑いので、エアコンの温度を少し（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 下げる = 내리다(타동사)\n「温度を」 뒤에는 「下げる」가 옵니다. 下りる·落ちる·減る는 「温度を」와 함께 쓰지 않습니다.",
+        "explanationJa": "ポイント：下げる\n「温度を」のあとには「下げる」が来ます。「下りる」「落ちる」「減る」は「温度を」といっしょに使いません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "下りた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "落ちた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "減った"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "下げた"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-28",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "このシャツは洗濯したら（　）しまった。",
+        "passage": null,
+        "explanationKo": "핵심: 縮む = 줄어들다\n옷이 빨래 후 작아졌다는 뜻입니다. 溶ける(녹다)·割れる(깨지다)·沸く(끓다)는 셔츠에 쓰지 않습니다.",
+        "explanationJa": "ポイント：縮む＝小さくなる\n洗濯してシャツが小さくなったという意味です。「溶ける」「割れる」「沸く」はシャツには使いません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "溶けて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "割れて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "沸いて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "縮んで"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-29",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "テストの前の日は（　）して、なかなか眠れなかった。",
+        "passage": null,
+        "explanationKo": "핵심: 緊張する = 긴장하다\n시험 전날 긴장해서 잠을 못 잤다는 뜻입니다. 安心(안심)은 반대이고, 退屈(지루함)·油断(방심)은 잠을 못 잔 이유가 되지 않습니다.",
+        "explanationJa": "ポイント：緊張する\nテストの前で気持ちがかたくなり、眠れなかったという意味です。「安心」は反対で、「退屈」「油断」は眠れない理由になりません。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "安心"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "退屈"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "油断"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "緊張"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-30",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "道が分からなかったので、地図で店の（　）を確かめた。",
+        "passage": null,
+        "explanationKo": "핵심: 場所 = 장소, 위치\n지도로 확인하는 것은 가게의 위치입니다. 番号(번호)·時刻(시각)·値段(가격)은 지도로 확인하지 않습니다.",
+        "explanationJa": "ポイント：場所\n地図で確かめるのは店のある所です。「番号」「時刻」「値段」は地図ではわかりません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "番号"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "場所"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "時刻"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "値段"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-31",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "友だちに借りた本を、まだ（　）いない。",
+        "passage": null,
+        "explanationKo": "핵심: 返す = 돌려주다\n빌린 책을 아직 돌려주지 않았다는 뜻입니다. 戻る·帰る는 「本を」를 받지 않고, 貸す(빌려주다)는 빌린 사람이 하는 일이 아닙니다.",
+        "explanationJa": "ポイント：返す\n借りた本をまだ返していないという意味です。「戻る」「帰る」は「本を」と使わず、「貸す」は借りた人がすることではありません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "戻って"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "帰って"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "貸して"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "返して"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-32",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "彼女は（　）な性格で、だれとでもすぐ仲よくなる。",
+        "passage": null,
+        "explanationKo": "핵심: 陽気 = 명랑함\n밝은 성격이라 누구와도 금방 친해진다는 뜻입니다. 退屈(지루함)·不安(불안)·無理(무리)는 성격을 나타내지 않습니다.",
+        "explanationJa": "ポイント：陽気＝明るい\n明るい性格なので、すぐ仲よくなるという意味です。「退屈」「不安」「無理」は性格を表しません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "退屈"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "陽気"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "不安"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "無理"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-33",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "この川は水が（　）で、底まで見える。",
+        "passage": null,
+        "explanationKo": "핵심: 透明 = 투명\n물이 투명해서 바닥까지 보인다는 뜻입니다. 新鮮(신선)·正確(정확)·重要(중요)는 「底まで見える」와 맞지 않습니다.",
+        "explanationJa": "ポイント：透明＝すきとおっている\n水がすきとおっているので底が見えるという意味です。「新鮮」「正確」「重要」は合いません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "新鮮"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "透明"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "正確"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "重要"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-34",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "試験に合格するために、毎日（　）勉強している。",
+        "passage": null,
+        "explanationKo": "핵심: 一生懸命 = 열심히\n합격하려고 매일 열심히 공부한다는 뜻입니다. せっかく(모처럼)·わざわざ(일부러)·せめて(적어도)는 이 문장과 맞지 않습니다.",
+        "explanationJa": "ポイント：一生懸命＝とてもがんばって\n合格のために毎日がんばっているという意味です。「せっかく」「わざわざ」「せめて」は合いません。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せっかく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わざわざ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一生懸命"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せめて"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-35",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "人が多いので、（　）ないように手をつないで歩こう。",
+        "passage": null,
+        "explanationKo": "핵심: はぐれる = 일행을 놓치다\n사람이 많아 서로 놓치지 않도록 손을 잡자는 뜻입니다. ぬれる(젖다)·ふえる(늘다)·こぼれる(넘치다)는 손을 잡는 이유가 되지 않습니다.",
+        "explanationJa": "ポイント：はぐれる＝いっしょの人と別れてしまう\n人が多いので、別れてしまわないように手をつなぐという意味です。「ぬれる」「ふえる」「こぼれる」は合いません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はぐれ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぬれ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ふえ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "こぼれ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-36",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "このレストランは、予約しないと入れないほど（　）だ。",
+        "passage": null,
+        "explanationKo": "핵심: 人気 = 인기\n예약 없이는 못 들어갈 만큼 인기가 있다는 뜻입니다. 平気(태연함)·元気(건강함)·本気(진심)는 가게에 쓰지 않습니다.",
+        "explanationJa": "ポイント：人気\n予約しないと入れないほど、行きたい人が多いという意味です。「平気」「元気」「本気」は店には使いません。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "平気"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "元気"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "本気"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "人気"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-37",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "冷たい風が入るので、窓を（　）閉めてください。",
+        "passage": null,
+        "explanationKo": "핵심: しっかり = 단단히, 꼭\n바람이 들어오지 않게 창문을 꼭 닫아 달라는 뜻입니다. ぐっすり는 잠, たっぷり는 양이 많음, うっかり는 실수에 씁니다.",
+        "explanationJa": "ポイント：しっかり＝きちんと、かたく\n風が入らないように窓をきちんと閉めるという意味です。「ぐっすり」は眠るとき、「たっぷり」は量が多いとき、「うっかり」はまちがえたときに使います。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しっかり"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぐっすり"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "たっぷり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "うっかり"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-38",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "スピーチの前に、話したいことを紙に（　）おいた。",
+        "passage": null,
+        "explanationKo": "핵심: まとめる = 정리하다\n할 말을 종이에 정리해 두었다는 뜻입니다. つつむ(싸다)·たたむ(접다)·かさねる(겹치다)는 「話したいこと」에 쓰지 않습니다.",
+        "explanationJa": "ポイント：まとめる\n話したいことを紙に書いて整理したという意味です。「つつむ」「たたむ」「かさねる」は「話したいこと」には使いません。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "つつんで"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "たたんで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "まとめて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かさねて"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-39",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "駅前に新しい店が「次々に」できた。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 次々に ≒ あとからあとから(잇따라)\n가게가 하나씩 잇따라 생겼다는 뜻입니다. たまに는 가끔, 急に는 갑자기, やっと는 겨우·드디어입니다.",
+        "explanationJa": "ポイント：次々に＝あとからあとから\n店が一つずつ続けてできたという意味です。「たまに」「急に」「やっと」は意味がちがいます。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たまに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "急に"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あとからあとから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "やっと"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-40",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "彼はいつも「あいまいな」返事をする。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あいまいな ≒ はっきりしない(애매한)\n분명하지 않은 대답이라는 뜻입니다. 元気な·短い·ていねいな는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：あいまいな＝はっきりしない\n意味がはっきりわからない返事です。「元気な」「短い」「ていねいな」は意味がちがいます。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "元気な"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はっきりしない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "短い"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ていねいな"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-41",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "会議の時間が「延びた」。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 延びる ≒ 長くなる(늘어나다)\n회의 시간이 길어졌다는 뜻입니다. 短くなった는 반대, 中止になった·始まった는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：延びる＝長くなる\n会議の時間が長くなったという意味です。「短くなった」は反対で、「中止になった」「始まった」はちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "短くなった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "中止になった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "長くなった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "始まった"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-42",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "祖父は「たびたび」この店に来る。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: たびたび ≒ 何度も(자주, 여러 번)\n할아버지가 이 가게에 여러 번 온다는 뜻입니다. 一度も는 부정과 함께 쓰고, はじめて·もう는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：たびたび＝何度も\n何回もこの店に来るという意味です。「一度も」は「〜ない」と使い、「はじめて」「もう」は意味がちがいます。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一度も"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "何度も"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はじめて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "もう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-43",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "その話を聞いて「びっくりした」。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: びっくりする ≒ おどろく(놀라다)\n이야기를 듣고 놀랐다는 뜻입니다. 安心した·怒った·笑った는 다른 기분입니다.",
+        "explanationJa": "ポイント：びっくりする＝おどろく\n話を聞いておどろいたという意味です。「安心した」「怒った」「笑った」はちがう気持ちです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "安心した"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "怒った"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おどろいた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "笑った"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-44",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "母は料理の「腕」がいい。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 腕 ≒ 技術(솜씨)\n「料理の腕がいい」는 요리 솜씨가 좋다는 뜻입니다. 道具(도구)·材料(재료)·量(양)은 솜씨가 아닙니다.",
+        "explanationJa": "ポイント：腕＝技術\n料理が上手だという意味です。「道具」「材料」「量」は上手かどうかを表しません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "道具"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "技術"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "材料"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "量"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-45",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "朝の道はとても「混んで」いた。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 混む ≒ 사람이나 차가 많다(붐비다)\n아침 길이 붐볐다는 뜻입니다. 広かった·暗かった·工事中だった는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：混む＝人や車が多い\n朝の道に人や車が多かったという意味です。「広かった」「暗かった」「工事中だった」はちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "広かった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "暗かった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "人や車が多かった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "工事中だった"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-46",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "彼女は「ぼんやり」窓の外を見ていた。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ぼんやり ≒ 何も考えずに(멍하니)\n아무 생각 없이 창밖을 보고 있었다는 뜻입니다. 楽しそうに·急いで·こっそり는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：ぼんやり＝何も考えずに\n何も考えないで外を見ていたという意味です。「楽しそうに」「急いで」「こっそり」は意味がちがいます。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "楽しそうに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "何も考えずに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "急いで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "こっそり"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-47",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "父は「無口な」人だ。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 無口な ≒ あまり話さない(과묵한)\n말이 적은 사람이라는 뜻입니다. よく笑う·怒りやすい·体が大きい는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：無口な＝あまり話さない\n話すことが少ない人という意味です。「よく笑う」「怒りやすい」「体が大きい」はちがいます。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よく笑う"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あまり話さない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "怒りやすい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "体が大きい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-48",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "子どもが無事だと聞いて「ほっとした」。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ほっとする ≒ 安心する(안심하다)\n아이가 무사하다고 듣고 안심했다는 뜻입니다. がっかりした(실망)·緊張した(긴장)·怒った(화남)는 다른 기분입니다.",
+        "explanationJa": "ポイント：ほっとする＝安心する\n子どもが無事で安心したという意味です。「がっかりした」「緊張した」「怒った」はちがう気持ちです。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "安心した"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がっかりした"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "緊張した"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "怒った"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-49",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "弟はまた「うそ」をついた。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: うそ ≒ 本当ではない話(거짓말)\n「うそをつく」는 거짓말을 한다는 뜻입니다. 大事な·おもしろい·長い話는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：うそ＝本当ではない話\n「うそをつく」は本当ではないことを言うという意味です。ほかは意味がちがいます。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "本当ではない話"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "大事な話"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おもしろい話"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "長い話"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-50",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「余った」料理を明日食べる。意味が最も近いものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 余る ≒ 残る(남다)\n먹고 남은 요리를 내일 먹는다는 뜻입니다. 作った·買った·温めた는 뜻이 다릅니다.",
+        "explanationJa": "ポイント：余る＝残る\n食べきれずに残った料理という意味です。「作った」「買った」「温めた」は意味がちがいます。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "作った"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "買った"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "温めた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "残った"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-51",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「すっかり」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: すっかり = 완전히(변화)\n눈이 녹아 완전히 봄다워졌다는 문장이 맞습니다. 값싼 것은 「とても」, 전화는 「すぐ」, 다음 주는 「また」만 씁니다.",
+        "explanationJa": "ポイント：すっかり＝全部かわって\n春らしくなった文が正しいです。安いは「とても」、電話は「すぐ」を使い、「来週また」に「すっかり」は入りません。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "雪がとけて、すっかり春らしくなった。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "このかばんはすっかり安い。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "駅に着いたら、すっかり電話してください。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "すっかり来週また会いましょう。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-52",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「もったいない」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: もったいない = 아깝다\n아직 쓸 수 있는데 버리는 것이 아깝다는 문장이 맞습니다. 비가 오니 우산은 「降りそうなので」, 늦은 시간은 「遅い」, 표정은 「うれしそうな」 등이 자연스럽습니다.",
+        "explanationJa": "ポイント：もったいない＝むだにするのがおしい\nまだ使える物を捨てる文が正しいです。ほかは「降りそう」「遅い」「うれしそうな」などを使います。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "雨がもったいないので、傘を持っていく。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "もったいない時間に起きてしまった。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "友だちがもったいない顔で笑った。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まだ使えるのに捨てるのはもったいない。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-53",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「流行」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 流行 = 유행\n긴 치마가 유행한다는 문장이 맞습니다. 물은 「流れて」, 전철은 「着いた」, 공원은 「散歩して」를 씁니다.",
+        "explanationJa": "ポイント：流行＝はやること\n長いスカートがはやっている文が正しいです。水は「流れる」、電車は「着く」、公園は「散歩する」を使います。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "川の水が速く流行している。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "電車が駅に流行した。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "毎朝、公園を流行している。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "今年は長いスカートが流行している。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-54",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「おとなしい」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: おとなしい = 얌전하다\n동생이 얌전해서 말이 적다는 문장이 맞습니다. 시계·하늘·길에는 「おとなしい」를 쓰지 않고 「急に」「よく」「静かな」 등을 씁니다.",
+        "explanationJa": "ポイント：おとなしい＝静かで、さわがない\n人の性格を言う文が正しいです。時計、空、道には「おとなしい」を使いません。",
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "時計がおとなしく止まった。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "今日の空はおとなしく晴れている。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "駅までおとなしい道を歩いた。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "弟はおとなしくて、あまり話さない。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-55",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「直す」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 直す = 고치다\n고장 난 자전거를 고쳐 받았다는 문장이 맞습니다. 역은 「出た」, 바깥은 「見た」, 전화는 「かけた」를 씁니다.",
+        "explanationJa": "ポイント：直す＝こわれた物を使えるようにする\n自転車を直す文が正しいです。駅は「出る」、外は「見る」、電話は「かける」を使います。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "朝早く駅を直した。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "窓から外を直した。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "こわれた自転車を直してもらった。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "友だちに電話を直した。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-56",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「向かう」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 向かう = 향하다\n지금부터 공항으로 간다는 문장이 맞습니다. 감기는 「治って」, 신발은 「合って」, 소금은 「効きすぎて」를 씁니다.",
+        "explanationJa": "ポイント：向かう＝その場所へ行く\n空港へ行く文が正しいです。かぜは「治る」、くつは「合う」、塩は「効く」を使います。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "これから空港に向かいます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かぜが向かってよかった。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "新しいくつが足に向かっている。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この料理は塩が向かいすぎている。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-57",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「我慢」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 我慢 = 참음\n아팠지만 울지 않고 참았다는 문장이 맞습니다. 외출은 「遊びに」, 밝은 방은 「窓が大きくて」, 편지는 「お礼の」 등을 씁니다.",
+        "explanationJa": "ポイント：我慢＝つらいことにたえること\n泣かずにたえた文が正しいです。ほかは「遊びに」「お礼の」などを使います。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "週末は友だちと我慢に行く。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この部屋は我慢で明るい。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "先生に我慢の手紙を書いた。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "痛かったが、泣かずに我慢した。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-58",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「手入れ」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 手入れ = 손질\n매주 정원을 손질한다는 문장이 맞습니다. 표는 「買った」, 전화는 「お礼の」 등, 비는 「たくさん」을 씁니다.",
+        "explanationJa": "ポイント：手入れ＝よい状態にするために世話をすること\n庭の世話をする文が正しいです。切符は「買う」を使い、ほかの文には合いません。",
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "毎週、庭の手入れをしている。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "駅で切符を手入れした。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "友だちに手入れの電話をした。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "雨が手入れして降った。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-59",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「利用」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 利用 = 이용\n역 주차장을 이용했다는 문장이 맞습니다. 利用는 「な」를 붙이지 않고, 날씨는 「調べた」, 감기는 「治って」를 씁니다.",
+        "explanationJa": "ポイント：利用＝使うこと\n駐車場を使った文が正しいです。「利用な」という形はなく、天気は「調べる」、かぜは「治る」を使います。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅の駐車場を利用した。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "彼はとても利用な人だ。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "明日の天気を利用した。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かぜが利用してよくなった。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-60",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「ちょうど」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ちょうど = 마침, 딱\n역에 도착하자 마침 전철이 왔다는 문장이 맞습니다. 키는 「とても」, 금지하는 말에는 쓰지 않고, 맛은 「少し」를 씁니다.",
+        "explanationJa": "ポイント：ちょうど＝その時にぴったり\n着いた時に電車が来た文が正しいです。背は「とても」、スープは「少し」などを使い、「走らないで」には使いません。",
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "彼はちょうど背が高い。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "駅に着いたら、ちょうど電車が来た。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ちょうど走らないでください。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "このスープはちょうど辛い。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-61",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「済む」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 済む = 끝나다\n일이 일찍 끝나서 일찍 돌아갔다는 문장이 맞습니다. 사는 곳은 「住んで」, 책은 「おもしろい」, 비는 「降って」를 씁니다.",
+        "explanationJa": "ポイント：済む＝終わる\n仕事が終わった文が正しいです。住む所は「住む」と書き、本は「おもしろい」、雨は「降る」を使います。",
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅の近くに済んでいる。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この本はとても済んでいる。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "昨日は一日中、雨が済んでいた。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "仕事が早く済んだので、早く帰った。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b11-vocabulary-62",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「交換」の使い方として最もよいものはどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 交換 = 교환\n친구와 메일 주소를 주고받았다는 문장이 맞습니다. 병은 「治って」, 공원은 「散歩して」, 선생님께는 「感謝の」를 씁니다.",
+        "explanationJa": "ポイント：交換＝とりかえること\nアドレスをとりかえた文が正しいです。病気は「治る」、公園は「散歩する」、先生には「感謝の言葉」を使います。",
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "病気が交換してよくなった。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "毎朝、公園で交換している。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "友だちとメールアドレスを交換した。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "先生に交換の言葉を伝えた。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    }
+  ]
+}

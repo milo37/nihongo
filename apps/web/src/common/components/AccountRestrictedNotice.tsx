@@ -20,7 +20,7 @@ export const AccountRestrictedNotice = ({
   return (
     <p
       ref={ref}
-      className={`rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-950 outline-none ${className}`}
+      className={`account-restricted-notice ${className}`}
       role="alert"
       tabIndex={focusOnMount ? -1 : undefined}
     >

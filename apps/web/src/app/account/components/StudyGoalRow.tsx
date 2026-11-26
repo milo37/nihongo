@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import { readDevicePush } from '@common/libs/devicePush'
 import {
   onboardingPath,
   useStudyGoal
@@ -17,6 +19,17 @@ export const StudyGoalRow = ({ userId }: { userId: string }): ReactElement => {
   const goal = useStudyGoal(userId)
   const to = onboardingPath('/account')
   const set = goal?.dailyGoal != null && goal.targetLevel !== null
+  // #1046: '알림 켬' when this device gets the morning push.
+  const [pushOn, setPushOn] = useState(false)
+  useEffect(() => {
+    let live = true
+    void readDevicePush().then((state) => {
+      if (live) setPushOn(state === 'on')
+    })
+    return () => {
+      live = false
+    }
+  }, [])
   return (
     <section className="study-goal-row" aria-labelledby="study-goal-row-label">
       <p id="study-goal-row-label" className="study-goal-row-label">
@@ -31,6 +44,9 @@ export const StudyGoalRow = ({ userId }: { userId: string }): ReactElement => {
               today: goal.todayAnsweredCount
             })}
           </span>
+          {pushOn ? (
+            <span className="study-goal-row-push">{t('studyGoal.pushOn')}</span>
+          ) : null}
           <Icon name="chevron-right" className="study-goal-row-chevron" />
         </Link>
       ) : (
