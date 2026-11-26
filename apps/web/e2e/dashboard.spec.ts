@@ -10,12 +10,14 @@ import type { BrowserContext, Page, Request, Response } from '@playwright/test'
 import {
   assertAndAttachLedger,
   assertExactRequestMultiset,
+  countedLedger,
   selectRequestLedger,
   trackRequestLedger,
   waitForLedgerToQuiesce,
   waitForLedgerToSettle
 } from './request-ledger'
 import type { RequestLedger } from './request-ledger'
+import { trackNavigationAborts } from './navigation-abort'
 
 type BrowserMode = 'mock' | 'real'
 
@@ -160,9 +162,15 @@ const trackApiTransport = (context: BrowserContext): ApiTransportEvidence => {
       )
     }
   })
+  const navigationAborts = trackNavigationAborts(context)
   context.on('requestfailed', (request) => {
     const pathname = new URL(request.url()).pathname
-    if (pathname.startsWith('/api/')) {
+    // A request the browser cut off because the page moved on (for example
+    // GET /api/v1/me right after login) is not a failure; anything else is.
+    if (
+      pathname.startsWith('/api/') &&
+      !navigationAborts.isNavigationAbort(request)
+    ) {
       evidence.failedRequests.push(
         `${request.method()} ${pathname}: ${request.failure()?.errorText ?? 'unknown failure'}`
       )
@@ -207,7 +215,8 @@ const selectCanonicalDashboardLedger = (
     endIndex
   )
 
-const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
+const assertCanonicalDashboardLedger = (fullLedger: RequestLedger): void => {
+  const ledger = countedLedger(fullLedger)
   assertExactRequestMultiset(ledger, [
     { method: 'GET', path: '/api/v1/dashboard', statuses: [200] }
   ])
