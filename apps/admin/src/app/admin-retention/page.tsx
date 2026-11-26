@@ -148,7 +148,7 @@ export const AdminRetentionPage = (): ReactElement => {
         <h1 className="text-balance text-3xl font-black sm:text-4xl">
           {t('retention.title')}
         </h1>
-        <p className="mt-4 max-w-prose text-muted">
+        <p className="mt-4 max-w-prose text-muted [word-break:keep-all]">
           {t('retention.description')}
         </p>
       </header>
