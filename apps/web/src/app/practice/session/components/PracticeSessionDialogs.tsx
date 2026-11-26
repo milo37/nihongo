@@ -70,16 +70,18 @@ export const PracticeSubmitDialog = ({
   const { formatCount } = usePracticeNumberFormat()
   // #1262: a failed submit closes the dialog and says so in a toast; the
   // answers stay as they are and [제출하기] sends them again. Being offline
-  // is the shared connection toast.
-  const { addToast } = useToast()
+  // is the shared connection toast. The toast closes on the next send and
+  // when the session screen goes, so the result never says it failed (#1311).
+  const { addToast, dismissToast } = useToast()
   useEffect(() => {
     if (!isSubmissionError) return
     onOpenChange(false)
-    addToast({
+    const id = addToast({
       key: 'submit',
       title: t('session.submit.requestFailure'),
       variant: 'warning'
     })
+    return () => dismissToast(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSubmissionError])
 

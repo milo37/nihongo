@@ -33,7 +33,8 @@ groups = {
     "migrate.env": ["MIGRATION_DATABASE_URL", "DATABASE_URL", "PRODUCTION_DATABASE_URL"],
     # Wrapper login passwords for provision-db.sh only.
     "provision.env": ["PROD_MIGRATION_LOGIN_PASSWORD", "PROD_APP_LOGIN_PASSWORD", "PROD_GUEST_CLEANUP_LOGIN_PASSWORD"],
-    "api.env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    # WEB_PUSH_PUBLIC_KEY is optional (#1046): without it push stays off.
+    "api.env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "WEB_PUSH_PUBLIC_KEY"],
     "proxy.env": ["ORIGIN_VERIFY_SECRET"],
     # Account erasure only (#57); never part of the API runtime environment.
     "erase.env": ["PRODUCTION_DATABASE_URL"],
