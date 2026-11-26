@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
@@ -17,12 +17,62 @@ import {
   DailyGoalStepper
 } from '@app/login/components/DailyGoalStepper'
 import { LevelStrip } from '@app/login/components/LevelStrip'
-import { useErrorToast } from '@nihongo/browser/common/components/Toast'
+import { PenCircle } from '@app/login/components/PenCircle'
+import {
+  useErrorToast,
+  useToast
+} from '@nihongo/browser/common/components/Toast'
+import { useGoalPush } from '@app/login/hooks/useGoalPush'
 
 // My page opens the page to come back to itself; anything else is a sign-in
 // return and follows the same rule.
 const readRedirect = (value: string | null): string =>
   value === EDIT_RETURN_PATH ? value : safeSsoReturnPath(value)
+
+// #1046: 'Shall we tell you at 8?' with a switch. Blocked by the browser or
+// before an iPhone home screen install: dimmed, with one grey line why.
+const GoalPushSwitch = ({
+  push,
+  disabled
+}: {
+  push: ReturnType<typeof useGoalPush>
+  disabled: boolean
+}): ReactElement | null => {
+  const { t } = useTranslation('auth')
+  const id = useId()
+  if (push.state === 'hidden') return null
+  const hint =
+    push.state === 'denied'
+      ? t('studyGoal.pushDenied')
+      : push.state === 'ios'
+        ? t('studyGoal.pushIos')
+        : null
+  return (
+    <div className="study-goal-question study-goal-push">
+      <label className="study-goal-label" htmlFor={id}>
+        {t('studyGoal.push')}
+      </label>
+      <span className="study-goal-switch-box">
+        <input
+          id={id}
+          className="study-goal-switch"
+          type="checkbox"
+          role="switch"
+          checked={push.checked}
+          disabled={disabled || hint !== null}
+          aria-describedby={hint ? id + '-hint' : undefined}
+          onChange={(event) => void push.toggle(event.currentTarget.checked)}
+        />
+        <PenCircle className="study-goal-switch-pen" />
+      </span>
+      {hint ? (
+        <p id={id + '-hint'} className="study-goal-push-hint">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 const StudyGoalForm = ({
   userId,
@@ -33,7 +83,20 @@ const StudyGoalForm = ({
 }): ReactElement | null => {
   const { t } = useTranslation('auth')
   const heading = useRef<HTMLHeadingElement>(null)
-  const page = useStudyGoalPage(userId, redirect)
+  const push = useGoalPush()
+  const { addToast } = useToast()
+  // The goal is saved either way; a failed subscription says so once.
+  const page = useStudyGoalPage(userId, redirect, async () => {
+    try {
+      await push.apply()
+    } catch {
+      addToast({
+        key: 'study-goal-push',
+        title: t('studyGoal.pushFailed'),
+        variant: 'warning'
+      })
+    }
+  })
   // #1292: the button stays as it was; the toast says the save failed.
   useErrorToast(page.failed ? t('studyGoal.failed') : null, 'study-goal')
   const [level, setLevel] = useState<JlptLevel | null>(null)
@@ -66,25 +129,28 @@ const StudyGoalForm = ({
         {t('studyGoal.title')}
       </h1>
       <p className="study-goal-hint">{t('studyGoal.hint')}</p>
-      <div className="study-goal-question">
-        <p className="study-goal-label" aria-hidden="true">
-          {t('studyGoal.level')}
-        </p>
-        <LevelStrip
-          label={t('studyGoal.level')}
-          value={pickedLevel}
-          onChange={setLevel}
-        />
-      </div>
-      <div className="study-goal-question">
-        <p className="study-goal-label" aria-hidden="true">
-          {t('studyGoal.daily')}
-        </p>
-        <DailyGoalStepper
-          label={t('studyGoal.daily')}
-          value={pickedDaily}
-          onChange={setDaily}
-        />
+      <div className="study-goal-list">
+        <div className="study-goal-question">
+          <p className="study-goal-label" aria-hidden="true">
+            {t('studyGoal.level')}
+          </p>
+          <LevelStrip
+            label={t('studyGoal.level')}
+            value={pickedLevel}
+            onChange={setLevel}
+          />
+        </div>
+        <div className="study-goal-question">
+          <p className="study-goal-label" aria-hidden="true">
+            {t('studyGoal.daily')}
+          </p>
+          <DailyGoalStepper
+            label={t('studyGoal.daily')}
+            value={pickedDaily}
+            onChange={setDaily}
+          />
+        </div>
+        <GoalPushSwitch push={push} disabled={page.busy} />
       </div>
       <div className="study-goal-actions">
         <Button

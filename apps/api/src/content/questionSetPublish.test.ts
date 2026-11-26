@@ -30,15 +30,15 @@ afterEach(async () => {
 })
 
 describe('question set files (JLP-828)', () => {
-  it('names the same 28 files as the question import source', () => {
+  it('names the same 30 files as the question import source', () => {
     expect(QUESTION_SET_FILE_NAMES).toEqual(questionImportFileNames)
   })
 
-  it('reads the 1293 questions with a SHA-256 per file', async () => {
+  it('reads the 1413 questions with a SHA-256 per file', async () => {
     const files = await readQuestionSet(await copySet())
     expect(files.map(({ name }) => name)).toEqual(QUESTION_SET_FILE_NAMES)
     expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
-      1293
+      1413
     )
     for (const file of files) expect(file.sha256).toMatch(/^[0-9a-f]{64}$/u)
   })
@@ -62,7 +62,7 @@ describe('question set files (JLP-828)', () => {
     expect(previous.reduce((total, file) => total + file.items.length, 0)).toBe(
       500
     )
-    await expect(readQuestionSet(await copySet())).resolves.toHaveLength(28)
+    await expect(readQuestionSet(await copySet())).resolves.toHaveLength(30)
     await expect(
       readQuestionSet(await copySet(), EXPLANATION_JA_SET_FILE_NAMES)
     ).rejects.toMatchObject({ code: 'QUESTION_SET_FILES_INVALID' })

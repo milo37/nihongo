@@ -1305,6 +1305,78 @@ describe('마이페이지 계정 설정', () => {
     expect(signouts).toBe(2)
   })
 
+  it('이 기기가 아침 알림을 받으면 목표 줄 화살표 앞에 「알림 켬」 (#1046)', async () => {
+    const member = mockDatabase.loginAs('USER')
+    mockDatabase.setStudyGoal(member.id, 'N3', 40)
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class {})
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: async () => ({
+          pushManager: {
+            getSubscription: async () => ({
+              endpoint: 'https://fcm.googleapis.com/x'
+            })
+          }
+        })
+      }
+    })
+    try {
+      renderAccount()
+      const row = await screen.findByRole('link', { name: /목표 N3/u })
+      expect(await within(row).findByText('알림 켬')).toBeVisible()
+    } finally {
+      vi.unstubAllGlobals()
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
+  it('로그아웃은 이 기기 알림을 먼저 끈다: 서버에 지우라고 하고, 실패해도 구독은 푼다 (#1046)', async () => {
+    mockDatabase.loginAs('USER')
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/device-1'
+    const unsubscribe = vi.fn(async () => true)
+    const subscription = { endpoint, unsubscribe }
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class {})
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: async () => ({
+          pushManager: { getSubscription: async () => subscription }
+        })
+      }
+    })
+    const calls: string[] = []
+    mockServer.use(
+      http.delete('*/api/v1/push/subscription', async ({ request }) => {
+        calls.push('push ' + JSON.stringify(await request.json()))
+        return HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'down' },
+          { status: 500 }
+        )
+      }),
+      http.post('*/api/auth/sign-out', () => {
+        calls.push('sign-out')
+        return undefined
+      })
+    )
+    try {
+      const router = renderAccount()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+      expect(calls).toEqual([
+        'push ' + JSON.stringify({ endpoint }),
+        'sign-out'
+      ])
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
   it('요청 extra field와 공급자 URL 불일치를 거부한다', async () => {
     const posts = vi.spyOn(apiClient, 'post')
     const input = {
