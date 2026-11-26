@@ -2462,7 +2462,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   })
   const bookmarkTrigger = page.getByRole('button', {
-    name: '1번 문제를 책갈피에 담기',
+    name: '1번 문제 책갈피',
     exact: true
   })
   await focusByTab(page, bookmarkTrigger)
@@ -2478,7 +2478,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(createBookmarkResponse.headers().location).toBe(bookmarkPath)
   await expect(
     page.getByRole('button', {
-      name: '1번 문제를 책갈피에서 빼기',
+      name: '1번 문제 책갈피',
       exact: true
     })
   ).toHaveAttribute('aria-pressed', 'true')

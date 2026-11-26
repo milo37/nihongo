@@ -393,7 +393,7 @@ describe('approved general result navigation', () => {
     if (!second) throw new Error('결과 fixture가 필요합니다.')
     const { router, view } = fixture.mount(`?question=${second.question.id}`)
     const button = await screen.findByRole('button', {
-      name: '2번 문제를 책갈피에 담기'
+      name: '2번 문제 책갈피'
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
@@ -424,7 +424,7 @@ describe('approved general result navigation', () => {
     const { router, view } = fixture.mount()
     await screen.findByRole('navigation', { name: '문제 번호' })
     const bookmark = await screen.findByRole('button', {
-      name: /문제를 책갈피에 담기/u
+      name: /번 문제 책갈피$/u
     })
     await userEvent.setup().click(bookmark)
     const toasts = screen.getByRole('region', { name: '알림' })
@@ -1117,18 +1117,22 @@ describe('approved general result navigation', () => {
     if (!second) throw new Error('결과 fixture가 필요합니다.')
     const { view } = fixture.mount(`?question=${second.question.id}`)
     const button = await screen.findByRole('button', {
-      name: '2번 문제를 책갈피에 담기'
+      name: '2번 문제 책갈피'
     })
+    // One name in both states; aria-pressed says whether it is in.
+    expect(button).toHaveAttribute('aria-pressed', 'false')
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
     const saved = screen.getByRole('button', {
-      name: '2번 문제를 책갈피에서 빼기'
+      name: '2번 문제 책갈피'
     })
     expect(saved).toHaveAttribute('aria-pressed', 'true')
     // JLP-878: the words stay; only the ribbon fills, with no pressed box.
-    expect(saved).toHaveTextContent(/^책갈피$/u)
+    // The number is screen-reader-only; the visible word is still '책갈피'.
+    expect(saved).toHaveTextContent(/^2번 문제 책갈피$/u)
+    expect(saved.querySelector('.sr-only')).toHaveTextContent(/^2번 문제$/u)
     expect(saved).toHaveClass('ui-button-toggle-icon')
     expect(saved.className).toContain('study-result-bookmark')
     view.unmount()
