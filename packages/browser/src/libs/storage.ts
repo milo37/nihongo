@@ -17,7 +17,8 @@ type StorageChangeListener = (event: StorageEvent) => void
 interface SyncStateStorage extends StateStorage {
   getItem: (key: string) => string | null
   setItem: (key: string, value: string) => boolean
-  removeItem: (key: string) => void
+  // Same return type as setItem: zustand 5.0.16 types both with one R.
+  removeItem: (key: string) => boolean
 }
 
 interface PersistedEnvelope {
@@ -129,13 +130,15 @@ const removeStorage = (
   storage: Storage | undefined,
   cache: Map<string, string | null>,
   key: string
-): void => {
+): boolean => {
+  cache.delete(key)
   try {
     storage?.removeItem(key)
+    return Boolean(storage)
   } catch {
     // 저장소 접근이 막혀도 현재 탭 상태 초기화는 계속 진행합니다.
+    return false
   }
-  cache.delete(key)
 }
 
 const getLocalStorage = (): Storage | undefined => {
@@ -251,9 +254,8 @@ export const cachedStorage: SyncStateStorage = {
   setItem: (key, value): boolean => {
     return writeStorage(getLocalStorage(), localStorageCache, key, value)
   },
-  removeItem: (key): void => {
+  removeItem: (key): boolean =>
     removeStorage(getLocalStorage(), localStorageCache, key)
-  }
 }
 
 export const cachedSessionStorage: SyncStateStorage = {
@@ -262,9 +264,8 @@ export const cachedSessionStorage: SyncStateStorage = {
   setItem: (key, value): boolean => {
     return writeStorage(getSessionStorage(), sessionStorageCache, key, value)
   },
-  removeItem: (key): void => {
+  removeItem: (key): boolean =>
     removeStorage(getSessionStorage(), sessionStorageCache, key)
-  }
 }
 
 const serializeEnvelope = (
@@ -361,9 +362,11 @@ export const createSplitAppStateStorage = (
     }
     return false
   },
-  removeItem: (key): void => {
-    authStorage.removeItem(key)
-    practiceStorage.removeItem(PRACTICE_STORE_KEY)
+  removeItem: (key): boolean => {
+    // Both always run; true only when both stores dropped their part.
+    const authRemoved = authStorage.removeItem(key)
+    const practiceRemoved = practiceStorage.removeItem(PRACTICE_STORE_KEY)
+    return authRemoved && practiceRemoved
   }
 })
 
