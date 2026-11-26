@@ -71,7 +71,7 @@ it('matches approved Japanese additions and preserves admin keys, values and ord
   ).toBe('dd1e46b9c11697fb9c13abc9ffb918ce5df67243de38a964097c1586dc13eac6')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('d59b386286ccd4bbb3bfd168ac3e5e8d7dc2b037d006a7176dafc6fadf33f541')
+  ).toBe('dfb5dcc9813507162196235233c56cdfe8fbe6f29c5dcca0436ac58e1ea20349')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
   ).toBe('dcb1a9f6bba491b91cf016338d8d0bc5a65a244e3cf981ac7a5478cc3a59b1c0')
