@@ -4,7 +4,7 @@ packages:
   - amazon-cloudwatch-agent
 
 write_files:
-  # Host scripts are plain text: the whole user data is gzipped once (16 KB limit),
+  # Host scripts and config files are plain text: the whole user data is gzipped once (16 KB limit),
   # and text compresses far better than base64.
   - path: /etc/harumaru/host.env
     permissions: '0644'
@@ -21,12 +21,12 @@ write_files:
     content: ${public_env}
   - path: /opt/harumaru/compose.yaml
     permissions: '0644'
-    encoding: b64
-    content: ${compose_yaml}
+    content: |
+      ${indent(6, compose_yaml)}
   - path: /opt/harumaru/Caddyfile
     permissions: '0644'
-    encoding: b64
-    content: ${caddyfile}
+    content: |
+      ${indent(6, caddyfile)}
   - path: /opt/harumaru/bin/render-env.sh
     permissions: '0750'
     content: |
@@ -83,8 +83,8 @@ write_files:
 %{ endif ~}
   - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     permissions: '0644'
-    encoding: b64
-    content: ${cloudwatch_config}
+    content: |
+      ${indent(6, cloudwatch_config)}
   # After a reboot (or a budget stop and manual start) /run is empty again.
   - path: /etc/systemd/system/harumaru.service
     permissions: '0644'

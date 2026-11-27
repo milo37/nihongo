@@ -1,3 +1,4 @@
+import '@/styles/screens.css'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOutletContext, useParams } from 'react-router'

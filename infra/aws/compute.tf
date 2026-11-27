@@ -123,7 +123,7 @@ resource "aws_instance" "host" {
     log_group       = aws_cloudwatch_log_group.api.name
     ecr_repository  = local.ecr_repository_url
     backup_bucket   = aws_s3_bucket.backup.bucket
-    compose_yaml = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", {
+    compose_yaml = templatefile("${path.module}/files/compose.yaml.tftpl", {
       postgres_image   = var.postgres_image
       caddy_image      = var.caddy_image
       caddy_dns_image  = var.caddy_dns_image
@@ -132,11 +132,11 @@ resource "aws_instance" "host" {
       proxy_subnet     = local.proxy_subnet
       db_subnet        = local.db_subnet
       postgres_address = cidrhost(local.db_subnet, 10)
-    }))
-    caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
+    })
+    caddyfile = templatefile("${path.module}/files/Caddyfile.tftpl", {
       origin_domain = var.origin_domain_name
       noindex       = var.deployment_environment == "STAGING"
-    }))
+    })
     deploy_sh         = file("${path.module}/files/deploy.sh")
     provision_db_sh   = file("${path.module}/files/provision-db.sh")
     migrate_sh        = file("${path.module}/files/migrate.sh")
@@ -145,7 +145,7 @@ resource "aws_instance" "host" {
     backup_sh         = file("${path.module}/files/backup.sh")
     erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
     guest_cleanup_sh  = file("${path.module}/files/guest-cleanup.sh")
-    cloudwatch_config = base64encode(file("${path.module}/files/cloudwatch-agent.json"))
+    cloudwatch_config = file("${path.module}/files/cloudwatch-agent.json")
     # PRODUCTION only: Cloudflare token for the origin certificate (#40).
     origin_tls           = local.origin_tls
     render_origin_env_sh = file("${path.module}/files/render-origin-env.sh")

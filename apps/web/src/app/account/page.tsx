@@ -1,3 +1,4 @@
+import '@/styles/screens.css'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { AccountSettings } from '@app/account/components/AccountSettings'

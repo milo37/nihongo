@@ -18,7 +18,19 @@ if (cssFiles.length !== 1) {
   )
 }
 
-const css = await readFile(resolve(assetsRoot, cssFiles[0]), 'utf8')
+// #1346: screen styles load with their screen, so the rules below may sit in
+// a screen's CSS file. Check the first-screen file and every screen file as
+// one stylesheet.
+const screenCssFiles = (await readdir(assetsRoot)).filter(
+  (file) => file.endsWith('.css') && !cssFiles.includes(file)
+)
+const css = (
+  await Promise.all(
+    [...cssFiles, ...screenCssFiles.toSorted()].map((file) =>
+      readFile(resolve(assetsRoot, file), 'utf8')
+    )
+  )
+).join('\n')
 validateBuiltCssContract(css)
 
 const collectBundleAssets = async (directory, relativeDirectory = '') => {
@@ -45,5 +57,5 @@ const bundleAssets = await collectBundleAssets(distRoot)
 validateProductionBundleRuntime(bundleAssets)
 
 stdout.write(
-  `${JSON.stringify({ axeRuntimeMarkers: 0, cssAsset: cssFiles[0], forcedColorsAnsweredQuestionIndicator: true, forcedColorsTabIndicator: true, scannedBundleAssets: bundleAssets.length })}\n`
+  `${JSON.stringify({ axeRuntimeMarkers: 0, cssAsset: cssFiles[0], screenCssAssets: screenCssFiles.length, forcedColorsAnsweredQuestionIndicator: true, forcedColorsTabIndicator: true, scannedBundleAssets: bundleAssets.length })}\n`
 )

@@ -88,7 +88,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 - `harumaru-<env>-daily-push` SSM 문서가 배포된 이미지로 `node api/dist/notification/dailyPushCommand.js`를 한 번 돌립니다(`files/daily-push.sh`, apply만으로 켜진 서버에 반영). 매개변수 `send`(`true`/`false`, 기본 `false`): `false`면 보낼 대상 수만 셉니다(`daily_push_dry_run`).
 - 키: 운영자가 VAPID 키 한 쌍을 만들어 `/harumaru/<env>/WEB_PUSH_PUBLIC_KEY`, `/harumaru/<env>/WEB_PUSH_PRIVATE_KEY`에 SecureString으로 한 번 씁니다(`terraform output push_parameter_names`). 값은 저장소·Terraform 상태·로그에 남기지 않습니다. 보낸 사람 주소(`WEB_PUSH_SUBJECT`)는 사이트 주소입니다.
-- API는 공개 키를 `api.env`로 받아 `/api/v1/push/config`에 내줍니다. 공개 키가 없으면 `publicKey: null`로 푸시가 꺼진 채입니다. `render-env.sh`는 cloud-init 파일이라, 배포 문서의 첫 단계(`refreshRenderEnv`)가 배포마다 저장소의 `render-env.sh`로 바꿉니다 → 키를 쓴 뒤 다음 배포부터 API에 반영됩니다.
+- API는 공개 키를 `api.env`로 받아 `/api/v1/push/config`에 내줍니다. 공개 키가 없으면 `publicKey: null`로 푸시가 꺼진 채입니다. `render-env.sh`는 cloud-init 파일이라, 배포 문서의 첫 단계(`refreshRenderEnv`)가 배포마다 저장소의 `render-env.sh`로 바꿉니다 → 키를 쓴 뒤 다음 배포부터 API에 반영됩니다. 같은 단계가 `backup.sh`도 바꿉니다(JLP-715: postgres 준비를 최대 5분 기다린 뒤 dump, 안 되면 실패로 끝나 백업 경보에 잡힘).
 - 명령은 `api` 서비스로 돕니다(`db` 망은 외부로 못 나가 브라우저 푸시 서버에 닿지 않음). DB는 API의 `DATABASE_URL`, 안전 검사용 `MIGRATION_DATABASE_URL`(비밀번호 뺌)·`PRODUCTION_DATABASE_URL`을 환경 변수로만 넘깁니다.
 - 예약: `daily_push_schedule_expression`(Asia/Seoul, 기본 `cron(0 8 * * ? *)`), `daily_push_schedule_enabled` 기본 `false`. PRODUCTION은 키를 쓰고 API에 공개 키가 반영된 뒤 켭니다. STAGING은 08:00에 서버가 꺼져 있어 끈 채로 두고, 확인은 하루 창 안에서 수동 실행합니다.
 - 실패: 종료 코드 1(보낼 대상이 있었는데 하나도 못 보냄, 또는 오류)이면 위 예약 작업 실패 알림(EventBridge 규칙)에, 예약이 실행 자체를 못 하면 `scheduler-target-error` 경보에 잡힙니다.
