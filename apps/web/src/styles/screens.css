@@ -1,0 +1,23 @@
+/* Styles for screens the first load does not need: solve, result, kanji rush play
+   and result, My page, wrong notes, bookmarks (#1346). Each of those lazy
+   pages imports this file, so the build serves it as one stylesheet that
+   loads with the first of them, after index.css. The files keep the order
+   they had in index.css; reduced motion stays last. */
+@import './3-components/stamp-board.css';
+@import './4-screens/result.css';
+@import './4-screens/omikuji/button-sheet.css';
+@import './4-screens/omikuji/slip.css';
+@import './4-screens/rush/play.css';
+@import './4-screens/rush/result.css';
+@import './4-screens/session.css';
+@import './4-screens/passage-audio.css';
+@import './4-screens/wrong-note/center.css';
+@import './4-screens/wrong-note/list.css';
+@import './4-screens/wrong-note/detail.css';
+@import './4-screens/my/settings.css';
+@import './4-screens/my/study.css';
+@import './4-screens/bookmark/bookmark.css';
+@import './5-motion/keyframes-omikuji.css';
+@import './5-motion/keyframes-rush.css';
+@import './5-motion/keyframes-session.css';
+@import './5-motion/reduced-motion-screens.css';

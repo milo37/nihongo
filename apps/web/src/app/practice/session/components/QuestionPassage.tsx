@@ -1,21 +1,25 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
 import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import { paragraphRuby } from '@app/practice/session/passageFurigana'
 import { passageParagraphs } from '@app/practice/session/passageParagraphs'
-import { setFurigana, useFurigana } from '@app/practice/session/useFurigana'
+import { useFurigana } from '@app/practice/session/useFurigana'
+import { usePassageClipped } from '@app/practice/session/usePassageClipped'
 import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
 import { PassageAudioBar } from '@app/practice/session/passageAudio/PassageAudioBar'
-import { PlayIcon } from '@app/practice/session/passageAudio/passageAudioIcons'
 import { paragraphMark } from '@app/practice/session/passageAudio/paragraphMark'
 import { usePassageAudio } from '@app/practice/session/passageAudio/usePassageAudio'
-import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
+import { useRevealReadingWord } from '@app/practice/session/passageAudio/useRevealReadingWord'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 import { SamePassageNote } from '@app/practice/components/SamePassageNote'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import {
+  PassageHead,
+  PassageOpenButton
+} from '@app/practice/session/components/QuestionPassageSections'
 
 /**
  * Passage: as tall as its text; sticky beside the question on wide screens.
@@ -51,21 +55,8 @@ export const QuestionPassage = ({
   const [isOpened, setOpened] = useState(false)
   const isSame = isSamePassage && !isDecorative
   const isFolded = isSame && !isOpened
-  // A passage that fits in three lines has nothing to open.
-  const [isClipped, setClipped] = useState(true)
   const textRef = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const text = textRef.current
-    if (!isFolded || !text || typeof ResizeObserver === 'undefined') return
-    const measure = (): void => {
-      if (text.clientHeight > 0)
-        setClipped(text.scrollHeight > text.clientHeight + 1)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(text)
-    return () => observer.disconnect()
-  }, [isFolded, isFuriganaOn])
+  const isClipped = usePassageClipped(textRef, isFolded, isFuriganaOn)
   const { addToast } = useToast()
   // #1246: one warning per failure; [듣기] stays and waits, then retries.
   const audio = usePassageAudio(isDecorative ? null : passageAudio, () =>
@@ -78,28 +69,7 @@ export const QuestionPassage = ({
   )
   const audioRowId = useId()
   const hasAudio = Boolean(passageAudio) && !isDecorative
-  const revealRef = useRef(false)
-  // #1183: after a drag or key move, show the reading word once if it is off
-  // screen (or under the fixed action bar). No follow while it plays.
-  useEffect(() => {
-    if (!revealRef.current) return
-    revealRef.current = false
-    const word = passageRef.current?.querySelector('.study-read-mark')
-    if (!word) return
-    const box = word.getBoundingClientRect()
-    const seen = document.elementFromPoint(
-      box.left + box.width / 2,
-      box.top + box.height / 2
-    )
-    if (seen && word.contains(seen)) return
-    const reduceMotion = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)'
-    ).matches
-    word.scrollIntoView({
-      behavior: reduceMotion ? 'auto' : 'smooth',
-      block: 'center'
-    })
-  })
+  const revealRef = useRevealReadingWord(passageRef)
   return (
     <article
       ref={passageRef}
@@ -109,53 +79,14 @@ export const QuestionPassage = ({
       data-push={push}
       tabIndex={isDecorative ? undefined : 0}
     >
-      <p className="study-passage-head">
-        <SheetTail side="left" />
-        {t('session.question.passageLabel')}
-        {hasAudio ? (
-          <button
-            aria-controls={audio.isOpen ? audioRowId : undefined}
-            aria-disabled={audio.isWaiting || undefined}
-            aria-expanded={audio.isOpen}
-            className="study-audio-toggle"
-            type="button"
-            onClick={
-              audio.isOpen
-                ? audio.close
-                : () => {
-                    // Waiting after a failure: the press does nothing and
-                    // no second warning appears.
-                    if (audio.isWaiting) return
-                    // #986: the reading word must be visible, so a folded
-                    // passage opens with the bar and stays open after it.
-                    setOpened(true)
-                    audio.open()
-                  }
-            }
-          >
-            <span>
-              {audio.isOpen ? null : <PlayIcon />}
-              {t(
-                audio.isOpen
-                  ? 'session.question.audio.close'
-                  : 'session.question.audio.listen'
-              )}
-            </span>
-          </button>
-        ) : null}
-        <button
-          aria-label={t('session.question.furiganaLabel')}
-          aria-pressed={hasFurigana && isFuriganaOn}
-          className="study-furigana-toggle"
-          disabled={!hasFurigana}
-          type="button"
-          onClick={() => setFurigana(!isFuriganaOn)}
-        >
-          <span aria-hidden="true" className="study-furigana-box" />
-          {/* Only the word is Japanese; the name is read in the UI language. */}
-          <span lang="ja">ふりがな</span>
-        </button>
-      </p>
+      <PassageHead
+        audio={audio}
+        audioRowId={audioRowId}
+        hasAudio={hasAudio}
+        hasFurigana={hasFurigana}
+        isFuriganaOn={isFuriganaOn}
+        onOpenForAudio={() => setOpened(true)}
+      />
       {hasAudio && audio.isOpen ? (
         <PassageAudioBar
           audio={audio}
@@ -201,29 +132,14 @@ export const QuestionPassage = ({
         ))}
       </div>
       {isFolded && isClipped ? (
-        <button
-          aria-controls={textId}
-          aria-expanded={false}
-          className="study-passage-open"
-          type="button"
-          onClick={() => {
+        <PassageOpenButton
+          textId={textId}
+          onOpen={() => {
             setOpened(true)
             // The button goes away; keep focus on the passage, not the page.
             passageRef.current?.focus({ preventScroll: true })
           }}
-        >
-          <span>{t('session.question.openPassage')}</span>
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M2.5 4.5 6 8l3.5-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        />
       ) : null}
     </article>
   )

@@ -27,8 +27,10 @@ export const adminFreshContextSchema = z
   })
   .strict()
 export type AdminFreshContext = z.output<typeof adminFreshContextSchema>
-export interface AdminFreshTransaction
-  extends Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> {
+export interface AdminFreshTransaction extends Omit<
+  SsoTransaction,
+  'stateDigest' | 'bindingDigest'
+> {
   context: AdminFreshContext
 }
 interface AdminFreshSession {

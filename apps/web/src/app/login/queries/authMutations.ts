@@ -19,15 +19,13 @@ export const authMutations = {
           markOnboardingCheck()
           const response = await signInSocial(input)
           if (!__NIHONGO_PRODUCTION_BUILD__ && isMockApiMode) {
-            const { completeMockSocialSignIn } = await import(
-              '@api/auth/completeMockSocialSignIn'
-            )
+            const { completeMockSocialSignIn } =
+              await import('@api/auth/completeMockSocialSignIn')
             advanceAuthTransitionEpoch()
             const completed = await completeMockSocialSignIn(input.provider)
             if ('restoreAvailable' in completed) {
-              const { markMockRestoreOffered } = await import(
-                '@app/login/mockRestoreMarker'
-              )
+              const { markMockRestoreOffered } =
+                await import('@app/login/mockRestoreMarker')
               markMockRestoreOffered()
             }
           }

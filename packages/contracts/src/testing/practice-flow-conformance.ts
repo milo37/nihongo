@@ -126,8 +126,7 @@ export interface PracticeRouteHeaderExpectation {
   readonly match: 'EXACT' | 'OPAQUE_ID' | 'PATH_TEMPLATE'
 }
 
-export interface PracticeRouteConditionalHeaderExpectation
-  extends PracticeRouteHeaderExpectation {
+export interface PracticeRouteConditionalHeaderExpectation extends PracticeRouteHeaderExpectation {
   readonly when: 'IDEMPOTENCY_REPLAY'
 }
 

@@ -50,8 +50,8 @@ export const useQuestionWorkflow = (
   )
   const unresolved = Boolean(
     requestedVersion &&
-      !requested &&
-      (history.isPending || history.isError || history.hasNextPage)
+    !requested &&
+    (history.isPending || history.isError || history.hasNextPage)
   )
   const selected = requestedVersion
     ? (requested ??

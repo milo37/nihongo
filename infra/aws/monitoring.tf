@@ -119,6 +119,25 @@ resource "aws_cloudwatch_metric_alarm" "edge_5xx" {
   alarm_actions       = [aws_sns_topic.alerts_us_east_1.arn]
 }
 
+# Daily CloudFront transfer (mostly /audio). It only warns; /audio is not
+# rate limited on its own (#1255). Kept on while the host is stopped,
+# because CloudFront still serves S3 then.
+resource "aws_cloudwatch_metric_alarm" "edge_transfer" {
+  provider            = aws.us_east_1
+  alarm_name          = "${local.name}-edge-transfer"
+  alarm_description   = "CloudFront sent more than the daily transfer limit. Check the edge access logs for repeated /audio downloads."
+  namespace           = "AWS/CloudFront"
+  metric_name         = "BytesDownloaded"
+  dimensions          = { DistributionId = aws_cloudfront_distribution.site.id, Region = "Global" }
+  statistic           = "Sum"
+  period              = 86400
+  evaluation_periods  = 1
+  threshold           = var.edge_transfer_alarm_bytes_per_day
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts_us_east_1.arn]
+}
+
 # files/backup.sh publishes 1 after each successful upload; no point in a day = alarm.
 resource "aws_cloudwatch_metric_alarm" "backup_missing" {
   alarm_name          = "${local.name}-backup-missing"

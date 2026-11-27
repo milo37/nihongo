@@ -14,18 +14,17 @@ type IconButtonProps = Omit<
   size?: IconButtonSize
 }
 
+// Styles: packages/browser/src/styles/button.css (#1186 C10).
 const variantClassNames: Record<IconButtonVariant, string> = {
-  default:
-    'border border-line-interactive bg-surface text-ink hover:border-line-strong hover:bg-surface-muted',
-  ghost: 'text-muted hover:bg-surface-muted hover:text-ink',
-  danger:
-    'border border-danger/25 bg-surface text-danger hover:bg-danger-soft hover:text-danger-strong'
+  default: 'ui-icon-btn-default',
+  ghost: 'ui-icon-btn-ghost',
+  danger: 'ui-icon-btn-danger'
 }
 
 const sizeClassNames: Record<IconButtonSize, string> = {
-  sm: 'size-11',
-  md: 'size-11',
-  lg: 'size-12'
+  sm: 'ui-icon-btn-md',
+  md: 'ui-icon-btn-md',
+  lg: 'ui-icon-btn-lg'
 }
 
 export const IconButton = ({
@@ -41,10 +40,7 @@ export const IconButton = ({
   return (
     <button
       className={classNames(
-        'inline-grid shrink-0 select-none place-items-center rounded-control',
-        'touch-manipulation transition-[background-color,border-color,color,box-shadow] duration-150',
-        'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
-        'disabled:cursor-not-allowed disabled:border-line disabled:bg-disabled-background disabled:text-disabled-text',
+        'ui-icon-btn',
         variantClassNames[variant],
         sizeClassNames[size],
         className
@@ -54,10 +50,7 @@ export const IconButton = ({
       {...props}
       title={title ?? label}
     >
-      <span
-        className="inline-flex size-5 items-center justify-center"
-        aria-hidden="true"
-      >
+      <span className="ui-icon-btn-glyph" aria-hidden="true">
         {icon}
       </span>
     </button>

@@ -103,11 +103,7 @@ export interface AdminPassageGroupRecord {
     questionText: string
     openVersionId: string | null
     openVersionStatus:
-      | 'DRAFT'
-      | 'IN_REVIEW'
-      | 'CHANGES_REQUESTED'
-      | 'APPROVED'
-      | null
+      'DRAFT' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | null
   }>
 }
 
@@ -336,11 +332,7 @@ const toAccountActor = (input: {
   actorId: string | null
   role: 'USER' | 'ADMIN' | null
   label:
-    | 'ACTIVE_USER'
-    | 'DELETED_USER'
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
-    | null
+    'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN' | null
 }): AdminAccountActorRecord | null => {
   const values = [input.actorId, input.role, input.label]
   if (values.every((value) => value === null)) return null
@@ -370,11 +362,7 @@ const toSafeActor = (input: {
   actorId: string | null
   role: 'USER' | 'ADMIN' | 'SYSTEM'
   label:
-    | 'ACTIVE_USER'
-    | 'DELETED_USER'
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
-    | null
+    'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN' | null
   systemLabel: 'ACCOUNT_ERASURE' | null
 }): AdminSafeActorRecord => {
   if (input.kind === 'SYSTEM') {
@@ -460,11 +448,7 @@ interface SelectedLatestReviewer {
   readonly actorId: string | null
   readonly actorRole: 'USER' | 'ADMIN' | 'SYSTEM'
   readonly actorLabel:
-    | 'ACTIVE_USER'
-    | 'DELETED_USER'
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
-    | null
+    'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN' | null
 }
 
 interface SelectedVersionOption {
@@ -986,11 +970,7 @@ interface AuditSummaryRow {
   actorId: string | null
   actorRole: 'USER' | 'ADMIN' | 'SYSTEM'
   actorLabel:
-    | 'ACTIVE_USER'
-    | 'DELETED_USER'
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
-    | null
+    'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN' | null
   actorSystemLabel: 'ACCOUNT_ERASURE' | null
   occurredAt: Date
   totalCount: bigint

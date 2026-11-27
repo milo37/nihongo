@@ -7,11 +7,7 @@ type FieldErrorProps = {
 
 /** Validation message under a form control; `id` is its aria-describedby target. */
 export const FieldError = ({ id, children }: FieldErrorProps): ReactElement => (
-  <p
-    className="field-error text-sm font-medium text-danger"
-    id={id}
-    role="alert"
-  >
+  <p className="field-error ui-field-error" id={id} role="alert">
     {children}
   </p>
 )

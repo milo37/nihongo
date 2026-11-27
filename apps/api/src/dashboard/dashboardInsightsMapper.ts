@@ -143,9 +143,7 @@ const assertNull = (value: unknown, field: string): void => {
 
 const toMetric = (
   record:
-    | DashboardInsightsNonTagRecord
-    | DashboardInsightsTagRecord
-    | undefined,
+    DashboardInsightsNonTagRecord | DashboardInsightsTagRecord | undefined,
   field: string
 ): DashboardInsightMetric => {
   if (!record) {

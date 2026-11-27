@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "sideEffects": [
-    "./src/styles.css"
+    "./src/styles.css",
+    "./src/learner.css"
   ],
   "exports": {
     "./api/admin-import-result/index": "./src/api/admin-import-result/index.ts",
@@ -101,6 +102,7 @@
     "./store/slices/practiceSlice": "./src/store/slices/practiceSlice.ts",
     "./store/slices/uiSlice": "./src/store/slices/uiSlice.ts",
     "./styles.css": "./src/styles.css",
+    "./learner.css": "./src/learner.css",
     "./util/apiError": "./src/util/apiError.ts",
     "./api/content-operations/requestContentOperation": "./src/api/content-operations/requestContentOperation.ts",
     "./libs/sha256Text": "./src/libs/sha256Text.ts",

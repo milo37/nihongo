@@ -183,7 +183,9 @@ export const Pagination = ({
         <li key={page}>
           {renderControl(
             page,
-            <span className="tabular-nums">{formatNumber(page, locale)}</span>,
+            <span className="pagination-number">
+              {formatNumber(page, locale)}
+            </span>,
             t('pagination.pageLabel', {
               page: formatNumber(page, locale),
               current: page === safePage ? t('pagination.currentSuffix') : ''

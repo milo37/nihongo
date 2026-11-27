@@ -1,0 +1,93 @@
+/* The --tw-* variables the shared rules still use, registered as Tailwind
+   CSS v4.3.5 (MIT License, https://tailwindcss.com) did for the learner app
+   before #1186 C11 took Tailwind out of its build. --tw-leading and
+   --tw-duration are registered in rules.css. Fixed copy: edit by hand. */
+@property --tw-border-style {
+  syntax: '*';
+  inherits: false;
+  initial-value: solid;
+}
+@property --tw-ordinal {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-slashed-zero {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-numeric-figure {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-numeric-spacing {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-numeric-fraction {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-shadow {
+  syntax: '*';
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-shadow {
+  syntax: '*';
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-shadow {
+  syntax: '*';
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-ring-shadow {
+  syntax: '*';
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-offset-shadow {
+  syntax: '*';
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-outline-style {
+  syntax: '*';
+  inherits: false;
+  initial-value: solid;
+}
+@property --tw-ease {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-font-weight {
+  syntax: '*';
+  inherits: false;
+}
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: block))) or
+    ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+    *,
+    ::before,
+    ::after,
+    ::backdrop {
+      --tw-border-style: solid;
+      --tw-ordinal: initial;
+      --tw-slashed-zero: initial;
+      --tw-numeric-figure: initial;
+      --tw-numeric-spacing: initial;
+      --tw-numeric-fraction: initial;
+      --tw-shadow: 0 0 #0000;
+      --tw-inset-shadow: 0 0 #0000;
+      --tw-ring-shadow: 0 0 #0000;
+      --tw-inset-ring-shadow: 0 0 #0000;
+      --tw-ring-offset-shadow: 0 0 #0000;
+      --tw-outline-style: solid;
+      --tw-ease: initial;
+      --tw-leading: initial;
+      --tw-duration: initial;
+      --tw-font-weight: initial;
+    }
+  }
+}

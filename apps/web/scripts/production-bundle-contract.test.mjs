@@ -308,6 +308,47 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
   }
 })
 
+test('counts a lazy screen stylesheet only when a chunk lists it (#1346)', () => {
+  const graph = [
+    {
+      source: 'index.html',
+      file: 'assets/index.js',
+      isEntry: true,
+      isDynamicEntry: false,
+      imports: [],
+      dynamicImports: ['src/feature/page.tsx'],
+      css: ['assets/index.css']
+    },
+    {
+      source: 'src/feature/page.tsx',
+      file: 'assets/page.js',
+      isEntry: false,
+      isDynamicEntry: true,
+      imports: [],
+      dynamicImports: [],
+      css: ['assets/screens.css']
+    }
+  ]
+  const input = {
+    graph,
+    moduleRows: [
+      {
+        source: 'src/feature/page.tsx',
+        assets: ['/assets/page.js', '/assets/screens.css']
+      }
+    ],
+    inventoryRows: [],
+    forwardingFacades: []
+  }
+  assert.doesNotThrow(() => assertBundleForwardingCoverage(input))
+  const unlisted = JSON.parse(JSON.stringify(input))
+  unlisted.moduleRows[0].assets.push('/assets/other.css')
+  assert.throws(
+    () => assertBundleForwardingCoverage(unlisted),
+    /WEB_BUNDLE_SSR_ASSET_CLOSURE_MISMATCH/u
+  )
+})
+
 test('reports sorted budget metrics and exact lazy asset context without body', () => {
   const budgets = evaluateBundleBudgets({
     ...bundleBaseline,

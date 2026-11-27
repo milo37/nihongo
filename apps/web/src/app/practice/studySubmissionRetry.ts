@@ -28,10 +28,10 @@ export const isRetryableStudySubmissionError = (error: unknown): boolean => {
 
   return Boolean(
     error.isNetworkError ||
-      error.isOffline ||
-      error.isServerError ||
-      error.status === 429 ||
-      (error.code && RETRYABLE_CODES.has(error.code))
+    error.isOffline ||
+    error.isServerError ||
+    error.status === 429 ||
+    (error.code && RETRYABLE_CODES.has(error.code))
   )
 }
 

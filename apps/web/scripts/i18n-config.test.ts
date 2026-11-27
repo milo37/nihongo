@@ -15,9 +15,8 @@ it.each(['ko', 'ja'] as const)(
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
-    const { appI18n, loadAdminResources } = await import(
-      '@nihongo/browser/i18n/config'
-    )
+    const { appI18n, loadAdminResources } =
+      await import('@nihongo/browser/i18n/config')
     expect(appI18n.isInitialized).toBe(true)
     // Startup carries only the admin copy the learner app shows (JLP-758).
     expect(appI18n.getDataByLanguage('ja')).toEqual({

@@ -26,9 +26,9 @@ const errorCode = (error: unknown): string | null =>
 const flag = (error: unknown, name: string): boolean =>
   Boolean(
     error &&
-      typeof error === 'object' &&
-      name in error &&
-      (error as Record<string, unknown>)[name] === true
+    typeof error === 'object' &&
+    name in error &&
+    (error as Record<string, unknown>)[name] === true
   )
 
 const status = (error: unknown): number | null =>
@@ -225,12 +225,12 @@ export const useQuestionImport = ({
   const needsFresh = errorCode(applyImport.error) === 'FRESH_ASSURANCE_REQUIRED'
   const canApply = Boolean(
     validated &&
-      validated.request === request &&
-      validated.result.valid &&
-      !appliedDigests.has(validated.result.validationDigest) &&
-      !pending &&
-      !reading &&
-      online
+    validated.request === request &&
+    validated.result.valid &&
+    !appliedDigests.has(validated.result.validationDigest) &&
+    !pending &&
+    !reading &&
+    online
   )
   return {
     t,

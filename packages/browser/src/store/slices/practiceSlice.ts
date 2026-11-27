@@ -2,13 +2,7 @@ import type { StateCreator } from 'zustand'
 import type { StudyDraftWorkingCopy } from '../../app/practice/draft/studyDraftWorkingCopy'
 
 export type StudyDraftSaveState =
-  | 'idle'
-  | 'dirty'
-  | 'saving'
-  | 'saved'
-  | 'offline'
-  | 'conflict'
-  | 'error'
+  'idle' | 'dirty' | 'saving' | 'saved' | 'offline' | 'conflict' | 'error'
 
 export interface PracticeSlice {
   sessionId: string | null
