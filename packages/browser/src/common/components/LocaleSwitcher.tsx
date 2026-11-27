@@ -21,7 +21,7 @@ export const LocaleSwitcher = (): ReactElement => {
 
   return (
     <Select
-      className="min-w-32 py-1 text-sm"
+      className="ui-locale-select"
       hideLabel
       label={t('locale.label')}
       name="ui-locale"

@@ -82,28 +82,23 @@ const fixture = (
     }).toString()
     return url.href
   }
-  const signIn = vi.fn(
-    async (): Promise<SsoIdentityResult> => ({
-      kind: 'SESSION_CONFIRMED',
-      token: 'private-session-placeholder',
-      createdAt: new Date('2026-10-19T00:00:00Z'),
-      expiresAt: new Date('2026-10-26T00:00:00Z')
-    })
+  const signIn = vi.fn(async (): Promise<SsoIdentityResult> => ({
+    kind: 'SESSION_CONFIRMED',
+    token: 'private-session-placeholder',
+    createdAt: new Date('2026-10-19T00:00:00Z'),
+    expiresAt: new Date('2026-10-26T00:00:00Z')
+  }))
+  const consentState = vi.fn(async (): Promise<SsoConsent> =>
+    consent === 'EXISTING'
+      ? { state: consent, memberName: '  Existing Member Name ' }
+      : { state: consent }
   )
-  const consentState = vi.fn(
-    async (): Promise<SsoConsent> =>
-      consent === 'EXISTING'
-        ? { state: consent, memberName: '  Existing Member Name ' }
-        : { state: consent }
-  )
-  const signUpWithConsent = vi.fn(
-    async (): Promise<SsoIdentityResult> => ({
-      kind: 'SESSION_CONFIRMED',
-      token: 'private-session-placeholder',
-      createdAt: new Date('2026-11-17T05:01:00Z'),
-      expiresAt: new Date('2026-11-24T05:01:00Z')
-    })
-  )
+  const signUpWithConsent = vi.fn(async (): Promise<SsoIdentityResult> => ({
+    kind: 'SESSION_CONFIRMED',
+    token: 'private-session-placeholder',
+    createdAt: new Date('2026-11-17T05:01:00Z'),
+    expiresAt: new Date('2026-11-24T05:01:00Z')
+  }))
   const runtime = createSsoPublicRuntime({
     environment,
     providers: { [provider]: { authorizationURL, exchange } },

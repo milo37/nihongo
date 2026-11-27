@@ -1,0 +1,362 @@
+/* Shared buttons, links and badges (admin and learner). Copied from the Tailwind utilities they replace (#1186 C10). */
+@layer utilities {
+  /* Button (getButtonClassName): base, then one variant and one size. */
+  .ui-btn {
+    display: inline-flex;
+    touch-action: manipulation;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-control);
+    font-weight: var(--font-weight-semibold);
+    transition-property:
+      background-color, border-color, color, box-shadow, transform;
+    transition-timing-function: var(
+      --tw-ease,
+      var(--default-transition-timing-function)
+    );
+    transition-duration: 150ms;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .ui-btn-sm {
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    padding-block: 0.5rem;
+  }
+  .ui-btn-md {
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+    padding-block: 0.625rem;
+  }
+  .ui-btn-lg {
+    min-height: 3rem;
+    padding-inline: 1.25rem;
+    padding-block: 0.75rem;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  .ui-btn-full {
+    width: 100%;
+  }
+  .ui-btn-outline {
+    border-style: solid;
+    border-width: var(--border-width-default);
+  }
+  .ui-btn-danger-outline {
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-danger));
+    color: rgb(var(--color-danger));
+  }
+  .ui-btn-outline {
+    border-color: rgb(var(--color-line-interactive));
+  }
+  .ui-btn-primary {
+    background-color: rgb(var(--color-brand));
+    --tw-shadow: var(--shadow-control);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-btn-danger {
+    background-color: rgb(var(--color-danger));
+  }
+  .ui-btn-dark {
+    background-color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-control);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-btn-outline,
+  .ui-btn-danger-outline {
+    background-color: rgb(var(--color-surface));
+  }
+  .ui-btn-sm,
+  .ui-btn-md {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-btn-outline,
+  .ui-btn-ghost {
+    color: rgb(var(--color-ink));
+  }
+  .ui-btn-primary,
+  .ui-btn-dark,
+  .ui-btn-danger {
+    color: rgb(var(--color-on-accent));
+  }
+  .ui-btn-danger {
+    --tw-shadow: var(--shadow-control);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  @media (hover: hover) {
+    .ui-btn-danger-outline:hover {
+      border-color: rgb(var(--color-danger-strong));
+    }
+    .ui-btn-outline:hover {
+      border-color: rgb(var(--color-line-strong));
+    }
+    .ui-btn-primary:hover {
+      background-color: rgb(var(--color-brand-strong));
+    }
+    .ui-btn-danger-outline:hover {
+      background-color: rgb(var(--color-danger-soft));
+    }
+    .ui-btn-danger:hover {
+      background-color: rgb(var(--color-danger-strong));
+    }
+    .ui-btn-dark:hover {
+      background-color: color-mix(
+        in srgb,
+        rgb(rgb(var(--color-ink)) / 1) 90%,
+        transparent
+      );
+    }
+  }
+  @media (hover: hover) {
+    @supports (color: color-mix(in lab, red, red)) {
+      .ui-btn-dark:hover {
+        background-color: color-mix(
+          in oklab,
+          rgb(var(--color-ink)) 90%,
+          transparent
+        );
+      }
+    }
+  }
+  @media (hover: hover) {
+    .ui-btn-outline:hover,
+    .ui-btn-ghost:hover {
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  .ui-btn:focus-visible {
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  .ui-btn-primary:active {
+    background-color: rgb(var(--color-brand-active));
+  }
+  .ui-btn-danger-outline:active {
+    background-color: rgb(var(--color-danger-soft));
+  }
+  .ui-btn-danger:active {
+    background-color: color-mix(
+      in srgb,
+      rgb(rgb(var(--color-danger-strong)) / 1) 90%,
+      transparent
+    );
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .ui-btn-danger:active {
+      background-color: color-mix(
+        in oklab,
+        rgb(var(--color-danger-strong)) 90%,
+        transparent
+      );
+    }
+  }
+  .ui-btn-dark:active {
+    background-color: color-mix(
+      in srgb,
+      rgb(rgb(var(--color-ink)) / 1) 80%,
+      transparent
+    );
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .ui-btn-dark:active {
+      background-color: color-mix(
+        in oklab,
+        rgb(var(--color-ink)) 80%,
+        transparent
+      );
+    }
+  }
+  .ui-btn-outline:active,
+  .ui-btn-ghost:active {
+    background-color: rgb(var(--color-line));
+  }
+  .ui-btn:disabled,
+  .ui-btn[aria-disabled='true'] {
+    cursor: not-allowed;
+    border-color: rgb(var(--color-line));
+  }
+  /* IconButton: a square button around one icon. */
+  .ui-icon-btn-glyph {
+    display: inline-flex;
+    width: 1.25rem;
+    height: 1.25rem;
+    align-items: center;
+    justify-content: center;
+  }
+  .ui-icon-btn {
+    display: inline-grid;
+    flex-shrink: 0;
+    touch-action: manipulation;
+    place-items: center;
+    border-radius: var(--radius-control);
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-timing-function: var(
+      --tw-ease,
+      var(--default-transition-timing-function)
+    );
+    transition-duration: 150ms;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .ui-icon-btn-md {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .ui-icon-btn-lg {
+    width: 3rem;
+    height: 3rem;
+  }
+  .ui-icon-btn-default {
+    border-style: solid;
+    border-width: var(--border-width-default);
+    background-color: rgb(var(--color-surface));
+  }
+  .ui-icon-btn-danger {
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: color-mix(
+      in srgb,
+      rgb(rgb(var(--color-danger)) / 1) 25%,
+      transparent
+    );
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-danger));
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .ui-icon-btn-danger {
+      border-color: color-mix(
+        in oklab,
+        rgb(var(--color-danger)) 25%,
+        transparent
+      );
+    }
+  }
+  .ui-icon-btn-default {
+    border-color: rgb(var(--color-line-interactive));
+  }
+  .ui-icon-btn-default {
+    color: rgb(var(--color-ink));
+  }
+  .ui-icon-btn-ghost {
+    color: rgb(var(--color-muted));
+  }
+  @media (hover: hover) {
+    .ui-icon-btn-default:hover {
+      border-color: rgb(var(--color-line-strong));
+    }
+    .ui-icon-btn-danger:hover {
+      background-color: rgb(var(--color-danger-soft));
+      color: rgb(var(--color-danger-strong));
+    }
+    .ui-icon-btn-default:hover {
+      background-color: rgb(var(--color-surface-muted));
+    }
+    .ui-icon-btn-ghost:hover {
+      background-color: rgb(var(--color-surface-muted));
+      color: rgb(var(--color-ink));
+    }
+  }
+  .ui-icon-btn:focus-visible {
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  .ui-icon-btn:disabled {
+    cursor: not-allowed;
+    border-color: rgb(var(--color-line));
+  }
+  /* TextLink: an underlined inline link with a 44px touch height. */
+  .ui-text-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    padding-inline: var(--spacing);
+    font-weight: var(--font-weight-bold);
+    text-decoration-line: underline;
+    color: rgb(var(--color-link));
+  }
+  @media (hover: hover) {
+    .ui-text-link:hover {
+      text-decoration-line: none;
+    }
+  }
+  /* Badge: a small label, one colour per variant. */
+  .ui-badge {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    border-radius: var(--radius-control);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    padding-inline: 0.5rem;
+    padding-block: 0.125rem;
+    font-size: var(--text-caption-size);
+    --tw-leading: 1.25rem;
+    line-height: 1.25rem;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+  }
+  .ui-badge-danger {
+    border-color: rgb(var(--color-danger-line));
+  }
+  .ui-badge-info {
+    border-color: rgb(var(--color-info-line));
+  }
+  .ui-badge-neutral {
+    border-color: rgb(var(--color-line));
+  }
+  .ui-badge-brand {
+    border-color: rgb(var(--color-line-interactive));
+    background-color: rgb(var(--color-brand-soft));
+    color: rgb(var(--color-brand-strong));
+  }
+  .ui-badge-success {
+    border-color: rgb(var(--color-success-line));
+  }
+  .ui-badge-warning {
+    border-color: rgb(var(--color-warning-line));
+  }
+  .ui-badge-danger {
+    background-color: rgb(var(--color-danger-soft));
+  }
+  .ui-badge-info {
+    background-color: rgb(var(--color-info-soft));
+  }
+  .ui-badge-success {
+    background-color: rgb(var(--color-success-soft));
+  }
+  .ui-badge-neutral {
+    background-color: rgb(var(--color-surface-muted));
+  }
+  .ui-badge-warning {
+    background-color: rgb(var(--color-warning-soft));
+  }
+  .ui-badge-danger {
+    color: rgb(var(--color-danger-strong));
+  }
+  .ui-badge-info {
+    color: rgb(var(--color-info-strong));
+  }
+  .ui-badge-neutral {
+    color: rgb(var(--color-muted));
+  }
+  .ui-badge-success {
+    color: rgb(var(--color-success-strong));
+  }
+  .ui-badge-warning {
+    color: rgb(var(--color-warning-strong));
+  }
+}

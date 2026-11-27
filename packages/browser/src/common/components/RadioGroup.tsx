@@ -48,22 +48,21 @@ export const RadioGroup = ({
 
   return (
     <fieldset
-      className={classNames('grid min-w-0 gap-3', className)}
+      className={classNames('ui-radio-group', className)}
       disabled={disabled}
       aria-describedby={describedBy || undefined}
       aria-invalid={error ? true : undefined}
     >
-      <legend className="text-sm font-semibold text-ink">
+      <legend className="ui-field-label">
         {legend}
         {required ? (
-          <span className="ml-1 text-danger">{t('required')}</span>
+          <span className="ui-field-required">{t('required')}</span>
         ) : null}
       </legend>
       <div
         className={classNames(
-          'grid gap-2',
-          orientation === 'horizontal' &&
-            'sm:grid-flow-col sm:auto-cols-fr sm:grid-rows-1'
+          'ui-radio-options',
+          orientation === 'horizontal' && 'ui-radio-options-row'
         )}
       >
         {options.map((option, index) => {
@@ -76,19 +75,14 @@ export const RadioGroup = ({
           return (
             <label
               className={classNames(
-                'group flex min-h-12 min-w-0 cursor-pointer items-start gap-3 rounded-control border bg-surface px-3 py-3',
-                'touch-manipulation transition-[background-color,border-color,box-shadow] duration-150',
-                'hover:border-line-strong hover:bg-surface-muted',
-                'focus-within:border-brand focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand',
-                'has-[:checked]:border-brand has-[:checked]:bg-brand-soft',
-                'has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-surface-muted has-[:disabled]:opacity-60',
-                error ? 'border-line-invalid' : 'border-line'
+                'ui-radio-option',
+                error ? 'ui-radio-option-invalid' : 'ui-radio-option-default'
               )}
               key={option.value}
               htmlFor={optionId}
             >
               <input
-                className="mt-0.5 size-5 shrink-0 accent-brand"
+                className="ui-radio-input"
                 id={optionId}
                 type="radio"
                 name={name}
@@ -98,12 +92,10 @@ export const RadioGroup = ({
                 required={required}
                 onChange={(event) => onValueChange?.(event.currentTarget.value)}
               />
-              <span className="min-w-0 break-words">
-                <span className="block font-medium text-ink">
-                  {option.label}
-                </span>
+              <span className="ui-radio-text">
+                <span className="ui-radio-title">{option.label}</span>
                 {option.description ? (
-                  <span className="mt-1 block text-sm leading-6 text-muted">
+                  <span className="ui-radio-description">
                     {option.description}
                   </span>
                 ) : null}
@@ -113,7 +105,7 @@ export const RadioGroup = ({
         })}
       </div>
       {hint ? (
-        <p className="text-sm text-muted" id={hintId}>
+        <p className="ui-field-hint" id={hintId}>
           {hint}
         </p>
       ) : null}

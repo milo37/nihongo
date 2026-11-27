@@ -75,9 +75,8 @@ describe('admin activity log', () => {
 
 describe('admin console route gate', () => {
   it('admits only the canonical GET activity log path', async () => {
-    const { isCanonicalAdminConsoleReadRequest } = await import(
-      '../app/protectedRouteExclusion.js'
-    )
+    const { isCanonicalAdminConsoleReadRequest } =
+      await import('../app/protectedRouteExclusion.js')
     const admitted = (method: string, requestTarget: string) =>
       isCanonicalAdminConsoleReadRequest({ method, requestTarget })
     expect(admitted('GET', '/api/v1/admin/activity-log?limit=20')).toBe(true)

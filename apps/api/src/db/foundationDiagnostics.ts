@@ -10,12 +10,7 @@ interface FoundationDiagnostic {
   readonly stage: FoundationStage
   readonly state: 'BEGIN' | 'COMPLETE' | 'FAILED'
   readonly code?:
-    | '28P01'
-    | '42501'
-    | '23514'
-    | '3D000'
-    | 'ECONNREFUSED'
-    | 'UNKNOWN_REDACTED'
+    '28P01' | '42501' | '23514' | '3D000' | 'ECONNREFUSED' | 'UNKNOWN_REDACTED'
 }
 
 const safeCode = (

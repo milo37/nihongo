@@ -370,7 +370,7 @@ describe('#1046 아침 8시 알림 스위치', () => {
     const user = userEvent.setup()
     renderAt('/onboarding?redirect=%2Fwrong-notes')
     const toggle = await screen.findByRole('switch', {
-      name: '아침 8시에 알려 드릴까요?'
+      name: '매일 아침 8시, 학습 알림 받아 볼까요?'
     })
     expect(toggle).not.toBeChecked()
     await user.click(toggle)

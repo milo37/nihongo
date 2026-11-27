@@ -14,9 +14,8 @@ export const useStartSocialSignIn = () => {
     async (input) => {
       // onMock runs only in dev/test MSW mode; production drops this branch.
       if (!__NIHONGO_PRODUCTION_BUILD__ && isMockApiMode) {
-        const { takeMockRestoreOffered } = await import(
-          '@app/login/mockRestoreMarker'
-        )
+        const { takeMockRestoreOffered } =
+          await import('@app/login/mockRestoreMarker')
         if (takeMockRestoreOffered()) {
           const search = new URLSearchParams({
             sso: 'RESTORE_AVAILABLE',

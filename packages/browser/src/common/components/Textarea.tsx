@@ -36,25 +36,17 @@ export const Textarea = ({
     .join(' ')
 
   return (
-    <div className="grid gap-2">
-      <div
-        className={classNames(
-          'text-sm font-semibold text-ink',
-          hideLabel && 'sr-only'
-        )}
-      >
+    <div className="ui-field">
+      <div className={classNames('ui-field-label', hideLabel && 'sr-only')}>
         <label htmlFor={textareaId}>{label}</label>
         {required ? (
-          <span className="ml-1 text-danger">{t('required')}</span>
+          <span className="ui-field-required">{t('required')}</span>
         ) : null}
       </div>
       <textarea
         className={classNames(
-          'min-h-28 w-full resize-y rounded-control border bg-surface px-3 py-2 text-base text-ink shadow-control',
-          'placeholder:text-muted/70 hover:border-line-strong',
-          'focus-visible:border-brand focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
-          'disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted',
-          error ? 'border-line-invalid' : 'border-line',
+          'ui-textarea',
+          error ? 'ui-textarea-invalid' : 'ui-textarea-default',
           className
         )}
         id={textareaId}
@@ -67,7 +59,7 @@ export const Textarea = ({
         {...props}
       />
       {hint ? (
-        <p className="text-sm text-muted" id={hintId}>
+        <p className="ui-field-hint" id={hintId}>
           {hint}
         </p>
       ) : null}

@@ -380,9 +380,7 @@ type SelectedQuestion = {
 }
 
 type ExistingSelectionOwner =
-  | { kind: 'USER'; id: string }
-  | { kind: 'GUEST'; id: string }
-  | null
+  { kind: 'USER'; id: string } | { kind: 'GUEST'; id: string } | null
 
 type ExistingGuestRecord = {
   expiresAt: Date

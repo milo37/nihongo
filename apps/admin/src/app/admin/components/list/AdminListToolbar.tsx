@@ -111,7 +111,6 @@ export const AdminListToolbar = ({
             name={`pageSize-${pageSizeName}`}
             label={t('adminList.pageSize')}
             hideLabel
-            className="w-auto"
             value={String(pageSize)}
             onChange={(event) =>
               paging.onPageSizeChange(Number(event.currentTarget.value))

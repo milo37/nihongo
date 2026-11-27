@@ -193,12 +193,12 @@ const collectModuleReferences = (sourceFile) => {
         const parent = current.parent
         return Boolean(
           parent &&
-            ts.isPropertyAssignment(parent) &&
-            parent.initializer === current &&
-            ((ts.isIdentifier(parent.name) &&
-              parent.name.text === 'mutationFn') ||
-              (ts.isStringLiteralLike(parent.name) &&
-                parent.name.text === 'mutationFn'))
+          ts.isPropertyAssignment(parent) &&
+          parent.initializer === current &&
+          ((ts.isIdentifier(parent.name) &&
+            parent.name.text === 'mutationFn') ||
+            (ts.isStringLiteralLike(parent.name) &&
+              parent.name.text === 'mutationFn'))
         )
       }
       current = current.parent

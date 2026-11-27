@@ -263,12 +263,12 @@ describe('PracticePage setup', () => {
     // No mode and saved-time line; no arrow icon.
     expect(screen.queryByText(/에 저장/u)).not.toBeInTheDocument()
     expect(resume.querySelector('svg')).toBeNull()
-    expect(resume.className).toContain('border-line-interactive')
-    expect(resume.className).not.toContain('bg-brand')
+    expect(resume.className).toContain('ui-btn-outline')
+    expect(resume.className).not.toContain('ui-btn-primary')
     const start = screen.getByRole('button', {
       name: 'N5 문자·어휘 10문제 시작'
     })
-    expect(start.className).toContain('bg-brand')
+    expect(start.className).toContain('ui-btn-primary')
     expect(screen.getByRole('button', { name: '버리기' })).toBeVisible()
   })
 

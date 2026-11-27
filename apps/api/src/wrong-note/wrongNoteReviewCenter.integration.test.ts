@@ -1212,11 +1212,9 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       }
     )
     let firstWrite:
-      | ReturnType<typeof firstRepository.updateOwnedMemo>
-      | undefined
+      ReturnType<typeof firstRepository.updateOwnedMemo> | undefined
     let secondWrite:
-      | ReturnType<typeof secondRepository.updateOwnedMemo>
-      | undefined
+      ReturnType<typeof secondRepository.updateOwnedMemo> | undefined
     let secondWriteSettled = false
     const [firstResult, secondResult] = await (async () => {
       try {
@@ -1798,8 +1796,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
       )
       const idempotencyKey = randomUUID()
       let createPromise:
-        | ReturnType<typeof targetService.createTargetedReviewSession>
-        | undefined
+        ReturnType<typeof targetService.createTargetedReviewSession> | undefined
       let archiveUpdate: Promise<unknown> | undefined
       let archiveError: unknown
       let archiveTransactionOpen = false

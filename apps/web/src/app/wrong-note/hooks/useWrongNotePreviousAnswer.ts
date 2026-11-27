@@ -10,7 +10,7 @@ export const useWrongNotePreviousAnswer = (
 ): WrongNotePreviousAnswer => {
   const enabled = Boolean(
     detail?.lastWrongQuestionVersionId &&
-      detail.lastWrongQuestionVersionId === detail.question.questionVersionId
+    detail.lastWrongQuestionVersionId === detail.question.questionVersionId
   )
   const history = useInfiniteQuery({
     ...wrongNoteQueries.reviewEvents(detail?.question.id ?? ''),
