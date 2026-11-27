@@ -16,7 +16,7 @@ type PracticeSessionHeaderProps = {
   answeredCount: number
   bookmarkButton: ReactNode
   currentNumber: number
-  /** JLP-865: on PC the meta line starts on the passage's left line. */
+  /** Phone: with a passage the meta line takes the passage's gutter. */
   hasPassage: boolean
   isBackDisabled: boolean
   isQuestionSheetDisabled: boolean
@@ -115,7 +115,6 @@ export const PracticeSessionHeader = ({
       </div>
       <p
         className={`study-session-meta ${hasPassage ? 'study-session-meta-wide' : ''}`}
-        data-wide={hasPassage || undefined}
       >
         {session.level} · {commonT(`taxonomy.subjects.${session.subject}`)}
       </p>
