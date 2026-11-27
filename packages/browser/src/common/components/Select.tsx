@@ -87,12 +87,9 @@ export const Select = ({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="ui-field">
       <label
-        className={classNames(
-          'text-sm font-semibold text-ink',
-          hideLabel && 'sr-only'
-        )}
+        className={classNames('ui-field-label', hideLabel && 'sr-only')}
         htmlFor={selectId}
       >
         {label}
@@ -100,11 +97,8 @@ export const Select = ({
       <div className="ui-select-control">
         <select
           className={classNames(
-            'min-h-11 w-full rounded-control border bg-surface px-3 py-2 text-base text-ink shadow-control',
-            'hover:border-line-strong',
-            'focus-visible:border-brand focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
-            'disabled:cursor-not-allowed disabled:border-line disabled:bg-disabled-background disabled:text-disabled-text',
-            error ? 'border-line-invalid' : 'border-line-interactive',
+            'ui-select',
+            error ? 'ui-select-invalid' : 'ui-select-default',
             className
           )}
           id={selectId}
@@ -146,7 +140,7 @@ export const Select = ({
         </svg>
       </div>
       {hint ? (
-        <p className="text-sm text-muted" id={hintId}>
+        <p className="ui-field-hint" id={hintId}>
           {hint}
         </p>
       ) : null}

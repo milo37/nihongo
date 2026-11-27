@@ -874,7 +874,7 @@ describe('approved general result navigation', () => {
     )
     const { view } = fixture.mount()
     const next = await screen.findByRole('button', { name: '다음 10문제' })
-    expect(next.className).toContain('bg-brand')
+    expect(next.className).toContain('ui-btn-primary')
     const actions = next.closest<HTMLElement>('.study-result-actions')
     expect(
       Array.from(actions!.querySelectorAll('a, button')).map((element) =>
@@ -945,10 +945,10 @@ describe('approved general result navigation', () => {
       within(actions).getByRole('heading', { level: 2, name: '다음에 할 일' })
     ).toHaveClass('sr-only')
     expect(names(actions)).toEqual(['다음 10문제', '틀린 문제만 다시 풀기'])
-    expect(retry.className).toContain('border-line-interactive')
-    expect(retry.className).not.toContain('bg-brand')
+    expect(retry.className).toContain('ui-btn-outline')
+    expect(retry.className).not.toContain('ui-btn-primary')
     const next = within(actions).getByRole('button', { name: '다음 10문제' })
-    expect(next.className).toContain('bg-brand')
+    expect(next.className).toContain('ui-btn-primary')
     expect(next.className).toContain('study-result-button')
     expect(within(actions).queryByRole('link')).toBeNull()
     memberView.view.unmount()
@@ -1067,13 +1067,13 @@ describe('approved general result navigation', () => {
       `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제2번 남음`,
       '틀린 문제만 다시 풀기'
     ])
-    expect(guestRetry.className).toContain('border-line-interactive')
-    expect(guestRetry.className).not.toContain('bg-brand')
+    expect(guestRetry.className).toContain('ui-btn-outline')
+    expect(guestRetry.className).not.toContain('ui-btn-primary')
     expect(
       within(guestActions).getByRole('button', {
         name: new RegExp(`^다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`, 'u')
       }).className
-    ).toContain('bg-brand')
+    ).toContain('ui-btn-primary')
     expect(guestRetry.querySelector('svg')).toBeNull()
     guestView.view.unmount()
     guest.client.clear()

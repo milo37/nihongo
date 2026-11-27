@@ -9,13 +9,14 @@ type BadgeProps = ComponentPropsWithoutRef<'span'> & {
   variant?: BadgeVariant
 }
 
+// Styles: packages/browser/src/styles/button.css (#1186 C10).
 const variantClassNames: Record<BadgeVariant, string> = {
-  neutral: 'border-line bg-surface-muted text-muted',
-  brand: 'border-line-interactive bg-brand-soft text-brand-strong',
-  success: 'border-success-line bg-success-soft text-success-strong',
-  warning: 'border-warning-line bg-warning-soft text-warning-strong',
-  danger: 'border-danger-line bg-danger-soft text-danger-strong',
-  info: 'border-info-line bg-info-soft text-info-strong'
+  neutral: 'ui-badge-neutral',
+  brand: 'ui-badge-brand',
+  success: 'ui-badge-success',
+  warning: 'ui-badge-warning',
+  danger: 'ui-badge-danger',
+  info: 'ui-badge-info'
 }
 
 export const Badge = ({
@@ -26,12 +27,7 @@ export const Badge = ({
 }: BadgeProps): ReactElement => {
   return (
     <span
-      className={classNames(
-        'inline-flex max-w-full items-center rounded-control border px-2 py-0.5 text-caption font-semibold leading-5',
-        '[overflow-wrap:anywhere]',
-        variantClassNames[variant],
-        className
-      )}
+      className={classNames('ui-badge', variantClassNames[variant], className)}
       {...props}
     >
       {children}

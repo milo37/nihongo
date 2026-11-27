@@ -1,4 +1,12 @@
-@import 'tailwindcss' source(none);
+/* Tailwind in its parts, so the shared component rules (C10, #1186) sit in
+   the utilities layer before Tailwind's own: a utility a caller passes in
+   className still wins over the component's rule, as it did before. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import './styles/button.css';
+@import './styles/field.css';
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @config "../tailwind.config.ts";
 
 :root {
@@ -129,8 +137,13 @@
   padding-inline: 40px;
 }
 
-/* Explicit width avoids the Tailwind outline color/width name collision. */
-.focus-visible\:outline-focus:focus-visible {
+/* Explicit width avoids the Tailwind outline color/width name collision.
+   The shared buttons and fields carry the same focus ring (#1186 C10). */
+.focus-visible\:outline-focus:focus-visible,
+.ui-btn:focus-visible,
+.ui-icon-btn:focus-visible,
+.ui-textarea:focus-visible,
+.ui-select:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
@@ -1502,11 +1515,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .learning-note .flex {
+  .learning-note .flex,
+  .learning-note .ui-radio-option {
     flex-wrap: wrap;
   }
 
-  .learning-note .flex > * {
+  .learning-note .flex > *,
+  .learning-note .ui-radio-option > * {
     min-width: 0;
     max-width: 100%;
   }
