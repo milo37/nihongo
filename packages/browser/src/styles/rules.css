@@ -1406,10 +1406,12 @@
   }
 }
 
+/* Same short rise as a dialog, so a new toast never starts over the action
+   bar or the tab bar under it (#1349). */
 @keyframes ui-toast-in {
   from {
     opacity: 0;
-    transform: translateY(100%);
+    transform: translateY(0.75rem);
   }
 }
 
