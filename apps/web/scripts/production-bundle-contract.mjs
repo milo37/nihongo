@@ -48,9 +48,8 @@ export const bundleCeilings = Object.freeze({
   // #1281 the /ja share card (share-card-ja.png), read only by link
   // previews (operator approved 2026-11-25).
   // JLP-984 Vite 8.3.8 (rolldown 1.2.19) emits its shared runtime helpers as
-  // their own rolldown-runtime chunk (+1 file, first-screen gzip +607 B on
-  // the same dev commit). Needs operator approval before merge.
-  emittedFileCount: 110,
+  // their own rolldown-runtime chunk (+1 file). #1346 freed files, so it fits.
+  emittedFileCount: 109,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
