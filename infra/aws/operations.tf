@@ -30,7 +30,8 @@ resource "aws_ssm_document" "deploy" {
       # #1046: render-env.sh is a cloud-init file, which running hosts never
       # reread (#1042). Write the repository copy before each deploy, so a new
       # parameter (WEB_PUSH_PUBLIC_KEY in api.env) reaches the API with the next
-      # release instead of the next host replacement.
+      # release instead of the next host replacement. JLP-715: backup.sh the
+      # same way, so its wait for postgres reaches running hosts.
       {
         action = "aws:runShellScript"
         name   = "refreshRenderEnv"
@@ -41,6 +42,9 @@ resource "aws_ssm_document" "deploy" {
             "echo '${base64encode(file("${path.module}/files/render-env.sh"))}' | base64 -d > /opt/harumaru/bin/render-env.sh.new",
             "chmod 0750 /opt/harumaru/bin/render-env.sh.new",
             "mv -f /opt/harumaru/bin/render-env.sh.new /opt/harumaru/bin/render-env.sh",
+            "echo '${base64encode(file("${path.module}/files/backup.sh"))}' | base64 -d > /opt/harumaru/bin/backup.sh.new",
+            "chmod 0750 /opt/harumaru/bin/backup.sh.new",
+            "mv -f /opt/harumaru/bin/backup.sh.new /opt/harumaru/bin/backup.sh",
           ]
         }
       },
