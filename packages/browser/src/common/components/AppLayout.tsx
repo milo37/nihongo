@@ -123,10 +123,7 @@ const RouteAnnouncer = ({
   const { locale } = useUiLocale()
   return (
     <>
-      <a
-        className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
-        href="#main-content"
-      >
+      <a className="app-skip-link" href="#main-content">
         {t('skipToContent')}
       </a>
       <p className="sr-only" aria-live="polite" aria-atomic="true">
@@ -518,7 +515,7 @@ export const AppLayout = ({
         ref: mainRef,
         // main is only where focus lands after a page move (screen readers
         // start reading from here); it is not a control, so it draws no ring.
-        className: 'outline-none',
+        className: 'app-main',
         id: 'main-content',
         tabIndex: -1
       }}

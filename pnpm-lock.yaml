@@ -269,9 +269,6 @@ importers:
       '@rolldown/plugin-babel':
         specifier: ^0.2.0
         version: 0.2.3(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.19)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
-      '@tailwindcss/postcss':
-        specifier: 4.3.5
-        version: 4.3.5
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -308,9 +305,6 @@ importers:
       postcss:
         specifier: 8.5.28
         version: 8.5.28
-      tailwindcss:
-        specifier: 4.3.5
-        version: 4.3.5
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

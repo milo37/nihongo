@@ -19,7 +19,7 @@ for domain in "" "origin.example.com"; do
   [[ -n "$domain" ]] && { tls=true; port=443; noindex=false; }
   compose="templatefile(\"files/compose.yaml.tftpl\", {postgres_image=\"postgres:18.4-alpine\", caddy_image=\"caddy:2\", caddy_dns_image=\"dns.example/caddy@sha256:0\", origin_port=${port}, origin_tls=${tls}, proxy_subnet=\"172.30.0.0/24\", db_subnet=\"172.30.1.0/24\", postgres_address=\"172.30.1.10\"})"
   caddy="templatefile(\"files/Caddyfile.tftpl\", {origin_domain=\"${domain}\", noindex=${noindex}})"
-  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=base64encode(${compose}), caddyfile=base64encode(${caddy}), deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), capability_sh=file(\"files/register-capability.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), guest_cleanup_sh=file(\"files/guest-cleanup.sh\"), cloudwatch_config=base64encode(file(\"files/cloudwatch-agent.json\")), public_env=base64encode(\"A=1\"), origin_tls=${tls}, render_origin_env_sh=file(\"files/render-origin-env.sh\")}))"
+  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=${compose}, caddyfile=${caddy}, deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), capability_sh=file(\"files/register-capability.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), guest_cleanup_sh=file(\"files/guest-cleanup.sh\"), cloudwatch_config=file(\"files/cloudwatch-agent.json\"), public_env=base64encode(\"A=1\"), origin_tls=${tls}, render_origin_env_sh=file(\"files/render-origin-env.sh\")}))"
 
   echo "$user_data" | tf_console | tr -d '"' > "$work/user-data.b64"
   # EC2 limits user data to 16 KB before base64 (the gzip bytes); keep 3 KB spare.
@@ -28,6 +28,9 @@ for domain in "" "origin.example.com"; do
   (( bytes < 16384 - 3072 )) || { echo "user data too large: $bytes" >&2; exit 1; }
   gunzip < "$work/user-data.gz" > "$work/cloud-init.yaml"
   echo "$compose" | tf_console | sed -e '1s/^<<EOT$//' -e '$s/^EOT$//' > "$work/compose.yaml"
+  # Exact bytes the host must get for the plain-text config files (not base64 in user data).
+  echo "base64encode(${compose})" | tf_console | tr -d '"' | base64 -d > "$work/exact-compose"
+  echo "base64encode(${caddy})" | tf_console | tr -d '"' | base64 -d > "$work/exact-caddy"
 
   ruby -ryaml -e '
     init = YAML.safe_load(File.read(ARGV[0]))
@@ -37,6 +40,10 @@ for domain in "" "origin.example.com"; do
     init.fetch("write_files").select { |f| f.fetch("path").start_with?("/opt/harumaru/bin/") }.each do |f|
       source = File.read("files/#{File.basename(f.fetch("path"))}")
       raise "#{f.fetch("path")} differs from its source" unless f.fetch("content") == source && !f.key?("encoding")
+    end
+    { "/opt/harumaru/compose.yaml" => "#{ARGV[3]}/exact-compose", "/opt/harumaru/Caddyfile" => "#{ARGV[3]}/exact-caddy", "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json" => "files/cloudwatch-agent.json" }.each do |p, src|
+      f = init.fetch("write_files").find { |w| w.fetch("path") == p }
+      raise "#{p} differs from its source" unless f && f.fetch("content") == File.read(src) && !f.key?("encoding")
     end
     compose = YAML.safe_load(File.read(ARGV[1]), aliases: true)
     services = compose.fetch("services")
@@ -67,7 +74,7 @@ for domain in "" "origin.example.com"; do
       raise "HTTP origin must not install the origin token" if paths.any? { |p| p.include?("origin-env") } || init.fetch("runcmd").any? { |c| c.to_s.include?("origin-env") }
     end
     puts "ok origin_port=#{ARGV[2]} files=#{paths.size}"
-  ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port"
+  ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port" "$work"
   echo "user data ${bytes} bytes (gzip before base64, limit 16384)"
 
   # #742: only STAGING (noindex=true) sends X-Robots-Tag; PRODUCTION has no such line.

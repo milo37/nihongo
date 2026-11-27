@@ -31,7 +31,7 @@ export const FilterSheet = ({
       open={open}
       onOpenChange={onOpenChange}
       title={t('adminList.filters.button')}
-      className="mb-0 mt-auto max-h-[calc(100dvh-3rem)] w-full max-w-none rounded-b-none"
+      className="mb-0 mt-auto w-full rounded-b-none"
       footer={
         <div className="flex gap-3">
           <Button variant="outline" onClick={onReset}>

@@ -1,12 +1,11 @@
 /* Learner stylesheet. The import order is the cascade order: shared
-   package (Tailwind and admin-shared components), then 1-foundation to
-   5-motion. The folder map is in README.md. */
-@import '@nihongo/browser/styles.css';
+   package (reset and shared components, no Tailwind since #1186 C11), then
+   1-foundation to 5-motion. The folder map is in README.md. */
+@import '@nihongo/browser/learner.css';
 @import './1-foundation/tokens.css';
 @import './1-foundation/typography.css';
 @import './2-layout/app-shell.css';
 @import './3-components/button.css';
-@import './3-components/stamp-board.css';
 @import './3-components/menu.css';
 @import './3-components/maru.css';
 @import './3-components/manuscript.css';
@@ -19,28 +18,13 @@
 @import './4-screens/account.css';
 @import './4-screens/home/home.css';
 @import './4-screens/my-goal.css';
-@import './4-screens/result.css';
-@import './4-screens/omikuji/button-sheet.css';
-@import './4-screens/omikuji/slip.css';
 @import './4-screens/home/daily.css';
 @import './4-screens/rush/entry.css';
-@import './4-screens/rush/play.css';
-@import './4-screens/rush/result.css';
-@import './4-screens/session.css';
-@import './4-screens/passage-audio.css';
-@import './4-screens/wrong-note/center.css';
-@import './4-screens/wrong-note/list.css';
-@import './4-screens/wrong-note/detail.css';
-@import './4-screens/my/settings.css';
-@import './4-screens/my/study.css';
-@import './4-screens/bookmark/bookmark.css';
+@import './3-components/account-menu.css';
 @import './4-screens/bookmark/report.css';
 @import './4-screens/same-passage.css';
 @import './4-screens/development.css';
-@import './5-motion/keyframes-omikuji.css';
 @import './5-motion/keyframes-maru.css';
 @import './5-motion/keyframes-home.css';
 @import './5-motion/keyframes-manuscript.css';
-@import './5-motion/keyframes-rush.css';
-@import './5-motion/keyframes-session.css';
 @import './5-motion/reduced-motion.css';
