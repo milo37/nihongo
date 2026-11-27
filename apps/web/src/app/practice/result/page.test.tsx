@@ -249,9 +249,9 @@ describe('approved general result navigation', () => {
     expect(document.getElementById('result-explanations')).toHaveFocus()
     const buttons = within(navigation).getAllByRole('button')
     expect(buttons).toHaveLength(3)
-    expect(buttons[0]).toHaveAccessibleName('1번, 맞음')
-    expect(buttons[1]).toHaveAccessibleName('2번, 틀림')
-    expect(buttons[2]).toHaveAccessibleName('3번, 안 풂')
+    expect(buttons[0]).toHaveAccessibleName(/^1번, .+, 맞음$/)
+    expect(buttons[1]).toHaveAccessibleName(/^2번, .+, 틀림$/)
+    expect(buttons[2]).toHaveAccessibleName(/^3번, .+, 안 풂$/)
     // Shape as well as colour: hollow ○, filled ✕, dashed – (ux2 §2-1).
     expect(
       buttons
@@ -393,7 +393,7 @@ describe('approved general result navigation', () => {
     if (!second) throw new Error('결과 fixture가 필요합니다.')
     const { router, view } = fixture.mount(`?question=${second.question.id}`)
     const button = await screen.findByRole('button', {
-      name: '2번 문제를 책갈피에 담기'
+      name: '2번 문제 책갈피'
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
@@ -424,7 +424,7 @@ describe('approved general result navigation', () => {
     const { router, view } = fixture.mount()
     await screen.findByRole('navigation', { name: '문제 번호' })
     const bookmark = await screen.findByRole('button', {
-      name: /문제를 책갈피에 담기/u
+      name: /번 문제 책갈피$/u
     })
     await userEvent.setup().click(bookmark)
     const toasts = screen.getByRole('region', { name: '알림' })
@@ -631,7 +631,7 @@ describe('approved general result navigation', () => {
       })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       let selected = within(navigation).getByRole('button', {
-        name: '5번, 안 풂'
+        name: /^5번, .+, 안 풂$/
       })
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
         navigation.getBoundingClientRect().right
@@ -656,7 +656,7 @@ describe('approved general result navigation', () => {
       navigation = await screen.findByRole('navigation', { name: '문제 번호' })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       selected = within(navigation).getByRole('button', {
-        name: '5번, 안 풂'
+        name: /^5번, .+, 안 풂$/
       })
       expect(selected).not.toHaveFocus()
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
@@ -694,7 +694,7 @@ describe('approved general result navigation', () => {
       await act(async () => window.dispatchEvent(new Event('resize')))
       expect(navigation.scrollLeft).toBe(0)
       expect(
-        within(navigation).getByRole('button', { name: '5번, 안 풂' })
+        within(navigation).getByRole('button', { name: /^5번, .+, 안 풂$/ })
       ).not.toHaveFocus()
       expect(scrollTo).not.toHaveBeenCalled()
       expect(scrollIntoView).not.toHaveBeenCalled()
@@ -874,7 +874,7 @@ describe('approved general result navigation', () => {
     )
     const { view } = fixture.mount()
     const next = await screen.findByRole('button', { name: '다음 10문제' })
-    expect(next.className).toContain('bg-brand')
+    expect(next.className).toContain('ui-btn-primary')
     const actions = next.closest<HTMLElement>('.study-result-actions')
     expect(
       Array.from(actions!.querySelectorAll('a, button')).map((element) =>
@@ -945,10 +945,10 @@ describe('approved general result navigation', () => {
       within(actions).getByRole('heading', { level: 2, name: '다음에 할 일' })
     ).toHaveClass('sr-only')
     expect(names(actions)).toEqual(['다음 10문제', '틀린 문제만 다시 풀기'])
-    expect(retry.className).toContain('border-line-interactive')
-    expect(retry.className).not.toContain('bg-brand')
+    expect(retry.className).toContain('ui-btn-outline')
+    expect(retry.className).not.toContain('ui-btn-primary')
     const next = within(actions).getByRole('button', { name: '다음 10문제' })
-    expect(next.className).toContain('bg-brand')
+    expect(next.className).toContain('ui-btn-primary')
     expect(next.className).toContain('study-result-button')
     expect(within(actions).queryByRole('link')).toBeNull()
     memberView.view.unmount()
@@ -1067,13 +1067,13 @@ describe('approved general result navigation', () => {
       `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제2번 남음`,
       '틀린 문제만 다시 풀기'
     ])
-    expect(guestRetry.className).toContain('border-line-interactive')
-    expect(guestRetry.className).not.toContain('bg-brand')
+    expect(guestRetry.className).toContain('ui-btn-outline')
+    expect(guestRetry.className).not.toContain('ui-btn-primary')
     expect(
       within(guestActions).getByRole('button', {
         name: new RegExp(`^다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`, 'u')
       }).className
-    ).toContain('bg-brand')
+    ).toContain('ui-btn-primary')
     expect(guestRetry.querySelector('svg')).toBeNull()
     guestView.view.unmount()
     guest.client.clear()
@@ -1117,18 +1117,22 @@ describe('approved general result navigation', () => {
     if (!second) throw new Error('결과 fixture가 필요합니다.')
     const { view } = fixture.mount(`?question=${second.question.id}`)
     const button = await screen.findByRole('button', {
-      name: '2번 문제를 책갈피에 담기'
+      name: '2번 문제 책갈피'
     })
+    // One name in both states; aria-pressed says whether it is in.
+    expect(button).toHaveAttribute('aria-pressed', 'false')
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
     const saved = screen.getByRole('button', {
-      name: '2번 문제를 책갈피에서 빼기'
+      name: '2번 문제 책갈피'
     })
     expect(saved).toHaveAttribute('aria-pressed', 'true')
     // JLP-878: the words stay; only the ribbon fills, with no pressed box.
-    expect(saved).toHaveTextContent(/^책갈피$/u)
+    // The number is screen-reader-only; the visible word is still '책갈피'.
+    expect(saved).toHaveTextContent(/^2번 문제 책갈피$/u)
+    expect(saved.querySelector('.sr-only')).toHaveTextContent(/^2번 문제$/u)
     expect(saved).toHaveClass('ui-button-toggle-icon')
     expect(saved.className).toContain('study-result-bookmark')
     view.unmount()

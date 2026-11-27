@@ -2222,8 +2222,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       const answer = document.querySelector('main input[type="radio"]')
       return Boolean(
         answer &&
-          element.compareDocumentPosition(answer) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+        element.compareDocumentPosition(answer) &
+          Node.DOCUMENT_POSITION_FOLLOWING
       )
     })
   ).toBe(true)
@@ -2388,7 +2388,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `${index + 1}번, 안 풂`,
+      name: new RegExp(`^${index + 1}번, .+, 안 풂$`),
       exact: true
     })
     await focusByTab(page, questionControl)
@@ -2435,7 +2435,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '1번, 안 풂',
+    name: /^1번, .+, 안 풂$/,
     exact: true
   })
   await focusByTab(page, firstResultQuestion)
@@ -2462,7 +2462,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   })
   const bookmarkTrigger = page.getByRole('button', {
-    name: '1번 문제를 책갈피에 담기',
+    name: '1번 문제 책갈피',
     exact: true
   })
   await focusByTab(page, bookmarkTrigger)
@@ -2478,7 +2478,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(createBookmarkResponse.headers().location).toBe(bookmarkPath)
   await expect(
     page.getByRole('button', {
-      name: '1번 문제를 책갈피에서 빼기',
+      name: '1번 문제 책갈피',
       exact: true
     })
   ).toHaveAttribute('aria-pressed', 'true')

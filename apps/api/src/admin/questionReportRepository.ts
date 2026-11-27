@@ -48,10 +48,7 @@ interface ReportRow {
   readonly reporterActorId: string
   readonly reporterRole: 'USER' | 'ADMIN'
   readonly reporterLabel:
-    | 'ACTIVE_USER'
-    | 'DELETED_USER'
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
+    'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN'
   readonly assigneeActorId: string | null
   readonly assigneeRole: 'ADMIN' | null
   readonly assigneeLabel: 'ACTIVE_ADMIN' | 'DELETED_ADMIN' | null

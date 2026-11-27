@@ -15,9 +15,8 @@ it.each(['ko', 'ja'] as const)(
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
-    const { appI18n, loadAdminResources } = await import(
-      '@nihongo/browser/i18n/config'
-    )
+    const { appI18n, loadAdminResources } =
+      await import('@nihongo/browser/i18n/config')
     expect(appI18n.isInitialized).toBe(true)
     // Startup carries only the admin copy the learner app shows (JLP-758).
     expect(appI18n.getDataByLanguage('ja')).toEqual({
@@ -68,11 +67,11 @@ it('matches approved Japanese additions and preserves admin keys, values and ord
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(koResources)).digest('hex')
-  ).toBe('22f5dc452cd9e678f69c0047d5172dc01803e98f718126b09a1b929bda819229')
+  ).toBe('d4c132c1c8f44b764c45aa4cb0b451d6ec10ad04d72994c52eeb8d66647ddfa9')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('fc5fe28bd21c11e177f4378a1f32df528501da5971c8807bb8a213e713c6cc54')
+  ).toBe('29aafe519ec50bdba5dd087544b0be7b65e8e4cb3d0f72aa2b73b276b59e16cc')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
-  ).toBe('143f5c497c5aebc34ae1d9044c5f6052edaac57c6961f31e59f65aab7982c6a9')
+  ).toBe('dcb1a9f6bba491b91cf016338d8d0bc5a65a244e3cf981ac7a5478cc3a59b1c0')
 })

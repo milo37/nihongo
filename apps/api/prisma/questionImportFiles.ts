@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url'
 // supplement B1 (45 questions on 30 passages) makes 933; N2 B2 (45 on 30)
 // makes 978; N3 reading B3 (45 on 30) and N2 grammar B4 (60) make 1083;
 // N3 grammar B5 (60) makes 1143; N4 reading B6 (45 on 30) makes 1188;
-// N5 reading B7 (45 on 30) makes 1233; N1 grammar B8 (60) makes 1293.
+// N5 reading B7 (45 on 30) makes 1233; N1 grammar B8 (60) makes 1293;
+// N4 grammar B9 (60) makes 1353; N5 grammar B10 (60) makes 1413;
+// vocabulary B11 (62 per level, N5 to N1) makes 1723.
 export const questionImportDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../content/question-imports'
@@ -44,5 +46,12 @@ export const questionImportFileNames = [
   'n3.b5.v1.json',
   'n4.b6.v1.json',
   'n5.b7.v1.json',
-  'n1.b8.v1.json'
+  'n1.b8.v1.json',
+  'n4.b9.v1.json',
+  'n5.b10.v1.json',
+  'n5.b11.v1.json',
+  'n4.b11.v1.json',
+  'n3.b11.v1.json',
+  'n2.b11.v1.json',
+  'n1.b11.v1.json'
 ] as const

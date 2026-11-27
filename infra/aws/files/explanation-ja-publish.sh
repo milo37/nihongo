@@ -2,10 +2,12 @@
 # Runs the Japanese explanation command (#976, api/dist/content/explanationJaPublishCommand.js)
 # for the deployed release. Not installed by cloud-init: scripts/explanation-ja-publish.sh
 # sends this file through SSM AWS-RunShellScript with EXPLANATION_JA_MODE set first.
-# - Fetches the ten files of content/question-imports (they locate each question)
-#   and content/translations/explanations-ja.v1.json at the deployed SHA (the
+# - Fetches the twenty-eight files of content/question-imports (they locate
+#   each question: the first 500, the add2 and kanji files, #1243, and B1 to
+#   B8, whose explanations the file corrects, #1239) and
+#   content/translations/explanations-ja.v1.json at the deployed SHA (the
 #   image does not carry content/), readable by the container user (uid 1000).
-# - Also fetches the same ten files at the commit before #936 (f2e2e171) into
+# - Also fetches the first ten of them at the commit before #936 (f2e2e171) into
 #   previous/: questions published from that text are matched by it (#1024).
 # - The command runs on the application login like question-set-publish.sh: the
 #   value comes from api.env through the environment, never the command line.
@@ -28,6 +30,12 @@ for file in n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json \
   curl -fsS "$raw/question-imports/$file" -o "$dir/set/$file"
   curl -fsS "$previous/question-imports/$file" -o "$dir/previous/$file"
   chmod 644 "$dir/set/$file" "$dir/previous/$file"
+done
+for file in n5.add2.v1.json n4.add2.v1.json n3.add2.v1.json n2.add2.v1.json n1.add2.v1.json \
+  n5.kanji.v1.json n4.kanji.v1.json n3.kanji.v1.json n2.kanji.v1.json n1.kanji.v1.json \
+  n1.b1.v1.json n2.b2.v1.json n3.b3.v1.json n2.b4.v1.json n3.b5.v1.json n4.b6.v1.json n5.b7.v1.json n1.b8.v1.json; do
+  curl -fsS "$raw/question-imports/$file" -o "$dir/set/$file"
+  chmod 644 "$dir/set/$file"
 done
 curl -fsS "$raw/translations/explanations-ja.v1.json" -o "$dir/explanations-ja.v1.json"
 chmod 644 "$dir/explanations-ja.v1.json"

@@ -38,8 +38,7 @@ export interface PublishedQuestionSummaryRecord {
   tags: readonly QuestionTagRecord[]
 }
 
-export interface PublishedQuestionDetailRecord
-  extends PublishedQuestionSummaryRecord {
+export interface PublishedQuestionDetailRecord extends PublishedQuestionSummaryRecord {
   passage: string | null
   /** #986/#1182: only the study session read fills these. */
   passageId?: string | null

@@ -1,0 +1,329 @@
+/* Shared feedback: toast card, sign-in return notice, empty, error and loading states (#1186 C10). */
+@layer utilities {
+  /* Toast card (the tone strip and icon stay in the components layer). */
+  .ui-toast-open {
+    pointer-events: auto;
+  }
+  .ui-toast-closing {
+    pointer-events: none;
+  }
+  .ui-toast-icon-top,
+  .ui-toast-description {
+    margin-top: 0.125rem;
+  }
+  .ui-toast-action {
+    margin-top: 0.5rem;
+    min-height: 2.75rem;
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line-strong));
+    padding-inline: 1rem;
+  }
+  .ui-toast {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.75rem;
+    border-radius: 12px;
+    border-block-style: solid;
+    border-block-width: var(--border-width-default);
+    border-right-style: solid;
+    border-right-width: var(--border-width-default);
+    border-block-color: rgb(var(--color-line));
+    border-right-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding-right: var(--spacing);
+    padding-left: 0.875rem;
+    color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-card);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-toast-body {
+    min-width: 0px;
+    padding-block: 0.125rem;
+  }
+  .ui-toast-middle {
+    align-items: center;
+  }
+  .ui-toast-top {
+    align-items: flex-start;
+  }
+  .ui-toast-action {
+    border-radius: var(--radius-control);
+  }
+  .ui-toast-action {
+    background-color: rgb(var(--color-surface));
+  }
+  .ui-toast {
+    padding-block: 0.75rem;
+  }
+  .ui-toast-title {
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+    font-weight: var(--font-weight-semibold);
+    text-wrap: balance;
+    overflow-wrap: break-word;
+  }
+  .ui-toast-action {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-toast-description {
+    font-size: 13px;
+  }
+  .ui-toast-description {
+    --tw-leading: 1.25rem;
+    line-height: 1.25rem;
+  }
+  .ui-toast-title {
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+  }
+  .ui-toast-action {
+    font-weight: var(--font-weight-semibold);
+  }
+  .ui-toast-description {
+    text-wrap: balance;
+  }
+  .ui-toast-description {
+    overflow-wrap: break-word;
+  }
+  .ui-toast-action {
+    color: rgb(var(--color-ink));
+  }
+  .ui-toast-description {
+    color: rgb(var(--color-muted));
+  }
+  @media (hover: hover) {
+    .ui-toast-action:hover {
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  .ui-toast-action:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 2px;
+    outline-color: rgb(var(--color-brand));
+  }
+  /* Sign-in return notice: fixed at the bottom, buttons under the text below 480px. */
+  .reauth-return-notice {
+    position: fixed;
+    inset-inline: 1rem;
+    bottom: 1rem;
+    z-index: 50;
+    margin-inline: auto;
+    display: flex;
+    max-width: 560px;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-radius: var(--radius-xl);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-left-style: solid;
+    border-left-width: 4px;
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding-inline: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-card);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .reauth-return-actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .reauth-return-text {
+    min-width: 0px;
+    flex: 1;
+    padding-block: 0.625rem;
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+  }
+  .reauth-return-notice {
+    gap: 0.75rem;
+  }
+  .reauth-return-error {
+    border-left-color: rgb(var(--color-danger));
+  }
+  .reauth-return-success {
+    border-left-color: rgb(var(--color-success));
+  }
+  .reauth-return-checking {
+    border-left-color: rgb(var(--color-warning));
+  }
+  .reauth-return-notice {
+    padding-block: 0.75rem;
+  }
+  @media (width < 480px) {
+    .reauth-return-notice {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--spacing);
+    }
+    .reauth-return-text {
+      padding-bottom: 0px;
+    }
+  }
+  /* EmptyState. */
+  .ui-empty {
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-inline: 1rem;
+    padding-block: 3rem;
+    text-align: center;
+  }
+  .ui-empty-description {
+    margin-top: 0.75rem;
+    max-width: 65ch;
+  }
+  .ui-empty-action {
+    margin-top: 1.5rem;
+  }
+  .ui-empty-icon {
+    margin-bottom: 1.25rem;
+    display: inline-grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border-radius: var(--radius-card);
+    background-color: rgb(var(--color-surface-muted));
+  }
+  .ui-empty {
+    max-width: var(--container-xl);
+  }
+  .ui-empty-title {
+    border-radius: 0.125rem;
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+    font-weight: var(--font-weight-bold);
+    text-wrap: balance;
+    color: rgb(var(--color-ink));
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .ui-empty-description {
+    --tw-leading: 1.75rem;
+    line-height: 1.75rem;
+  }
+  .ui-empty-description {
+    text-wrap: pretty;
+  }
+  .ui-empty-icon,
+  .ui-empty-description {
+    color: rgb(var(--color-muted));
+  }
+  /* ErrorState, inline or as a block. */
+  .ui-error-message {
+    margin-top: 0.5rem;
+    overflow-wrap: break-word;
+  }
+  .ui-error-retry,
+  .ui-error-action {
+    margin-top: 1.25rem;
+  }
+  .ui-error {
+    border-radius: var(--radius-card);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: color-mix(
+      in srgb,
+      rgb(rgb(var(--color-danger)) / 1) 25%,
+      transparent
+    );
+    background-color: rgb(var(--color-danger-soft));
+    color: rgb(var(--color-danger-strong));
+  }
+  .ui-error-title {
+    border-radius: 0.125rem;
+    font-weight: var(--font-weight-bold);
+    text-wrap: balance;
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .ui-error {
+      border-color: color-mix(
+        in oklab,
+        rgb(var(--color-danger)) 25%,
+        transparent
+      );
+    }
+  }
+  .ui-error-inline {
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+  }
+  .ui-error-regular {
+    padding-inline: 1.25rem;
+    padding-block: 1.5rem;
+  }
+  .ui-error-title-regular {
+    font-size: var(--text-lg);
+    line-height: var(--text-lg--line-height);
+  }
+  .ui-error-inline {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-error-message {
+    --tw-leading: 1.75rem;
+    line-height: 1.75rem;
+  }
+  .ui-error-message {
+    color: rgb(var(--color-danger-strong));
+  }
+  /* LoadingState, inline or as a block. */
+  .ui-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .ui-loading-spinner-inline {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .ui-loading-spinner-block {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .ui-loading-inline {
+    min-height: 2.75rem;
+    padding-block: 0.5rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-loading-block {
+    min-height: 10rem;
+    flex-direction: column;
+    justify-content: center;
+    padding-inline: 1rem;
+    padding-block: 2.5rem;
+    text-align: center;
+  }
+  .ui-loading-message {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-medium);
+  }
+  .ui-loading-spinner {
+    color: rgb(var(--color-brand));
+  }
+  .ui-loading {
+    color: rgb(var(--color-muted));
+  }
+  .ui-loading-spinner {
+    color: rgb(var(--color-link));
+  }
+}

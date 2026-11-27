@@ -343,3 +343,31 @@
     }
   }
 }
+
+/* Correct and wrong marks and the guest links; the
+   review title takes focus without a ring. */
+@layer utilities {
+  .result-guest-login {
+    margin-inline-start: 0.5rem;
+  }
+  .result-guest-keep-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  .result-mark-wrong {
+    color: rgb(var(--color-danger));
+  }
+  .review-feedback-wrong {
+    color: rgb(var(--color-danger-strong));
+  }
+  .result-mark-correct {
+    color: rgb(var(--color-success));
+  }
+  .review-feedback-correct {
+    color: rgb(var(--color-success-strong));
+  }
+  .review-title {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+}

@@ -678,9 +678,8 @@ describe('accessibility and journey browser runner lifecycle', () => {
           process.cwd(),
           '../../scripts/runAccessibilityBrowser.ts'
         )
-      const { main } = await import(
-        '../../../scripts/runAccessibilityBrowser.js'
-      )
+      const { main } =
+        await import('../../../scripts/runAccessibilityBrowser.js')
       if (cancellation) {
         await exitObserved
         await new Promise<void>((done) => setImmediate(done))

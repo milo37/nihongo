@@ -35,35 +35,24 @@ export const EmptyState = ({
   }, [autoFocus])
 
   return (
-    <section
-      className={classNames(
-        'mx-auto flex max-w-xl flex-col items-center px-4 py-12 text-center',
-        className
-      )}
-      aria-label={title}
-    >
+    <section className={classNames('ui-empty', className)} aria-label={title}>
       {illustration}
       {icon ? (
-        <span
-          className="mb-5 inline-grid size-12 place-items-center rounded-card bg-surface-muted text-muted"
-          aria-hidden="true"
-        >
+        <span className="ui-empty-icon" aria-hidden="true">
           {icon}
         </span>
       ) : null}
       <Heading
         ref={headingRef}
-        className="rounded-sm text-balance text-xl font-bold text-ink outline-none"
+        className="ui-empty-title"
         tabIndex={autoFocus ? -1 : undefined}
       >
         {title}
       </Heading>
       {description ? (
-        <p className="mt-3 max-w-prose text-pretty leading-7 text-muted">
-          {description}
-        </p>
+        <p className="ui-empty-description">{description}</p>
       ) : null}
-      {action ? <div className="mt-6">{action}</div> : null}
+      {action ? <div className="ui-empty-action">{action}</div> : null}
     </section>
   )
 }

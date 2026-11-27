@@ -77,9 +77,9 @@ it('shows the content card, location, target question and process panel', async 
   await open()
   expect(screen.getByText('문항 신고')).toBeVisible()
   const status = screen.getByText('접수됨')
-  expect(status).toHaveClass('bg-warning-soft')
+  expect(status).toHaveClass('ui-badge-warning')
   expect(status.querySelector('svg')).not.toBeNull()
-  expect(screen.getByText('문항 신고')).not.toHaveClass('bg-warning-soft')
+  expect(screen.getByText('문항 신고')).not.toHaveClass('ui-badge-warning')
   expect(screen.getByText('결과 화면 · 2번 문제')).toBeVisible()
   expect(screen.getByRole('link', { name: questionId })).toHaveAttribute(
     'href',

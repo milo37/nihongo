@@ -15,7 +15,7 @@ export const RouteErrorPage = ({
   return (
     <main
       id="main-content"
-      className="auth-page auth-route-fallback outline-none"
+      className="auth-page auth-route-fallback"
       role="alert"
       tabIndex={-1}
     >

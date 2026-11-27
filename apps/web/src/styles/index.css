@@ -1,7 +1,7 @@
 /* Learner stylesheet. The import order is the cascade order: shared
-   package (Tailwind and admin-shared components), then 1-foundation to
-   5-motion. The folder map is in README.md. */
-@import '@nihongo/browser/styles.css';
+   package (reset and shared components, no Tailwind since #1186 C11), then
+   1-foundation to 5-motion. The folder map is in README.md. */
+@import '@nihongo/browser/learner.css';
 @import './1-foundation/tokens.css';
 @import './1-foundation/typography.css';
 @import './2-layout/app-shell.css';
@@ -10,6 +10,9 @@
 @import './3-components/menu.css';
 @import './3-components/maru.css';
 @import './3-components/manuscript.css';
+@import './3-components/study-list.css';
+@import './3-components/notice.css';
+@import './3-components/explanation.css';
 @import './4-screens/operations.css';
 @import './4-screens/practice-setup.css';
 @import './4-screens/auth.css';
@@ -33,6 +36,7 @@
 @import './4-screens/bookmark/bookmark.css';
 @import './4-screens/bookmark/report.css';
 @import './4-screens/same-passage.css';
+@import './4-screens/development.css';
 @import './5-motion/keyframes-omikuji.css';
 @import './5-motion/keyframes-maru.css';
 @import './5-motion/keyframes-home.css';

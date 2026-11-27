@@ -13,6 +13,7 @@ import { guestAllowanceHandlers } from '@mocks/handlers/guestAllowanceHandlers'
 import { rushHandlers } from '@mocks/handlers/rushHandlers'
 import { passageAudioHandlers } from '@mocks/handlers/passageAudioHandlers'
 import { guestResultImportHandlers } from '@mocks/handlers/guestResultImportHandlers'
+import { pushHandlers } from '@mocks/handlers/pushHandlers'
 
 export const handlers = [
   ...authHandlers,
@@ -29,5 +30,6 @@ export const handlers = [
   ...bookmarkHandlers,
   ...operationsHandlers,
   ...rushHandlers,
-  ...passageAudioHandlers
+  ...passageAudioHandlers,
+  ...pushHandlers
 ]

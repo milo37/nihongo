@@ -51,19 +51,16 @@ interface DashboardWeaknessCandidateBase {
   readonly subject: DashboardInsightSubject
 }
 
-export interface DashboardSubjectWeaknessCandidate
-  extends DashboardWeaknessCandidateBase {
+export interface DashboardSubjectWeaknessCandidate extends DashboardWeaknessCandidateBase {
   readonly dimension: 'SUBJECT'
 }
 
-export interface DashboardQuestionTypeWeaknessCandidate
-  extends DashboardWeaknessCandidateBase {
+export interface DashboardQuestionTypeWeaknessCandidate extends DashboardWeaknessCandidateBase {
   readonly dimension: 'QUESTION_TYPE'
   readonly questionType: DashboardInsightQuestionType
 }
 
-export interface DashboardTagWeaknessCandidate
-  extends DashboardWeaknessCandidateBase {
+export interface DashboardTagWeaknessCandidate extends DashboardWeaknessCandidateBase {
   readonly dimension: 'TAG'
   readonly tagId: string
   readonly tagLabel: string

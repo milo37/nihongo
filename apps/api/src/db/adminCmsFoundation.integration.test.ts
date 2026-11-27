@@ -4319,10 +4319,7 @@ describe('Persistence foundation', () => {
     )
 
     type OpenArchiveCandidateState =
-      | 'APPROVED'
-      | 'CHANGES_REQUESTED'
-      | 'DRAFT'
-      | 'IN_REVIEW'
+      'APPROVED' | 'CHANGES_REQUESTED' | 'DRAFT' | 'IN_REVIEW'
     type ArchiveCandidate = {
       questionId: string
       state: OpenArchiveCandidateState
@@ -4338,8 +4335,7 @@ describe('Persistence foundation', () => {
     ]
     const candidates: ArchiveCandidate[] = []
     let emptyManifestTarget:
-      | { questionId: string; versionId: string }
-      | undefined
+      { questionId: string; versionId: string } | undefined
     for (const state of states) {
       const questionId = randomUUID()
       const versionId = randomUUID()
@@ -5531,20 +5527,15 @@ describe('Persistence foundation', () => {
       new URL(applicationUrl).pathname.slice(1)
     )
     let applicationRuntime:
-      | ReturnType<typeof createRoleDatabaseRuntime>
-      | undefined
+      ReturnType<typeof createRoleDatabaseRuntime> | undefined
     let authGatewayRuntime:
-      | ReturnType<typeof createRoleDatabaseRuntime>
-      | undefined
+      ReturnType<typeof createRoleDatabaseRuntime> | undefined
     let wrongSchemaRuntime:
-      | ReturnType<typeof createRoleDatabaseRuntime>
-      | undefined
+      ReturnType<typeof createRoleDatabaseRuntime> | undefined
     let ownedDatabaseApplicationRuntime:
-      | ReturnType<typeof createRoleDatabaseRuntime>
-      | undefined
+      ReturnType<typeof createRoleDatabaseRuntime> | undefined
     let ownedDatabaseAuthGatewayRuntime:
-      | ReturnType<typeof createRoleDatabaseRuntime>
-      | undefined
+      ReturnType<typeof createRoleDatabaseRuntime> | undefined
     let ownedDatabaseAdmin: Client | undefined
     let developmentToTestClient: Client | undefined
     let extraRoleCreated = false

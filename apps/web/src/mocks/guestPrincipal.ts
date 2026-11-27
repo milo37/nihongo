@@ -3,9 +3,7 @@ import { z } from 'zod'
 export const MOCK_GUEST_PRINCIPAL_COOKIE_NAME = 'nihongo.mock_guest_principal'
 
 export type MockGuestProof =
-  | { kind: 'ABSENT' }
-  | { kind: 'INVALID' }
-  | { kind: 'VERIFIED'; id: string }
+  { kind: 'ABSENT' } | { kind: 'INVALID' } | { kind: 'VERIFIED'; id: string }
 
 export type MockGuestCookies = Readonly<Record<string, unknown>>
 

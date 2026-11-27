@@ -227,22 +227,24 @@ EOF
 chmod +x "$work/qs/path/curl" "$work/qs/path/docker"
 qs() { PATH="$work/qs/path:$PATH" QUESTION_SET_MODE="$1" bash "$work/qs/run.sh"; }
 qs dry-run
-ej_files='n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json'
-qs_files="$ej_files n5.add2.v1.json n4.add2.v1.json n3.add2.v1.json n2.add2.v1.json n1.add2.v1.json n5.kanji.v1.json n4.kanji.v1.json n3.kanji.v1.json n2.kanji.v1.json n1.kanji.v1.json n1.b1.v1.json n2.b2.v1.json n3.b3.v1.json n2.b4.v1.json n3.b5.v1.json n4.b6.v1.json n5.b7.v1.json n1.b8.v1.json"
+ej_previous_files='n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json'
+ej_added_files='n5.add2.v1.json n4.add2.v1.json n3.add2.v1.json n2.add2.v1.json n1.add2.v1.json n5.kanji.v1.json n4.kanji.v1.json n3.kanji.v1.json n2.kanji.v1.json n1.kanji.v1.json n1.b1.v1.json n2.b2.v1.json n3.b3.v1.json n2.b4.v1.json n3.b5.v1.json n4.b6.v1.json n5.b7.v1.json n1.b8.v1.json'
+ej_files="$ej_previous_files $ej_added_files"
+qs_files="$ej_files n4.b9.v1.json n5.b10.v1.json n5.b11.v1.json n4.b11.v1.json n3.b11.v1.json n2.b11.v1.json n1.b11.v1.json"
 expected_urls="$(for f in $qs_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"; done)"
 [[ "$(cat "$work/qs/urls")" == "$expected_urls" ]] \
-  || { echo "question set files not the twenty-eight names at the release SHA, in order" >&2; exit 1; }
+  || { echo "question set files not the thirty-five names at the release SHA, in order" >&2; exit 1; }
 [[ "$(ls "$work/qs/opt/content/question-set-$sha" | sort)" == "$(printf '%s\n' $qs_files | sort)" ]] \
-  || { echo "question set dir is not exactly the twenty-eight files" >&2; exit 1; }
+  || { echo "question set dir is not exactly the thirty-five files" >&2; exit 1; }
 [[ "$(cat "$work/qs/env")" == "$app_url" ]] || { echo "DATABASE_URL did not reach docker literally" >&2; exit 1; }
 ! grep -qE 'p\$\(id\)w|QUESTION_SET_CONFIRM' "$work/qs/argv" || { echo "dry run argv has the URL or the confirm" >&2; exit 1; }
 qs confirm
 grep -q -- '-e QUESTION_SET_CONFIRM=PUBLISH_QUESTION_SET' "$work/qs/argv" || { echo "confirm mode without the confirm" >&2; exit 1; }
 if qs other 2>/dev/null; then echo "question-set-publish accepted an unknown mode" >&2; exit 1; fi
-echo "ok question-set-publish: twenty-eight files at the release SHA, URL by environment, confirm only on confirm"
+echo "ok question-set-publish: thirty-five files at the release SHA, URL by environment, confirm only on confirm"
 
-# 7. explanation-ja-publish.sh: the ten set files and the explanation file of the
-# deployed SHA, the ten files before #936 as the previous set, the app URL by environment (never argv), confirm only in confirm mode.
+# 7. explanation-ja-publish.sh: the twenty-eight set files and the explanation file of the
+# deployed SHA, the first ten files before #936 as the previous set, the app URL by environment (never argv), confirm only in confirm mode.
 mkdir -p "$work/ej/opt" "$work/ej/run"
 sed -e "s|/opt/harumaru/bin/render-env.sh|true|" -e "s|/run/harumaru|$work/ej/run|g" \
   -e "s|/opt/harumaru|$work/ej/opt|g" files/explanation-ja-publish.sh > "$work/ej/run.sh"
@@ -251,15 +253,16 @@ printf 'DATABASE_URL=%s\n' "$app_url" > "$work/ej/run/api.env"
 : > "$work/qs/urls"
 ej() { PATH="$work/qs/path:$PATH" EXPLANATION_JA_MODE="$1" bash "$work/ej/run.sh"; }
 ej dry-run
-expected_urls="$(for f in $ej_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"
+expected_urls="$(for f in $ej_previous_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"
   printf 'https://raw.githubusercontent.com/milo37/nihongo/f2e2e17145a119f436faa52fef9ecf4929facc44/content/question-imports/%s\n' "$f"; done
+for f in $ej_added_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"; done
 printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/translations/explanations-ja.v1.json\n' "$sha")"
 [[ "$(cat "$work/qs/urls")" == "$expected_urls" ]] \
-  || { echo "explanation files not the ten set files and the explanation file at the release SHA" >&2; exit 1; }
+  || { echo "explanation files not the twenty-eight set files and the explanation file at the release SHA" >&2; exit 1; }
 ej_dir="$work/ej/opt/content/explanation-ja-$sha"
 [[ "$(ls "$ej_dir/set" | sort)" == "$(printf '%s\n' $ej_files | sort)" ]] \
-  || { echo "explanation set dir is not exactly the ten files" >&2; exit 1; }
-[[ "$(ls "$ej_dir/previous" | sort)" == "$(printf '%s\n' $ej_files | sort)" ]] \
+  || { echo "explanation set dir is not exactly the twenty-eight files" >&2; exit 1; }
+[[ "$(ls "$ej_dir/previous" | sort)" == "$(printf '%s\n' $ej_previous_files | sort)" ]] \
   || { echo "explanation previous dir is not exactly the ten files" >&2; exit 1; }
 [[ "$(ls "$ej_dir")" == "$(printf 'explanations-ja.v1.json\nprevious\nset')" ]] \
   || { echo "explanation dir has more than the set and the explanation file" >&2; exit 1; }

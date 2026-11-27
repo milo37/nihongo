@@ -419,11 +419,15 @@ export const koCoreResources = {
     },
     // #1090 '학습 목표' page (scenario O-5, O-r7).
     studyGoal: {
-      // Two lines as drawn (r11); the page keeps the line break.
-      title: '공부 목표를\n정해 볼까요?',
-      hint: '나중에 마이에서 바꿀 수 있어요.',
-      level: '목표 급수',
-      daily: '하루 목표',
+      // #1046 v2: three questions read top to bottom, one-line title.
+      title: '하루에 조금씩, 같이 해 봐요',
+      hint: '언제든 마이페이지에서 바꿀 수 있어요',
+      level: '어느 급수를 준비해요?',
+      daily: '하루에 몇 문제 풀까요?',
+      push: '매일 아침 8시, 학습 알림 받아 볼까요?',
+      pushDenied: '브라우저 설정에서 알림을 허용해 주세요.',
+      pushIos: '홈 화면에 추가하면 받을 수 있어요.',
+      pushFailed: '알림을 켜지 못했어요. 목표 정하기에서 다시 켜 주세요.',
       unit: '문제',
       count: '{{count}}문제',
       decrease: '10문제 줄이기',
@@ -866,9 +870,8 @@ export const koCoreResources = {
       loadError: '책갈피를 확인하지 못했어요.',
       retry: '다시 확인',
       add: '책갈피',
-      addLabel: '{{formattedOrdinal}}번 문제를 책갈피에 담기',
+      namePrefix: '{{formattedOrdinal}}번 문제 ',
       remove: '책갈피 빼기',
-      removeLabel: '{{formattedOrdinal}}번 문제를 책갈피에서 빼기',
       unavailable: '이 결과에서는 책갈피를 바꿀 수 없어요.',
       removed: '책갈피에서 뺐어요.',
       removeFailed: '책갈피에서 빼지 못했어요.',
@@ -1085,7 +1088,8 @@ export const koCoreResources = {
       label: '학습 목표',
       set: '목표 {{level}} · 하루 {{count}}문제 · 오늘 {{today}}',
       unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
-      action: '목표 정하기'
+      action: '목표 정하기',
+      pushOn: '알림 켬'
     },
     // #1154 M-2f: this month's stamps under the goal row. The count is
     // only in the calendar's spoken name, never on screen.

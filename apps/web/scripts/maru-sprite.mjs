@@ -52,7 +52,7 @@ const compactPath = (data) => {
   let last = ''
   let [x, y, startX, startY] = [0, 0, 0, 0]
   let previous = ''
-  for (let index = 0; index < tokens.length; ) {
+  for (let index = 0; index < tokens.length;) {
     let command = tokens[index]
     if (/[MLQCZ]/u.test(command)) index += 1
     else command = previous

@@ -6,10 +6,7 @@ import {
 } from './keyedRateLimitStore.js'
 
 export type AdminCommandRateLimitGroup =
-  | 'ADMIN_EDIT'
-  | 'ADMIN_SENSITIVE'
-  | 'IMPORT_VALIDATION'
-  | 'REAUTHENTICATION'
+  'ADMIN_EDIT' | 'ADMIN_SENSITIVE' | 'IMPORT_VALIDATION' | 'REAUTHENTICATION'
 
 interface AdminCommandRateLimitInput {
   actorId: string

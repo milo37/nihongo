@@ -104,7 +104,8 @@ export const bundleCeilings = Object.freeze({
   // #1186 CSS unify and the #1182 furigana screen only: +15 KB (operator
   // approved 2026-11-21), then 1,520,000 for C3-C8 (operator approved
   // 2026-11-22, JLP-957). 1,535,000 for the C7-C8 duplicate CSS and #1224
-  // (operator approved 2026-11-23, JLP-957). Back to 1,483,000 in C11 (#1186).
+  // (operator approved 2026-11-23, JLP-957). C11 (#1186) took Tailwind out of
+  // the learner build: 1,549,724 measured, -5,634 from dev 8747962e.
   // #1268: +4 HTML files and the page text in the other 4 (1,561,609 measured).
   // JLP-977, operator approved 2026-11-25.
   totalRawBytes: 1_575_000

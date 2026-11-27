@@ -93,6 +93,24 @@ const browserScreenPathPattern = /^(?:apps\/web|apps\/admin|packages)\//u
 const isBrowserScreenPath = (file) =>
   browserScreenPathPattern.test(file) || userJourneyPathPattern.test(file)
 
+// The browser test tools are versioned in the root manifest and lockfile, which select no browser run by path.
+// A version change of those tools needs both browser suites on dev PRs (#1325).
+const browserToolchainManifestPaths = new Set([
+  'package.json',
+  'pnpm-lock.yaml'
+])
+const browserToolchainLinePattern =
+  /^[+-](?![+-]).*(?:@playwright\/test|@axe-core\/playwright|(?<![\w@/-])playwright(?:-core)?|(?<![\w/-])axe-core)(?:@\d|['"]?\s*:)/mu
+export const changesBrowserToolchain = (diff) =>
+  browserToolchainLinePattern.test(diff)
+// The CI workflow installs the browser and its system packages, which select no browser run by path.
+// A change to those install lines needs both browser suites on dev PRs, or it merges untested (#1328).
+const browserInstallWorkflowPath = '.github/workflows/ci.yml'
+const browserInstallLinePattern =
+  /^[+-](?![+-]).*(?:playwright|cached_debs|install_args)/imu
+export const changesBrowserInstallStep = (diff) =>
+  browserInstallLinePattern.test(diff)
+
 // Injected test faults need real and Mock provenance proof on dev PRs.
 const browserFaultProvenancePaths = new Set([
   'apps/web/e2e/accessibility.spec.ts',
@@ -239,7 +257,13 @@ export const classifyChangedFiles = (changedFiles) => {
   return selection
 }
 
-export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
+export const selectChecks = ({
+  eventName,
+  ref,
+  event,
+  changedFiles,
+  browserToolchainChanged = false
+}) => {
   if (eventName === 'pull_request' && isMetadataOnlyEdit(event)) {
     return emptySelection('metadata', 'title/body-only pull request edit')
   }
@@ -275,6 +299,10 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
         (file) =>
           browserRuntimePaths.has(file) || browserRealContractPaths.has(file)
       )
+    if (browserToolchainChanged) {
+      selection.browser_mock = true
+      selection.browser = true
+    }
     return selection
   }
   if (
@@ -338,9 +366,37 @@ const readChangedFiles = ({ eventName, event, env, git }) => {
   return ''
 }
 
+const readBrowserToolchainChange = ({ event, changedFiles, git }) => {
+  const { base, head } = event.pull_request
+  const diffOf = (paths) =>
+    git(
+      'git',
+      [
+        'diff',
+        '--no-renames',
+        '-U0',
+        `${base.sha}...${head.sha}`,
+        '--',
+        ...paths
+      ],
+      { encoding: 'utf8', stdio: 'pipe' }
+    )
+  const manifests = changedFiles.filter((file) =>
+    browserToolchainManifestPaths.has(file)
+  )
+  if (manifests.length > 0 && changesBrowserToolchain(diffOf(manifests))) {
+    return true
+  }
+  return (
+    changedFiles.includes(browserInstallWorkflowPath) &&
+    changesBrowserInstallStep(diffOf([browserInstallWorkflowPath]))
+  )
+}
+
 export const readSelection = (env = process.env, git = execFileSync) => {
   let event
   let changedFiles
+  let browserToolchainChanged = false
   try {
     event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'))
     changedFiles = readChangedFiles({
@@ -351,6 +407,13 @@ export const readSelection = (env = process.env, git = execFileSync) => {
     })
       .split('\0')
       .filter(Boolean)
+    if (env.GITHUB_EVENT_NAME === 'pull_request') {
+      browserToolchainChanged = readBrowserToolchainChange({
+        event,
+        changedFiles,
+        git
+      })
+    }
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('CI_')) throw error
     fail('CI_CLASSIFICATION_COMPARISON_FAILED')
@@ -359,7 +422,8 @@ export const readSelection = (env = process.env, git = execFileSync) => {
     eventName: env.GITHUB_EVENT_NAME,
     ref: env.GITHUB_REF,
     event,
-    changedFiles
+    changedFiles,
+    browserToolchainChanged
   })
 }
 

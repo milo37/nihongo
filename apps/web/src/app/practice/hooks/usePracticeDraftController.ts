@@ -106,11 +106,11 @@ export const usePracticeDraftController = ({
   )
   const hasValidBootstrapBoundary = Boolean(
     !bootstrapRecord ||
-      hasExpectedSessionQuestionBoundary(
-        bootstrapRecord.confirmedBase,
-        sessionId,
-        expectedQuestionBoundary
-      )
+    hasExpectedSessionQuestionBoundary(
+      bootstrapRecord.confirmedBase,
+      sessionId,
+      expectedQuestionBoundary
+    )
   )
   const usableBootstrapRecord = hasValidBootstrapBoundary
     ? bootstrapRecord
@@ -122,20 +122,20 @@ export const usePracticeDraftController = ({
     useState<string | null>(null)
   const mustReplayBeforeCanonicalGet = Boolean(
     usableBootstrapRecord?.frozenAttempt &&
-      usableBootstrapRecord.frozenAttempt.idempotencyKey !==
-        recoveredBootstrapAttemptKey
+    usableBootstrapRecord.frozenAttempt.idempotencyKey !==
+      recoveredBootstrapAttemptKey
   )
   const draftWorkingCopy = useAppStore((state) => state.draftWorkingCopy)
   const hasScopedFrozenAttempt = Boolean(
     isWorkingCopyForScope(draftWorkingCopy, principalScope, sessionId) &&
-      draftWorkingCopy.frozenAttempt
+    draftWorkingCopy.frozenAttempt
   )
   const hasScopedBlockingWork = Boolean(
     isWorkingCopyForScope(draftWorkingCopy, principalScope, sessionId) &&
-      (draftWorkingCopy.frozenAttempt ||
-        draftWorkingCopy.pendingConflict ||
-        !isStudyDraftDiffEmpty(draftWorkingCopy.localDiff) ||
-        !isStudyDraftDiffEmpty(draftWorkingCopy.postFlightLocalDiff))
+    (draftWorkingCopy.frozenAttempt ||
+      draftWorkingCopy.pendingConflict ||
+      !isStudyDraftDiffEmpty(draftWorkingCopy.localDiff) ||
+      !isStudyDraftDiffEmpty(draftWorkingCopy.postFlightLocalDiff))
   )
   const draftQuery = useGetStudyDraft(
     sessionId,
@@ -791,10 +791,10 @@ export const usePracticeDraftController = ({
 
   const hasWorkingCopyWork = Boolean(
     isWorkingCopyForScope(draftWorkingCopy, principalScope, sessionId) &&
-      (draftWorkingCopy.frozenAttempt ||
-        !isStudyDraftDiffEmpty(draftWorkingCopy.localDiff) ||
-        !isStudyDraftDiffEmpty(draftWorkingCopy.postFlightLocalDiff) ||
-        Boolean(draftWorkingCopy.pendingConflict))
+    (draftWorkingCopy.frozenAttempt ||
+      !isStudyDraftDiffEmpty(draftWorkingCopy.localDiff) ||
+      !isStudyDraftDiffEmpty(draftWorkingCopy.postFlightLocalDiff) ||
+      Boolean(draftWorkingCopy.pendingConflict))
   )
 
   const publishRevision = useStudyDraftRevisionSync({
@@ -1497,8 +1497,8 @@ export const usePracticeDraftController = ({
         }
         const needsSave = Boolean(
           record.frozenAttempt ||
-            !isStudyDraftDiffEmpty(record.localDiff) ||
-            !isStudyDraftDiffEmpty(record.postFlightLocalDiff)
+          !isStudyDraftDiffEmpty(record.localDiff) ||
+          !isStudyDraftDiffEmpty(record.postFlightLocalDiff)
         )
         if (!needsSave) {
           await drainPendingRemoteRevision()

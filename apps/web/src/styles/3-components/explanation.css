@@ -1,0 +1,20 @@
+/* Explanation: one text in the screen's language, keeping its line breaks. */
+@layer utilities {
+  .explanation-note {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-subtle));
+  }
+  .explanation {
+    min-width: 0px;
+  }
+  .explanation-text {
+    --tw-leading: 1.75rem;
+    line-height: 1.75rem;
+    overflow-wrap: break-word;
+    white-space: pre-line;
+    color: rgb(var(--color-muted));
+  }
+}
