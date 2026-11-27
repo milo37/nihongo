@@ -61,7 +61,7 @@ export const PracticeSessionPage = (): ReactElement => {
   const leaving = push.from === null ? undefined : session.questions[push.from]
   return (
     <section
-      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''}`}
+      className={`learning-note study-session ${question.passage ? 'study-session-wide' : ''} ${reviewContext ? 'study-review-session' : ''}`}
     >
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
@@ -90,9 +90,7 @@ export const PracticeSessionPage = (): ReactElement => {
         total={session.questions.length}
       />
 
-      <div
-        className={`study-session-body ${question.passage ? 'study-session-body-wide' : 'study-session-body-narrow'}`}
-      >
+      <div className="study-session-body">
         <PracticeSessionNotices
           draftActionMessage={session.draftActionMessage}
           isFirstQuestion={session.safeQuestionIndex === 0}
