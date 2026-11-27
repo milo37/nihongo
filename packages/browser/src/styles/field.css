@@ -1,0 +1,229 @@
+/* Shared form fields: label, hint, error, textarea, select and radio cards (#1186 C10). */
+@layer utilities {
+  /* Form fields: label, required mark, hint and error shared by Textarea, Select and RadioGroup. */
+  .ui-field-required {
+    margin-left: var(--spacing);
+    color: rgb(var(--color-danger));
+  }
+  .ui-field {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .ui-field-label,
+  .ui-field-hint {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-field-error {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-medium);
+    color: rgb(var(--color-danger));
+  }
+  .ui-field-label {
+    font-weight: var(--font-weight-semibold);
+  }
+  .ui-field-label {
+    color: rgb(var(--color-ink));
+  }
+  .ui-field-hint {
+    color: rgb(var(--color-muted));
+  }
+  /* Textarea. */
+  .ui-textarea {
+    min-height: 7rem;
+    width: 100%;
+    resize: vertical;
+    border-radius: var(--radius-control);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    background-color: rgb(var(--color-surface));
+    padding-inline: 0.75rem;
+    padding-block: 0.5rem;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-control);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-textarea-default {
+    border-color: rgb(var(--color-line));
+  }
+  .ui-textarea-invalid {
+    border-color: rgb(var(--color-line-invalid));
+  }
+  .ui-textarea::placeholder {
+    color: color-mix(
+      in srgb,
+      rgb(rgb(var(--color-muted)) / 1) 70%,
+      transparent
+    );
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .ui-textarea::placeholder {
+      color: color-mix(in oklab, rgb(var(--color-muted)) 70%, transparent);
+    }
+  }
+  @media (hover: hover) {
+    .ui-textarea:hover {
+      border-color: rgb(var(--color-line-strong));
+    }
+  }
+  .ui-textarea:focus-visible {
+    border-color: rgb(var(--color-brand));
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  .ui-textarea:disabled {
+    cursor: not-allowed;
+    background-color: rgb(var(--color-surface-muted));
+    color: rgb(var(--color-muted));
+  }
+  /* Select, and the narrower language select that passes its own size. */
+  .ui-select {
+    min-height: 2.75rem;
+    width: 100%;
+    border-radius: var(--radius-control);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    background-color: rgb(var(--color-surface));
+    padding-inline: 0.75rem;
+    padding-block: 0.5rem;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-control);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-locale-select {
+    min-width: 8rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .ui-select-default {
+    border-color: rgb(var(--color-line-interactive));
+  }
+  .ui-select-invalid {
+    border-color: rgb(var(--color-line-invalid));
+  }
+  @media (hover: hover) {
+    .ui-select:hover {
+      border-color: rgb(var(--color-line-strong));
+    }
+  }
+  .ui-select:focus-visible {
+    border-color: rgb(var(--color-brand));
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  .ui-select:disabled {
+    cursor: not-allowed;
+    border-color: rgb(var(--color-line));
+  }
+  /* RadioGroup: a fieldset of option cards, side by side from sm when horizontal. */
+  .ui-radio-input {
+    margin-top: 0.125rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    accent-color: rgb(var(--color-brand));
+  }
+  .ui-radio-description {
+    margin-top: var(--spacing);
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+  }
+  .ui-radio-title {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: rgb(var(--color-ink));
+  }
+  .ui-radio-description {
+    display: block;
+  }
+  .ui-radio-option {
+    display: flex;
+    min-height: 3rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    align-items: flex-start;
+    border-radius: var(--radius-control);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    background-color: rgb(var(--color-surface));
+    padding-inline: 0.75rem;
+    padding-block: 0.75rem;
+    transition-property: background-color, border-color, box-shadow;
+    transition-timing-function: var(
+      --tw-ease,
+      var(--default-transition-timing-function)
+    );
+    transition-duration: 150ms;
+  }
+  .ui-radio-group {
+    display: grid;
+    min-width: 0px;
+  }
+  .ui-radio-options {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .ui-radio-option {
+    min-width: 0px;
+  }
+  .ui-radio-text {
+    min-width: 0px;
+    overflow-wrap: break-word;
+  }
+  .ui-radio-group,
+  .ui-radio-option {
+    gap: 0.75rem;
+  }
+  .ui-radio-option-default {
+    border-color: rgb(var(--color-line));
+  }
+  .ui-radio-option-invalid {
+    border-color: rgb(var(--color-line-invalid));
+  }
+  .ui-radio-description {
+    color: rgb(var(--color-muted));
+  }
+  .ui-radio-option:focus-within {
+    border-color: rgb(var(--color-brand));
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  @media (hover: hover) {
+    .ui-radio-option:hover {
+      border-color: rgb(var(--color-line-strong));
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  .ui-radio-option:has(:is(:checked)) {
+    border-color: rgb(var(--color-brand));
+    background-color: rgb(var(--color-brand-soft));
+  }
+  .ui-radio-option:has(:is(:disabled)) {
+    cursor: not-allowed;
+    background-color: rgb(var(--color-surface-muted));
+    opacity: 60%;
+  }
+  @media (width >= 40rem) {
+    .ui-radio-options-row {
+      grid-auto-columns: minmax(0, 1fr);
+      grid-auto-flow: column;
+      grid-template-rows: repeat(1, minmax(0, 1fr));
+    }
+  }
+}

@@ -233,7 +233,7 @@ const TagCell = ({
   if (!first) return null
   return (
     <span className="flex min-w-0 items-center gap-1">
-      <Badge className="block min-w-0 truncate" title={first.label}>
+      <Badge className="min-w-0 truncate" title={first.label}>
         {first.label}
       </Badge>
       {rest.length > 0 ? (

@@ -94,8 +94,8 @@ describe('세트가 온 목록으로 돌아가기 (JLP-856)', () => {
       renderWith(actions(mode))
       const back = await screen.findByRole('link', { name })
       expect(back).toHaveAttribute('href', href)
-      expect(back.className).toContain('bg-brand')
-      expect(back.className).toContain('h-12')
+      expect(back.className).toContain('ui-btn-primary')
+      expect(back.className).toContain('ui-btn-lg')
       expect(
         screen.queryByRole('button', { name: /^다음 \d+문제/u })
       ).toBeNull()
