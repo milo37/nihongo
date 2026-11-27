@@ -7,11 +7,7 @@ import type { IconName } from '@nihongo/browser/common/components/Icon'
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 
 export type GuestGateScreen =
-  | 'account'
-  | 'bookmarks'
-  | 'dashboard'
-  | 'review'
-  | 'wrongNote'
+  'account' | 'bookmarks' | 'dashboard' | 'review' | 'wrongNote'
 
 // Lucide icons, matching the navigation tabs (G).
 const icons: Record<GuestGateScreen, IconName> = {

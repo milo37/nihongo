@@ -15,8 +15,7 @@ type SessionData = NonNullable<SessionController['sessionQuery']['data']>
 
 /** Either a screen for a session that cannot be answered yet, or the question to show. */
 export type SessionView =
-  | { screen: ReactElement }
-  | { data: SessionData; question: SessionQuestion }
+  { screen: ReactElement } | { data: SessionData; question: SessionQuestion }
 
 export const readSessionView = ({
   session,

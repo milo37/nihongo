@@ -16,11 +16,7 @@ import {
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 /** Why a review request item was not sent; a failed chunk fails all its items. */
 export type ReviewRequestFailure =
-  | 'VERSION_CONFLICT'
-  | 'NOT_DRAFT'
-  | 'NOT_FOUND'
-  | 'RATE_LIMITED'
-  | 'FAILED'
+  'VERSION_CONFLICT' | 'NOT_DRAFT' | 'NOT_FOUND' | 'RATE_LIMITED' | 'FAILED'
 
 /** Why a batch item was not done, for any batch action. */
 export type BatchFailure =

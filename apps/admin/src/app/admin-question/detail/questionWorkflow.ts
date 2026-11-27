@@ -26,16 +26,18 @@ export const questionCommands = [
 ] as const
 export type QuestionCommand = (typeof questionCommands)[number]
 export type QuestionWrite = {
-  [K in
-    | 'updateQuestionVersion'
-    | 'createAdminQuestionVersion'
-    | 'archiveAdminQuestion'
-    | 'requestContentReview'
-    | 'requestQuestionChanges'
-    | 'approveQuestionVersion'
-    | 'withdrawQuestionApproval'
-    | 'publishQuestionVersion'
-    | 'retireQuestionVersion']: ContentOperationRequest<K>
+  [
+    K in
+      | 'updateQuestionVersion'
+      | 'createAdminQuestionVersion'
+      | 'archiveAdminQuestion'
+      | 'requestContentReview'
+      | 'requestQuestionChanges'
+      | 'approveQuestionVersion'
+      | 'withdrawQuestionApproval'
+      | 'publishQuestionVersion'
+      | 'retireQuestionVersion'
+  ]: ContentOperationRequest<K>
 }[
   | 'updateQuestionVersion'
   | 'createAdminQuestionVersion'

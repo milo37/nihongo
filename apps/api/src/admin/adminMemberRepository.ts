@@ -19,10 +19,7 @@ interface AdminMemberPage {
 }
 
 export type AdminMemberRestrictionOutcome =
-  | 'OK'
-  | 'NOT_FOUND'
-  | 'VERSION_CONFLICT'
-  | 'INVALID_STATE_TRANSITION'
+  'OK' | 'NOT_FOUND' | 'VERSION_CONFLICT' | 'INVALID_STATE_TRANSITION'
 
 interface AdminMemberRestrictionChange {
   readonly actorId: string

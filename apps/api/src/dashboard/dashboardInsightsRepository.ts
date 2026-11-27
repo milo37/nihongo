@@ -52,10 +52,7 @@ export interface DashboardInsightsTagRecord {
 }
 
 type DashboardInsightsReviewRowKind =
-  | 'COUNTS'
-  | 'DUE_GROUP'
-  | 'REPEATED_CANDIDATE'
-  | 'WEAKNESS_ACTIONABLE'
+  'COUNTS' | 'DUE_GROUP' | 'REPEATED_CANDIDATE' | 'WEAKNESS_ACTIONABLE'
 
 export interface DashboardInsightsReviewRecord {
   readonly earliestDueAt: Date | null

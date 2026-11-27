@@ -21,10 +21,7 @@ export interface WrongNoteStudyCandidate extends StudyCandidatePin {
 }
 
 export type DailyReviewCandidateStatus =
-  | 'NEW'
-  | 'REVIEWING'
-  | 'AGAIN'
-  | 'SOLVED'
+  'NEW' | 'REVIEWING' | 'AGAIN' | 'SOLVED'
 
 export interface DailyReviewStudyCandidate extends StudyCandidatePin {
   readonly nextReviewAt: Date

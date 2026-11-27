@@ -2,12 +2,7 @@ import type { ComponentPropsWithoutRef, ReactElement, ReactNode } from 'react'
 import { classNames } from './classNames'
 
 type BadgeVariant =
-  | 'neutral'
-  | 'brand'
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'info'
+  'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info'
 
 type BadgeProps = ComponentPropsWithoutRef<'span'> & {
   children: ReactNode

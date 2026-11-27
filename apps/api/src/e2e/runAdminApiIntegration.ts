@@ -1053,8 +1053,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   const shutdownReason = new Error('SSO browser shutdown requested.')
   let server: import('node:http').Server | undefined
   let fixture:
-    | Awaited<ReturnType<typeof createSsoBrowserApiTestFixture>>
-    | undefined
+    Awaited<ReturnType<typeof createSsoBrowserApiTestFixture>> | undefined
   let stop: (() => void) | undefined
   let firstFailure: unknown
   let closePromise: Promise<void> | undefined

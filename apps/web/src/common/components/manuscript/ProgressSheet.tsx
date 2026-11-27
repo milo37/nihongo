@@ -7,12 +7,7 @@ import { GradeMark } from '@common/components/manuscript/GradeMark'
  * skip: left unanswered, a grey dash (B4 §11).
  */
 export type ProgressCellState =
-  | 'todo'
-  | 'current'
-  | 'answered'
-  | 'ok'
-  | 'ng'
-  | 'skip'
+  'todo' | 'current' | 'answered' | 'ok' | 'ng' | 'skip'
 
 /**
  * Below this side a square drops its number; "13 / 20" says it (B4 §11).

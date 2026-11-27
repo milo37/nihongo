@@ -3,11 +3,7 @@ import type { ReactElement } from 'react'
 // Lucide source SVGs: https://github.com/lucide-icons/lucide/tree/main/icons (ISC).
 // Admin list icons the shared Icon set does not carry.
 export type AdminListIconName =
-  | 'ellipsis'
-  | 'copy'
-  | 'search'
-  | 'chevron-down'
-  | 'sliders-horizontal'
+  'ellipsis' | 'copy' | 'search' | 'chevron-down' | 'sliders-horizontal'
 
 const paths: Record<AdminListIconName, ReactElement> = {
   ellipsis: (

@@ -453,9 +453,8 @@ describe('operation and Slice 2 conformance manifests', () => {
   })
 
   it('exports one named ErrorCodeSchema for every manifest operation', async () => {
-    const adminContentExports = await import(
-      '../src/admin/content-operations.js'
-    )
+    const adminContentExports =
+      await import('../src/admin/content-operations.js')
     const actual = Object.keys(adminContentExports)
       .filter((name) => name.endsWith('ErrorCodeSchema'))
       .sort()

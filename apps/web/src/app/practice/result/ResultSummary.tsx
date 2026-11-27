@@ -57,9 +57,8 @@ export const ResultSummary = ({
       : [])
   ]
   // Unanswered items get the grey dash, never the blank 'todo' square.
-  const gradeStates = result.items.map(
-    (item): ProgressCellState =>
-      item.isCorrect ? 'ok' : item.selectedOptionId === null ? 'skip' : 'ng'
+  const gradeStates = result.items.map((item): ProgressCellState =>
+    item.isCorrect ? 'ok' : item.selectedOptionId === null ? 'skip' : 'ng'
   )
   // Only the correct count is large; split the sentence around it.
   const [scoreBefore = '', scoreAfter = ''] = t('summary.score', {
