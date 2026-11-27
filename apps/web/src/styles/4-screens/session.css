@@ -155,21 +155,21 @@ label:has(input:checked) .study-option-text {
   text-decoration-thickness: 2px;
 }
 @media (min-width: 1024px) {
+  /* JLP-879: the top bar and the meta line share the body's column, so the
+     close button starts and the bookmark ends on the body's edges. */
   .study-session-bar,
   .study-session-meta {
-    max-width: 720px;
-  }
-  /* JLP-865: with a passage the meta starts on the passage's left line. */
-  .study-session-meta[data-wide] {
-    max-width: 72rem;
+    max-width: var(--study-column);
+    padding-inline: var(--study-gutter);
   }
   .study-passage-text {
     font-size: 18px;
     line-height: 34px;
   }
+  /* JLP-879: the squares follow the close button. */
   .study-session-sheet {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .study-session-sheet .study-session-sheet-phone {
     display: none;
@@ -243,7 +243,8 @@ label:has(input:checked) .study-option-text {
   .study-session-body {
     margin-inline: auto;
     width: 100%;
-    padding-inline: 1rem;
+    max-width: var(--study-column);
+    padding-inline: var(--study-gutter);
     padding-top: 1.25rem;
   }
   .study-state-frame {
@@ -258,17 +259,20 @@ label:has(input:checked) .study-option-text {
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* JLP-879: one column for the body and, on PC, the top bar and meta:
+     wide for a passage (two columns), narrow otherwise. */
   .study-session {
     width: 100%;
+    --study-column: 760px;
+    --study-gutter: 1rem;
   }
-  .study-session-body-wide {
-    max-width: var(--container-6xl);
-  }
-  .study-session-body-narrow {
-    max-width: 760px;
+  .study-session-wide {
+    --study-column: var(--container-6xl);
   }
   @media (width >= 40rem) {
-    .study-session-body,
+    .study-session {
+      --study-gutter: 1.5rem;
+    }
     .study-state-frame {
       padding-inline: 1.5rem;
     }
