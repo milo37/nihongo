@@ -16,6 +16,9 @@ case "${1:-}" in
   *) echo "usage: backup.sh [pre-migrate <SHA>]" >&2; exit 2 ;;
 esac
 
+for _ in $(seq 60); do docker compose exec -T postgres pg_isready -q 2>/dev/null && break; sleep 5; done
+docker compose exec -T postgres pg_isready -q || { echo "postgres not ready; no backup" >&2; exit 1; }
+
 docker compose exec -T postgres pg_dump -U postgres -d nihongo --format=custom \
   | aws s3 cp - "s3://${BACKUP_BUCKET}/${key}" --region "$AWS_REGION" \
     --sse AES256 --expected-size 21474836480
