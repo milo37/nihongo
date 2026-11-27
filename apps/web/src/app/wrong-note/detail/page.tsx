@@ -1,3 +1,4 @@
+import '@/styles/screens.css'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'

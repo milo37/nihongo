@@ -1,0 +1,35 @@
+/* Reduced motion for screens.css, last in that stylesheet (#1346). */
+@media (prefers-reduced-motion: reduce) {
+  .study-audio-thumb {
+    transition: none;
+  }
+  .omikuji-dialog,
+  .omikuji-sheet,
+  .omikuji-result,
+  .omikuji-yay,
+  .omikuji-button.is-pressed {
+    animation: none;
+  }
+  .stamp-board-chevron {
+    transition: none;
+  }
+  .result-stamp-note {
+    animation: none;
+    opacity: 1;
+  }
+  .rush-fox.is-lift,
+  .rush-fox.is-thud,
+  .rush-word.is-ng .rush-box > span,
+  .rush-flash {
+    animation: none;
+  }
+  .rush-mark {
+    animation: maru-show 0s forwards;
+  }
+  .study-push[data-push] {
+    animation: none;
+  }
+  .study-push-leaving {
+    display: none;
+  }
+}

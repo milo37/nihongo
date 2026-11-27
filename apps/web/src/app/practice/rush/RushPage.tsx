@@ -1,3 +1,4 @@
+import '@/styles/screens.css'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
