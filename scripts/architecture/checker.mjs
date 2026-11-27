@@ -760,10 +760,10 @@ const checkEndpoint = (
 
     return Boolean(
       symbol &&
-        /^safe(Get|Post|Put|Del)(WithMetadata)?$/.test(symbol.getName()) &&
-        isDeclaredInFile(symbol, httpPath) &&
-        isDeclaredInFile(schemaSymbol, schemaResolvedPath) &&
-        isZodSchemaExpression(checker, schemaArgument)
+      /^safe(Get|Post|Put|Del)(WithMetadata)?$/.test(symbol.getName()) &&
+      isDeclaredInFile(symbol, httpPath) &&
+      isDeclaredInFile(schemaSymbol, schemaResolvedPath) &&
+      isZodSchemaExpression(checker, schemaArgument)
     )
   }
 

@@ -65,8 +65,7 @@ const tagCandidate = (
 
 const score = (
   candidate:
-    | DashboardQuestionTypeWeaknessCandidate
-    | DashboardSubjectWeaknessCandidate
+    DashboardQuestionTypeWeaknessCandidate | DashboardSubjectWeaknessCandidate
 ): DashboardScoredWeakness => {
   const result = calculateDashboardWeakness(candidate, observedAt)
   if (!result) {

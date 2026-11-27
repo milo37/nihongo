@@ -161,11 +161,7 @@ export interface AtomicQuestion {
 export interface AtomicSession {
   readonly expiresAt: Date
   readonly mode:
-    | 'RANDOM'
-    | 'WRONG_NOTE'
-    | 'WEAKNESS'
-    | 'BOOKMARK'
-    | 'DAILY_REVIEW'
+    'RANDOM' | 'WRONG_NOTE' | 'WEAKNESS' | 'BOOKMARK' | 'DAILY_REVIEW'
   readonly questions: readonly AtomicQuestion[]
   readonly practiceContractVersion: number
   readonly startedAt: Date

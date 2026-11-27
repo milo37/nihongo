@@ -1449,8 +1449,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
       const beforeLateFreshFailure = await readA2Evidence(target.versionId)
       const replacementRawToken = await loadActiveSessionToken(reviewer.userId)
       let lateFreshApprovalPromise:
-        | ReturnType<typeof requestA2Command>
-        | undefined
+        ReturnType<typeof requestA2Command> | undefined
       await adminClient.query('BEGIN')
       try {
         // SHARE permits the repository preflight but blocks its ContentReview
@@ -1765,8 +1764,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
         target.versionId
       )
       let lateFreshPublicationPromise:
-        | ReturnType<typeof requestA2Command>
-        | undefined
+        ReturnType<typeof requestA2Command> | undefined
 
       await adminClient.query('BEGIN')
       try {

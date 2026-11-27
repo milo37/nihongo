@@ -438,9 +438,8 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     return
   }
   await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
-    '../apps/api/src/e2e/runAdminApiIntegration.js'
-  )
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } =
+    await import('../apps/api/src/e2e/runAdminApiIntegration.js')
   cleanupDatabaseHarness = cleanupIsolatedDatabase
   const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
@@ -489,18 +488,15 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     'APPLE_CLIENT_SECRET'
   ])
     delete apiEnvironment[key]
-  const { prepareBrowserActors } = await import(
-    '../apps/api/src/e2e/browserApi.js'
-  )
+  const { prepareBrowserActors } =
+    await import('../apps/api/src/e2e/browserApi.js')
   const created = await prepareBrowserActors({
     adminDatabaseUrl: harness.adminDatabaseUrl,
     environment: apiEnvironment
   })
   const databaseContract =
     browserMode === 'real'
-      ? ((await import(
-          './accessibility-database-contract.mjs'
-        )) as AccessibilityDatabaseContractModule)
+      ? ((await import('./accessibility-database-contract.mjs')) as AccessibilityDatabaseContractModule)
       : undefined
   const baseline = await databaseContract?.captureAccessibilityDatabaseSnapshot(
     harness.adminDatabaseUrl

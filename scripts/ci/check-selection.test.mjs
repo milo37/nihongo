@@ -1860,7 +1860,7 @@ const assertAdminPlaywrightSelection = async (source, mode) => {
 const executableTokens = (source) => {
   const tokens = []
   let newlineBefore = false
-  for (let index = 0; index < source.length; ) {
+  for (let index = 0; index < source.length;) {
     const character = source[index]
     const next = source[index + 1]
     if (/\s/u.test(character)) {

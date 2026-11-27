@@ -936,8 +936,7 @@ export const findRestorableErasure = async (
 export type RestoreSsoAccountResult =
   | {
       readonly code:
-        | 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
-        | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
+        'SSO_ACCOUNT_RESTORE_UNAVAILABLE' | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
     }
   | {
       readonly authorityGeneration: number

@@ -65,8 +65,7 @@ export type SsoIdentityResult =
 export type SsoConsentState = 'PROCEED' | 'NEW' | 'EXISTING'
 /** #1096: EXISTING also carries the member's current name (nickname). */
 export type SsoConsent =
-  | { state: 'PROCEED' | 'NEW' }
-  | { state: 'EXISTING'; memberName: string }
+  { state: 'PROCEED' | 'NEW' } | { state: 'EXISTING'; memberName: string }
 export interface SsoIdentityPort {
   signIn: (
     identity: SsoVerifiedIdentity,

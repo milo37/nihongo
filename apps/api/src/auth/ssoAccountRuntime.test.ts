@@ -87,9 +87,7 @@ const fixture = () => {
     allowLogin: false,
     restorable: false,
     restoreCode: null as
-      | null
-      | 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
-      | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
+      null | 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
   }
   let receiptDigest = ''
   const port = {

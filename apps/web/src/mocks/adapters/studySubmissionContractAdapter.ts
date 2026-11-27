@@ -20,8 +20,7 @@ const STUDY_SUBMISSION_CANONICAL_PREFIX = 'submit-v1:'
 const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:'
 
 export type MockCanonicalSubmissionValidationCode =
-  | 'ANSWER_NOT_IN_SESSION'
-  | 'OPTION_NOT_IN_VERSION'
+  'ANSWER_NOT_IN_SESSION' | 'OPTION_NOT_IN_VERSION'
 
 export class MockCanonicalSubmissionValidationError extends Error {
   readonly code: MockCanonicalSubmissionValidationCode
