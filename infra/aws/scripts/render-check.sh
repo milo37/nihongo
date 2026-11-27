@@ -32,7 +32,7 @@ for domain in "" "origin.example.com"; do
   echo "base64encode(${compose})" | tf_console | tr -d '"' | base64 -d > "$work/exact-compose"
   echo "base64encode(${caddy})" | tf_console | tr -d '"' | base64 -d > "$work/exact-caddy"
 
-  work="$work" ruby -ryaml -e '
+  ruby -ryaml -e '
     init = YAML.safe_load(File.read(ARGV[0]))
     paths = init.fetch("write_files").map { |f| f.fetch("path") }
     %w[/opt/harumaru/compose.yaml /opt/harumaru/Caddyfile /opt/harumaru/bin/deploy.sh /opt/harumaru/bin/provision-db.sh /opt/harumaru/bin/migrate.sh /opt/harumaru/bin/register-capability.sh].each { |p| raise "missing #{p}" unless paths.include?(p) }
@@ -41,7 +41,7 @@ for domain in "" "origin.example.com"; do
       source = File.read("files/#{File.basename(f.fetch("path"))}")
       raise "#{f.fetch("path")} differs from its source" unless f.fetch("content") == source && !f.key?("encoding")
     end
-    { "/opt/harumaru/compose.yaml" => "#{ENV["work"]}/exact-compose", "/opt/harumaru/Caddyfile" => "#{ENV["work"]}/exact-caddy", "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json" => "files/cloudwatch-agent.json" }.each do |p, src|
+    { "/opt/harumaru/compose.yaml" => "#{ARGV[3]}/exact-compose", "/opt/harumaru/Caddyfile" => "#{ARGV[3]}/exact-caddy", "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json" => "files/cloudwatch-agent.json" }.each do |p, src|
       f = init.fetch("write_files").find { |w| w.fetch("path") == p }
       raise "#{p} differs from its source" unless f && f.fetch("content") == File.read(src) && !f.key?("encoding")
     end
@@ -74,7 +74,7 @@ for domain in "" "origin.example.com"; do
       raise "HTTP origin must not install the origin token" if paths.any? { |p| p.include?("origin-env") } || init.fetch("runcmd").any? { |c| c.to_s.include?("origin-env") }
     end
     puts "ok origin_port=#{ARGV[2]} files=#{paths.size}"
-  ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port"
+  ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port" "$work"
   echo "user data ${bytes} bytes (gzip before base64, limit 16384)"
 
   # #742: only STAGING (noindex=true) sends X-Robots-Tag; PRODUCTION has no such line.
