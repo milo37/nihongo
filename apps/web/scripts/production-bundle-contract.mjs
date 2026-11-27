@@ -668,8 +668,11 @@ export const assertBundleForwardingCoverage = ({
 }) => {
   if (!Array.isArray(forwardingFacades))
     throw new Error('WEB_BUNDLE_FORWARDING_PROOF_INVALID')
+  // #1346: a lazy screen's stylesheet is an SSR asset of that screen's modules.
   const expected = new Set(
-    graph.filter(({ isEntry }) => !isEntry).map(({ file }) => file)
+    graph
+      .filter(({ isEntry }) => !isEntry)
+      .flatMap(({ file, css }) => [file, ...css])
   )
   const ssr = new Set(
     moduleRows.flatMap(({ assets }) => assets.map((asset) => asset.slice(1)))
@@ -792,7 +795,22 @@ const collectArtifactEvidence = async ({
   }
 
   const manifest = await readManifest(distDirectory)
+  // #1346: a stylesheet shared by two lazy screens is its own manifest node
+  // (key '_name.css', no code). It is counted through the chunks that list it
+  // in 'css'; one that no chunk lists is still an orphan.
+  const listedCss = new Set(
+    Object.values(manifest).flatMap((value) => value.css ?? [])
+  )
+  const isSharedCssNode = ([source, value]) =>
+    source.startsWith('_') &&
+    source.endsWith('.css') &&
+    value.file.endsWith('.css') &&
+    listedCss.has(value.file) &&
+    !value.imports &&
+    !value.dynamicImports &&
+    !value.css
   const graph = Object.entries(manifest)
+    .filter((node) => !isSharedCssNode(node))
     .map(([source, value]) =>
       normalizeManifestEntry(canonicalSource(source, artifact), {
         ...value,
@@ -879,7 +897,12 @@ const collectArtifactEvidence = async ({
   for (const { assets } of moduleGraph) {
     for (const asset of assets) {
       const payloadPath = asset.slice(1)
-      if (!payloadByPath.has(payloadPath) || !outputFiles.has(payloadPath)) {
+      const isListedCss =
+        payloadPath.endsWith('.css') && listedCss.has(payloadPath)
+      if (
+        !payloadByPath.has(payloadPath) ||
+        (!outputFiles.has(payloadPath) && !isListedCss)
+      ) {
         throw new Error('WEB_BUNDLE_SSR_ASSET_MISMATCH')
       }
     }
@@ -1251,10 +1274,17 @@ const assertArtifactEvidence = (value, artifact) => {
       }
     })
   }
+  // #1346: a lazy screen's stylesheet, listed in a chunk's 'css'.
+  const graphCss = new Set(
+    [...graphBySource.values()].flatMap(({ css }) => css)
+  )
   for (const { assets } of moduleRows) {
     for (const asset of assets) {
       const payloadPath = asset.slice(1)
-      if (!rowsByPath.has(payloadPath) || !outputFiles.has(payloadPath)) {
+      if (
+        !rowsByPath.has(payloadPath) ||
+        (!outputFiles.has(payloadPath) && !graphCss.has(payloadPath))
+      ) {
         throw new Error('WEB_BUNDLE_EVIDENCE_SSR_GRAPH_INVALID')
       }
     }

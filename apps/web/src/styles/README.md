@@ -1,13 +1,22 @@
 # Learner styles
 
-Every learner-screen rule lives here. `main.tsx` imports `index.css` only, and
-the build makes one stylesheet from it (no CSS file per lazy route, and no
-inline `<style>`: the CSP is `style-src 'self'`).
+Every learner-screen rule lives here. The build makes two stylesheets (no
+inline `<style>`: the CSP is `style-src 'self'`):
+
+- `index.css`, imported by `main.tsx`: everything the first load can show.
+- `screens.css`, imported by the lazy pages that use it (solve, result, kanji
+  rush, My page, wrong notes, bookmarks): it loads with the first of them,
+  after `index.css` (#1346). A part that also shows in the top bar or on a
+  first-load page stays in `index.css` (the avatar and account menu are in
+  `3-components/account-menu.css` for that reason).
 
 ## Order
 
-`index.css` imports the files in cascade order. A later file wins over an
-earlier one at the same specificity, so a file's place in the list matters.
+`index.css` and `screens.css` import the files in cascade order. A later file
+wins over an earlier one at the same specificity, so a file's place in the list
+matters. `screens.css` always loads after `index.css`, so its files keep their
+old relative order and its reduced-motion file (`reduced-motion-screens.css`)
+is last.
 
 1. `@nihongo/browser/styles.css`: Tailwind and the components shared with the
    admin app.
@@ -31,6 +40,7 @@ earlier one at the same specificity, so a file's place in the list matters.
 | 3-components | button.css                           | Shared button shape                             |
 |              | stamp-board.css                      | My page stamp board                             |
 |              | menu.css                             | Language and account menus                      |
+|              | account-menu.css                     | Avatar and account menu (top bar)               |
 |              | maru.css                             | Maru pictures and Maru's stamp                  |
 |              | manuscript.css                       | Manuscript paper: progress squares, grade marks |
 |              | study-list.css                       | Study list rows (bookmark list)                 |
@@ -49,14 +59,15 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | operations.css                       | Terms and operations documents                  |
 |              | wrong-note/center.css, list.css      | Wrong notes: center, question list              |
 |              | wrong-note/detail.css                | Wrong notes: one question                       |
-|              | my/settings.css                      | My page: settings, menu, two-step dialog        |
+|              | my/settings.css                      | My page: settings, two-step dialog              |
 |              | my/study.css                         | My page: my study                               |
 |              | bookmark/bookmark.css                | Bookmarks                                       |
 |              | bookmark/report.css                  | Question report dialog                          |
 |              | same-passage.css                     | Solve and result: same-passage note, fold       |
 |              | development.css                      | Connection check page (development only)        |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
-|              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
+|              | reduced-motion.css                   | `prefers-reduced-motion` overrides (index.css)  |
+|              | reduced-motion-screens.css           | The same for screens.css                        |
 
 `1-foundation/base.css`, `2-layout/grid.css` and more `3-components/` files
 come later, as the Tailwind utilities in the screens move into CSS.
@@ -85,5 +96,7 @@ come later, as the Tailwind utilities in the screens move into CSS.
 ## Adding a rule
 
 Put it in the file for its screen or part, after the rules it should beat.
-A new file goes into `index.css` within its folder's group. A new reduced
-motion override goes into `5-motion/reduced-motion.css`.
+A new file goes into `index.css` within its folder's group, or into
+`screens.css` when only those lazy screens use it. A new reduced motion
+override goes into `5-motion/reduced-motion.css`, or
+`5-motion/reduced-motion-screens.css` for a rule in `screens.css`.

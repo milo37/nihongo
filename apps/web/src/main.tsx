@@ -9,8 +9,9 @@ import {
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
 import { registerHomeScreenWorker } from '@common/libs/homeScreenWorker'
-// One stylesheet for every screen: the bundle contract takes no CSS file for
-// a lazy route, and the CSP (style-src 'self') blocks inline <style>.
+// The first stylesheet. Screens the first load does not need import
+// styles/screens.css themselves (#1346); both are files, since the CSP
+// (style-src 'self') blocks inline <style>.
 import '@/styles/index.css'
 
 const rootElement = document.getElementById('root')
