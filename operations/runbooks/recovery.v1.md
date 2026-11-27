@@ -103,6 +103,38 @@ curl -fsS "$dump_url" | docker compose exec -T postgres \
 The restored `DatabaseCapability` row stays current because postgres always gets
 `172.30.1.10` on the compose `db` network.
 
+## Dumps taken before the search_path fix (JLP-715)
+
+Until the migration that pins `search_path` on the CHECK functions is deployed,
+and for every dump taken before it, the single `pg_restore` above stops at
+`COPY failed for table "AdminAuditLog": type "UserRole" does not exist` and the
+whole transaction rolls back. `pg_restore` empties `search_path`, and
+`evidence_actor_valid` and `audit_metadata_valid` name `"UserRole"`,
+`"account_snapshot_valid"` and `"jsonb_object_size"` without a schema. Restore
+in three steps instead; replace the `curl … pg_restore` line in path A or B with:
+
+```sh
+curl -fsS "$dump_url" -o /var/tmp/restore.dump
+docker compose cp /var/tmp/restore.dump postgres:/tmp/restore.dump
+r() { docker compose exec -T postgres pg_restore -U postgres -d nihongo \
+  --exit-on-error --single-transaction --section="$1" /tmp/restore.dump; }
+r pre-data
+docker compose exec -T postgres psql -U postgres -d nihongo -v ON_ERROR_STOP=1 \
+  -c 'ALTER FUNCTION public.evidence_actor_valid SET search_path TO pg_catalog, public, pg_temp' \
+  -c 'ALTER FUNCTION public.account_snapshot_valid SET search_path TO pg_catalog, public, pg_temp' \
+  -c 'ALTER FUNCTION public.audit_metadata_valid SET search_path TO pg_catalog, public, pg_temp'
+r data
+r post-data
+docker compose exec -T postgres rm -f /tmp/restore.dump; rm -f /var/tmp/restore.dump
+```
+
+STAGING rehearsal (2026-11-27, dump of 2026-11-24 19:00 UTC, a throwaway
+postgres 18.4 container on the STAGING host with no network, roles created as
+`provision-db.sh` would): the single-step restore failed as above; the three
+steps took 1.8 s, all 51 tables matched the dump row for row (27,152 rows,
+`AdminAuditLog` 7,291, `ContentReview` 5,879), 25 migrations, no unvalidated
+constraint.
+
 ## Check
 
 1. `deploy.sh` printed `production role graph and database ACL attested`,
