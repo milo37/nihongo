@@ -3,17 +3,16 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { useToast } from '@nihongo/browser/common/components/Toast'
-import { linkConsent } from '@app/login/components/linkConsent'
 import { isNickname, NicknameField } from '@app/login/components/NicknameField'
 import { useSignupConsent } from '@app/login/hooks/useSignupConsent'
 import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
+import { SignupConsentChecks } from '@app/login/components/SignupConsentChecks'
+import type { CheckName } from '@app/login/components/SignupConsentChecks'
 
 type SignupConsentPageProps = {
   redirect: string
   onExit: (exit: SignupConsentExit) => void
 }
-
-type CheckName = 'age' | 'terms'
 
 /**
  * #1085 r3-4 '가입 확인': two required boxes, [가입하기] and a quiet [취소].
@@ -110,36 +109,11 @@ export const SignupConsentPage = ({
           setNicknameInvalid(false)
         }}
       />
-      <div className="signup-consent-checks">
-        <label className="signup-consent-check">
-          <input
-            id="signup-consent-age"
-            type="checkbox"
-            checked={checked.age}
-            aria-describedby="signup-consent-age-hint"
-            onChange={(event) => toggle('age', event.currentTarget.checked)}
-          />
-          <span>
-            {t('signup.age')}
-            {required}
-          </span>
-        </label>
-        <p id="signup-consent-age-hint" className="signup-consent-hint">
-          {t('signup.ageHint')}
-        </p>
-        <label className="signup-consent-check">
-          <input
-            id="signup-consent-terms"
-            type="checkbox"
-            checked={checked.terms}
-            onChange={(event) => toggle('terms', event.currentTarget.checked)}
-          />
-          <span>
-            {linkConsent(t('signup.terms'), true)}
-            {required}
-          </span>
-        </label>
-      </div>
+      <SignupConsentChecks
+        checked={checked}
+        required={required}
+        onToggle={toggle}
+      />
       <Button
         className="signup-consent-submit"
         size="lg"
