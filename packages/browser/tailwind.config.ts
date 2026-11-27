@@ -1,26 +1,13 @@
 import type { Config } from 'tailwindcss'
 
-// The learner app's build (apps/web/postcss.config.mjs) scans only its own files
-// and the shared components it uses, so admin-only utilities stay out of the
-// learner stylesheet (#1186). `@source not` cannot take out a config's content.
-const learnerOnly = process.env.NIHONGO_TAILWIND_APP === 'web'
-
+// The admin app's Tailwind config. The learner app no longer runs Tailwind
+// (#1186 C11), so only the admin app and the shared components are scanned.
 const config: Config = {
-  content: learnerOnly
-    ? [
-        '../../apps/web/index.html',
-        '../../apps/web/src/**/*.{ts,tsx}',
-        './src/**/*.{ts,tsx}',
-        // Only the admin app uses Input and PageContainer; nothing uses Eyebrow.
-        '!./src/common/components/{Input,PageContainer,Eyebrow}.tsx'
-      ]
-    : [
-        '../../apps/web/index.html',
-        '../../apps/web/src/**/*.{ts,tsx}',
-        '../../apps/admin/index.html',
-        '../../apps/admin/src/**/*.{ts,tsx}',
-        './src/**/*.{ts,tsx}'
-      ],
+  content: [
+    '../../apps/admin/index.html',
+    '../../apps/admin/src/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}'
+  ],
   theme: {
     extend: {
       colors: {
