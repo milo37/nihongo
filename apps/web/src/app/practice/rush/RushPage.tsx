@@ -14,6 +14,7 @@ import { useRushRound } from '@app/practice/hooks/useRushRound'
 import { Ring } from '@app/practice/rush/RushMarks'
 import { RushPlay } from '@app/practice/rush/RushPlay'
 import { RushResult } from '@app/practice/rush/RushResult'
+import { RushWrongList } from '@app/practice/rush/RushWrongList'
 
 /**
  * #1043 30-second kanji rush (members only): pick the reading of each word
@@ -94,34 +95,11 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
 
   if (phase === 'wrong') {
     return (
-      <section className="rush rush-result is-list">
-        <p className="rush-level">
-          {t('rush.wrongTitle', { n: log.filter((row) => !row.ok).length })}
-        </p>
-        <ul className="rush-wrong-list" lang="ja">
-          {log
-            .filter((row) => !row.ok)
-            .map((row, index) => (
-              <li key={index}>
-                <b>{row.pair.word}</b>
-                <p>
-                  {row.pair.answer}
-                  <s>{row.picked}</s>
-                </p>
-              </li>
-            ))}
-        </ul>
-        <button type="button" className="rush-main" onClick={start}>
-          {t('rush.again')}
-        </button>
-        <button
-          type="button"
-          className="rush-link"
-          onClick={() => setPhase('done')}
-        >
-          {t('rush.backToResult')}
-        </button>
-      </section>
+      <RushWrongList
+        log={log}
+        onAgain={start}
+        onBack={() => setPhase('done')}
+      />
     )
   }
 
