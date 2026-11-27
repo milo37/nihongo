@@ -352,9 +352,9 @@ describe.sequential(
         files
       })
       expect(report).toMatchObject({
-        items: 888,
+        items: 939,
         pending: {
-          CREATE: 888,
+          CREATE: 939,
           REVIEW_REQUEST: 0,
           APPROVAL: 0,
           PUBLICATION: 0

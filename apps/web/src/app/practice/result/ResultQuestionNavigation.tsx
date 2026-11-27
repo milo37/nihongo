@@ -71,15 +71,20 @@ export const ResultQuestionNavigation = ({
             key={item.question.id}
             variant="ghost"
             className="study-result-question"
-            aria-label={`${label}, ${t(`items.${status}`)}`}
             aria-pressed={selected}
             aria-controls="selected-result-question"
             onClick={() => onSelect(item.question.id)}
           >
-            <span className="result-row-number">{index + 1}</span>
+            {/* The name is the visible text plus hidden ordinal and status
+                (WCAG 2.5.3 label in name), so no aria-label. */}
+            <span className="sr-only">{`${label}, `}</span>
+            <span className="result-row-number" aria-hidden="true">
+              {index + 1}
+            </span>
             <span className="result-row-text" lang="ja">
               {item.question.questionText}
             </span>
+            <span className="sr-only">{`, ${t(`items.${status}`)}`}</span>
             <ResultStatusIcon status={status} />
           </Button>
         )

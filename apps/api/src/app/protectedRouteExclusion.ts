@@ -240,6 +240,7 @@ const SLICE_5_LEARNER_REPORT_PATHS = [
 // operation manifest and are gated by this list.
 const ADMIN_CONSOLE_READ_PATHS = [
   { method: 'GET', pattern: /^\/api\/v1\/admin\/activity-log$/u },
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/retention$/u },
   { method: 'GET', pattern: /^\/api\/v1\/admin\/reports$/u },
   {
     method: 'GET',

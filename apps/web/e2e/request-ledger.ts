@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { expect } from '@playwright/test'
+import { isReadMethod, trackNavigationAborts } from './navigation-abort'
 import type {
   BrowserContext,
   Frame,
@@ -20,6 +21,11 @@ export interface RequestLedgerEntry {
     | 'injected-test-fault'
     | 'network-failure'
     | 'pending'
+  /**
+   * The browser cut this request off because its page moved on (#1320). It is
+   * still recorded as a network failure, but contracts do not count it.
+   */
+  navigationAborted: boolean
   readonly startSequence: number
   status: number | 'NETWORK_ERROR' | null
 }
@@ -69,6 +75,7 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
   const entryByRequest = new WeakMap<Request, RequestLedgerEntry>()
   const openRequests = new Map<Request, RequestLedgerEntry>()
   const documentStartByFrame = new WeakMap<Frame, number>()
+  const navigationAborts = trackNavigationAborts(context)
   let sequence = 0
 
   const settle = (request: Request, entry: RequestLedgerEntry): void => {
@@ -77,7 +84,8 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
   }
   // A document that is replaced or detached aborts its open fetches, but
   // Playwright does not always emit requestfailed for them. Record them as the
-  // same network failure Playwright reports when it does.
+  // same network failure Playwright reports; only a cut-off GET or HEAD is
+  // marked as cut off by navigation, a cut-off write stays counted.
   const abortOpenRequests = (
     frame: Frame,
     startedBefore = Number.POSITIVE_INFINITY
@@ -92,6 +100,7 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
         if (entry.status !== null) continue
         entry.status = 'NETWORK_ERROR'
         entry.provenance = 'network-failure'
+        entry.navigationAborted = isReadMethod(entry.method)
       }
     }
   }
@@ -118,6 +127,7 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
       ),
       method: request.method(),
       path,
+      navigationAborted: false,
       provenance: 'pending',
       startSequence: ++sequence,
       status: null
@@ -153,10 +163,19 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
     settle(request, entry)
     entry.status = 'NETWORK_ERROR'
     entry.provenance = 'network-failure'
+    entry.navigationAborted = navigationAborts.isNavigationAbort(request)
   })
 
   return { entries }
 }
+
+/**
+ * The requests a contract counts: everything except those the browser cut off
+ * because the page moved on (#1320). Real network failures stay in.
+ */
+export const countedLedger = (ledger: RequestLedger): RequestLedger => ({
+  entries: ledger.entries.filter(({ navigationAborted }) => !navigationAborted)
+})
 
 export const selectRequestLedger = (
   ledger: RequestLedger,
@@ -178,9 +197,10 @@ export const ledgerEntriesFor = (
     .filter((entry) => entry.method === method && entry.path === path)
 
 export const assertExactRequestMultiset = (
-  ledger: RequestLedger,
+  fullLedger: RequestLedger,
   contract: readonly RequestLedgerContractEntry[]
 ): void => {
+  const ledger = countedLedger(fullLedger)
   const keyOf = ({
     method,
     path
