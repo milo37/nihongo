@@ -62,9 +62,9 @@ const restoreFocus = (
 }
 
 const sizeClassNames: Record<DialogSize, string> = {
-  sm: 'max-w-md',
-  md: 'max-w-xl',
-  lg: 'max-w-3xl'
+  sm: 'ui-dialog-sm',
+  md: 'ui-dialog-md',
+  lg: 'ui-dialog-lg'
 }
 
 const focusableSelector = [
@@ -217,7 +217,8 @@ export const Dialog = ({
     <dialog
       ref={dialogRef}
       className={classNames(
-        'ui-dialog m-auto max-h-[min(90dvh,56rem)] w-[calc(100%-2rem)] overflow-hidden rounded-panel border border-line bg-surface p-0 text-ink shadow-elevated',
+        // Styles: packages/browser/src/styles/dialog.css (#1186 C10).
+        'ui-dialog',
         sizeClassNames[size],
         className
       )}
@@ -243,29 +244,26 @@ export const Dialog = ({
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="ui-dialog-layout flex max-h-[min(90dvh,56rem)] flex-col overscroll-contain">
-        <div className="ui-dialog-header flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
-          <div className="min-w-0">
+      <div className="ui-dialog-layout">
+        <div className="ui-dialog-header">
+          <div className="ui-dialog-heading">
             <h2
               ref={titleRef}
-              className="ui-dialog-title scroll-mt-24 text-balance text-xl font-bold outline-none"
+              className="ui-dialog-title"
               id={titleId}
               tabIndex={-1}
             >
               {title}
             </h2>
             {description ? (
-              <p
-                className="mt-2 break-words text-sm leading-6 text-muted"
-                id={descriptionId}
-              >
+              <p className="ui-dialog-description" id={descriptionId}>
                 {description}
               </p>
             ) : null}
           </div>
           {hideClose ? null : (
             <IconButton
-              className="-mr-2 -mt-1"
+              className="ui-dialog-close"
               disabled={preventClose}
               label={closeLabel ?? t('actions.closeDialog')}
               icon={closeIcon}
@@ -274,16 +272,8 @@ export const Dialog = ({
             />
           )}
         </div>
-        {children ? (
-          <div className="ui-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
-            {children}
-          </div>
-        ) : null}
-        {footer ? (
-          <div className="ui-dialog-footer flex flex-col-reverse gap-2 border-t border-line bg-surface-muted px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-            {footer}
-          </div>
-        ) : null}
+        {children ? <div className="ui-dialog-content">{children}</div> : null}
+        {footer ? <div className="ui-dialog-footer">{footer}</div> : null}
       </div>
     </dialog>
   )

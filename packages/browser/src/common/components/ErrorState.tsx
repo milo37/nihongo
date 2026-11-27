@@ -41,8 +41,8 @@ export const ErrorState = ({
   return (
     <section
       className={classNames(
-        'rounded-card border border-danger/25 bg-danger-soft text-danger-strong',
-        density === 'inline' ? 'px-4 py-3 text-sm' : 'px-5 py-6',
+        'ui-error',
+        density === 'inline' ? 'ui-error-inline' : 'ui-error-regular',
         className
       )}
       role="alert"
@@ -51,23 +51,21 @@ export const ErrorState = ({
       <Heading
         ref={headingRef}
         className={classNames(
-          'rounded-sm text-balance font-bold outline-none',
-          density === 'regular' && 'text-lg'
+          'ui-error-title',
+          density === 'regular' && 'ui-error-title-regular'
         )}
         id={titleId}
         tabIndex={autoFocus ? -1 : undefined}
       >
         {title ?? t('state.requestFailed')}
       </Heading>
-      <p className="mt-2 break-words leading-7 text-danger-strong">
-        {description}
-      </p>
+      <p className="ui-error-message">{description}</p>
       {onRetry ? (
-        <Button className="mt-5" variant="danger" onClick={onRetry}>
+        <Button className="ui-error-retry" variant="danger" onClick={onRetry}>
           {retryLabel ?? t('actions.retry')}
         </Button>
       ) : null}
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action ? <div className="ui-error-action">{action}</div> : null}
     </section>
   )
 }

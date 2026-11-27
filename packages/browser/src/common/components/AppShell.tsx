@@ -24,10 +24,7 @@ export const AppShell = ({
   className,
   surface
 }: AppShellProps): ReactElement => (
-  <div
-    className={classNames('app-shell bg-canvas text-ink', className)}
-    data-surface={surface}
-  >
+  <div className={classNames('app-shell', className)} data-surface={surface}>
     {beforeMain}
     {sidebar}
     <div className="app-shell-body">

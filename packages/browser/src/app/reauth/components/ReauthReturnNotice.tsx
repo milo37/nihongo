@@ -38,9 +38,9 @@ const failureKey = {
 } as const satisfies Record<AdminFreshSsoOutcome, string>
 
 const toneClassNames: Record<Tone, string> = {
-  checking: 'border-l-warning',
-  success: 'border-l-success',
-  error: 'border-l-danger'
+  checking: 'reauth-return-checking',
+  success: 'reauth-return-success',
+  error: 'reauth-return-error'
 }
 
 const ReturnCheck = ({
@@ -86,7 +86,8 @@ const ReturnCheck = ({
       aria-live="polite"
       data-reauth-result={key}
       className={classNames(
-        'app-global-banner reauth-return-notice outline-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] items-start justify-between gap-3 max-[480px]:flex-col max-[480px]:items-stretch max-[480px]:gap-1 rounded-xl border border-l-4 border-line bg-surface px-4 py-3 text-sm text-ink shadow-soft',
+        // Styles: packages/browser/src/styles/feedback.css (#1186 C10).
+        'app-global-banner reauth-return-notice',
         toneClassNames[tone]
       )}
       onMouseEnter={() => setPaused(true)}
@@ -99,13 +100,13 @@ const ReturnCheck = ({
         if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false)
       }}
     >
-      <p className="min-w-0 flex-1 py-2.5 leading-6 max-[480px]:pb-0">
+      <p className="reauth-return-text">
         {/* #1262: a failed [다시 시도] shows here; the global handler skips
             sign-in flow errors. */}
         {t('reauth.' + (reauth.error ? 'startFailed' : key))}
       </p>
       {/* Below 480px the buttons go under the text so it keeps the full width. */}
-      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+      <div className="reauth-return-actions">
         {check.phase === 'unknown' ? (
           <Button variant="outline" size="sm" onClick={onRecheck}>
             {t('reauth.recheck')}
