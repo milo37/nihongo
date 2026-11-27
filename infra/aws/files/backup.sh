@@ -16,6 +16,18 @@ case "${1:-}" in
   *) echo "usage: backup.sh [pre-migrate <SHA>]" >&2; exit 2 ;;
 esac
 
+# A host kept stopped (STAGING) runs the missed 19:00 UTC timer seconds after
+# boot, before postgres accepts connections (JLP-715). Wait up to 5 minutes;
+# if it is still not ready, fail so no metric is published and the alarm fires.
+for _ in $(seq 1 60); do
+  docker compose exec -T postgres pg_isready -U postgres -d nihongo -q 2>/dev/null && break
+  sleep 5
+done
+docker compose exec -T postgres pg_isready -U postgres -d nihongo -q || {
+  echo "postgres not ready after 5 minutes; no backup" >&2
+  exit 1
+}
+
 docker compose exec -T postgres pg_dump -U postgres -d nihongo --format=custom \
   | aws s3 cp - "s3://${BACKUP_BUCKET}/${key}" --region "$AWS_REGION" \
     --sse AES256 --expected-size 21474836480
