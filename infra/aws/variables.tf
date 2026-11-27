@@ -365,7 +365,7 @@ variable "waf_rate_limited_alarm_per_5min" {
 }
 
 variable "edge_transfer_alarm_bytes_per_day" {
-  description = "CloudFront bytes sent in one day above which the transfer alarm fires (#1255). Both distributions are on the CloudFront Free flat-rate plan (100 GB a month, COST.md); 3 GB a day is about 90 GB a month, so the alarm fires before that limit."
+  description = "CloudFront bytes sent in one day above which the transfer alarm fires (#1255). COST.md budgets for the CloudFront Free flat-rate plan (100 GB a month); 3 GB a day is about 90 GB a month, so the alarm fires before that limit."
   type        = number
   default     = 3000000000
 }
