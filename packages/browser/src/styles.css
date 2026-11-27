@@ -6,8 +6,23 @@
 @import 'tailwindcss/preflight.css' layer(base);
 @import './styles/button.css';
 @import './styles/field.css';
+@import './styles/dialog.css';
+@import './styles/feedback.css';
+@import './styles/layout.css';
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @config "../tailwind.config.ts";
+
+/* Tailwind registers these only while a utility uses them. The shared
+   component rules still set them, so keep them non-inherited as before
+   (#1186 C10; goes with Tailwind in C11). */
+@property --tw-leading {
+  syntax: '*';
+  inherits: false;
+}
+@property --tw-duration {
+  syntax: '*';
+  inherits: false;
+}
 
 :root {
   color-scheme: light;
@@ -1516,12 +1531,33 @@
   }
 
   .learning-note .flex,
-  .learning-note .ui-radio-option {
+  .learning-note .ui-radio-option,
+  .learning-note
+    :is(
+      .ui-dialog-layout,
+      .ui-dialog-header,
+      .ui-dialog-footer,
+      .reauth-return-notice,
+      .reauth-return-actions,
+      .ui-empty,
+      .ui-loading
+    ) {
     flex-wrap: wrap;
   }
 
   .learning-note .flex > *,
-  .learning-note .ui-radio-option > * {
+  .learning-note .ui-radio-option > *,
+  .learning-note
+    :is(
+      .ui-dialog-layout,
+      .ui-dialog-header,
+      .ui-dialog-footer,
+      .reauth-return-notice,
+      .reauth-return-actions,
+      .ui-empty,
+      .ui-loading
+    )
+    > * {
     min-width: 0;
     max-width: 100%;
   }

@@ -83,9 +83,7 @@ export const ProtectedRouteProvider = ({
         {renderAuthError ? (
           renderAuthError(errorContent)
         ) : (
-          <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-            {errorContent}
-          </main>
+          <main className="auth-error-main">{errorContent}</main>
         )}
       </AuthContext.Provider>
     )

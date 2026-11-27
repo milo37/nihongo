@@ -166,11 +166,12 @@ export const Toast = ({
     <article
       ref={ref}
       className={classNames(
-        'ui-toast grid grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        // Styles: packages/browser/src/styles/feedback.css (#1186 C10).
+        'ui-toast',
         // A title alone sits in the middle of the close button's height
         // instead of leaving the space under it empty.
-        description || action ? 'items-start' : 'items-center',
-        closing ? 'pointer-events-none' : 'pointer-events-auto',
+        description || action ? 'ui-toast-top' : 'ui-toast-middle',
+        closing ? 'ui-toast-closing' : 'ui-toast-open',
         variantClassNames[variant]
       )}
       data-variant={variant}
@@ -205,25 +206,23 @@ export const Toast = ({
       <span
         className={classNames(
           'ui-toast-icon',
-          description || action ? 'mt-0.5' : null
+          description || action ? 'ui-toast-icon-top' : null
         )}
         aria-hidden="true"
       >
         {variantIcons[variant]}
       </span>
-      <div className="min-w-0 py-0.5">
-        <p className="break-words text-balance text-sm font-semibold leading-6">
+      <div className="ui-toast-body">
+        <p className="ui-toast-title">
           <span className="sr-only">{t(variantLabelKeys[variant])}: </span>
           {title}
         </p>
         {description ? (
-          <p className="mt-0.5 break-words text-balance text-[13px] leading-5 text-muted">
-            {description}
-          </p>
+          <p className="ui-toast-description">{description}</p>
         ) : null}
         {action ? (
           <button
-            className="mt-2 min-h-11 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="ui-toast-action"
             type="button"
             onClick={() => {
               action.onClick()

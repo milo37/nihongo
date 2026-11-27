@@ -1,0 +1,66 @@
+/* Shared shell pieces: skip link, main focus target, page colours, auth error page, page numbers (#1186 C10). */
+@layer utilities {
+  /* Shell pieces: skip link, focus target main, page colours, the auth error and route fallback pages and page numbers. */
+  .app-skip-link {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+    z-index: var(--z-skip-link);
+    border-radius: var(--radius-lg);
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+    font-weight: var(--font-weight-semibold);
+  }
+  .auth-error-main {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--container-3xl);
+    padding-inline: 1rem;
+    padding-block: 4rem;
+  }
+  .app-shell {
+    background-color: rgb(var(--color-canvas));
+    color: rgb(var(--color-ink));
+  }
+  .app-skip-link {
+    background-color: rgb(var(--color-surface));
+  }
+  .pagination-number {
+    --tw-numeric-spacing: tabular-nums;
+    font-variant-numeric: var(--tw-ordinal,) var(--tw-slashed-zero,)
+      var(--tw-numeric-figure,) var(--tw-numeric-spacing,)
+      var(--tw-numeric-fraction,);
+  }
+  .app-main,
+  .auth-route-fallback {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .app-skip-link:focus {
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    display: inline-flex;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    align-items: center;
+  }
+  @media (width >= 40rem) {
+    .auth-error-main {
+      padding-inline: 1.5rem;
+    }
+  }
+}

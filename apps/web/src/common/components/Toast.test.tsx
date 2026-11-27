@@ -127,7 +127,7 @@ describe('Toast (U12 §3)', () => {
     // The toast does not take focus.
     expect(opener).toHaveFocus()
     const action = screen.getByRole('button', { name: '로그인' })
-    expect(action.className).toContain('border')
+    expect(action.className).toContain('ui-toast-action')
     await user.click(action)
     expect(onClick).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('region', { name: '알림' })).toBeNull()

@@ -1,0 +1,108 @@
+/* Shared dialog panel: the utilities-layer half of ui-dialog* (#1186 C10). */
+@layer utilities {
+  /* Dialog: the panel, its header, scrolling content and footer (the ui-dialog* rules in the components layer stay as they are). */
+  .ui-dialog {
+    margin: auto;
+    max-height: min(90dvh, 56rem);
+    width: calc(100% - 2rem);
+    overflow: hidden;
+    border-radius: var(--radius-panel);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding: 0px;
+    color: rgb(var(--color-ink));
+    --tw-shadow: var(--shadow-elevated);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .ui-dialog-close {
+    margin-top: -0.25rem;
+    margin-right: -0.5rem;
+  }
+  .ui-dialog-description {
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+    overflow-wrap: break-word;
+    color: rgb(var(--color-muted));
+  }
+  .ui-dialog-layout {
+    display: flex;
+    max-height: min(90dvh, 56rem);
+    flex-direction: column;
+    overscroll-behavior: contain;
+  }
+  .ui-dialog-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom-style: solid;
+    border-bottom-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    padding-inline: 1.25rem;
+    padding-block: 1rem;
+  }
+  .ui-dialog-footer {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    border-top-style: solid;
+    border-top-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface-muted));
+    padding-block: 1rem;
+  }
+  .ui-dialog-content {
+    min-height: 0px;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline: 1.25rem;
+    padding-block: 1.25rem;
+  }
+  .ui-dialog-lg {
+    max-width: var(--container-3xl);
+  }
+  .ui-dialog-sm {
+    max-width: var(--container-md);
+  }
+  .ui-dialog-md {
+    max-width: var(--container-xl);
+  }
+  .ui-dialog-heading {
+    min-width: 0px;
+  }
+  .ui-dialog-title {
+    scroll-margin-top: 6rem;
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+    font-weight: var(--font-weight-bold);
+    text-wrap: balance;
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .ui-dialog-header {
+    gap: 1rem;
+  }
+  .ui-dialog-footer {
+    padding-inline: 1.25rem;
+  }
+  .ui-dialog-description {
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+  }
+  @media (width >= 40rem) {
+    .ui-dialog-footer {
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+    .ui-dialog-header,
+    .ui-dialog-content,
+    .ui-dialog-footer {
+      padding-inline: 1.5rem;
+    }
+  }
+}
