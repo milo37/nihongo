@@ -47,6 +47,8 @@ export const bundleCeilings = Object.freeze({
   // load no script of their own. Needs operator approval before merge.
   // #1281 the /ja share card (share-card-ja.png), read only by link
   // previews (operator approved 2026-11-25).
+  // JLP-984 Vite 8.3.8 (rolldown 1.2.19) emits its shared runtime helpers as
+  // their own rolldown-runtime chunk (+1 file). #1346 freed files, so it fits.
   emittedFileCount: 109,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
@@ -1117,7 +1119,7 @@ const assertArtifactEvidence = (value, artifact) => {
     !exactKeys(value.metadata.versions, ['node', 'pnpm', 'vite']) ||
     value.metadata.versions.node !== 'v22.23.0' ||
     value.metadata.versions.pnpm !== '10.2.1' ||
-    value.metadata.versions.vite !== '8.2.4' ||
+    value.metadata.versions.vite !== '8.3.8' ||
     !Array.isArray(value.graph) ||
     value.graph.length === 0 ||
     !exactKeys(value.inventory, ['payloadSha256', 'rows', 'sha256']) ||
