@@ -6,10 +6,7 @@ import type {
 
 /** NOT_HELD: the app keeps no provider token, so there is nothing to revoke. */
 type SsoProviderRevokeOutcome =
-  | 'REVOKED'
-  | 'NOT_HELD'
-  | 'FAILED'
-  | 'UNAVAILABLE'
+  'REVOKED' | 'NOT_HELD' | 'FAILED' | 'UNAVAILABLE'
 interface SsoProviderRevokeTarget {
   provider: SsoProviderId
   subject: string

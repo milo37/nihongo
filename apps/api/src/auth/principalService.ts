@@ -250,8 +250,7 @@ export const createOwnedPrincipalService = ({
       )
       if (rows.length !== 1) {
         let adminAuthorityFailure:
-          | AdminAuthorityFailureRow['outcome']
-          | undefined
+          AdminAuthorityFailureRow['outcome'] | undefined
         if (options.classifyAdminAuthorityLoss) {
           const authorityRows = await client.$queryRawUnsafe<
             AdminAuthorityFailureRow[]

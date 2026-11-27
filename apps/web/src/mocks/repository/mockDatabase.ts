@@ -365,30 +365,26 @@ interface MockCanonicalIdempotencyRecordBase {
   readonly sessionId: string
 }
 
-export interface MockCanonicalSubmissionIdempotencyRecord
-  extends MockCanonicalIdempotencyRecordBase {
+export interface MockCanonicalSubmissionIdempotencyRecord extends MockCanonicalIdempotencyRecordBase {
   readonly operation: 'study.submitStudySession'
   readonly response: CanonicalStudyResult
   readonly responseStatus: 201
 }
 
-export interface MockCanonicalDraftIdempotencyRecord
-  extends MockCanonicalIdempotencyRecordBase {
+export interface MockCanonicalDraftIdempotencyRecord extends MockCanonicalIdempotencyRecordBase {
   readonly operation: 'study.saveStudyDraftAnswers'
   readonly response: StudyDraftSnapshot
   readonly responseStatus: 200
 }
 
-export interface MockCanonicalRetryIdempotencyRecord
-  extends MockCanonicalIdempotencyRecordBase {
+export interface MockCanonicalRetryIdempotencyRecord extends MockCanonicalIdempotencyRecordBase {
   readonly operation: 'study.createResultRetrySession'
   readonly response: VersionedStudySessionPayload
   readonly responseStatus: 201
   readonly sourceSessionId: string
 }
 
-export interface MockCanonicalTargetedReviewIdempotencyRecord
-  extends MockCanonicalIdempotencyRecordBase {
+export interface MockCanonicalTargetedReviewIdempotencyRecord extends MockCanonicalIdempotencyRecordBase {
   readonly operation: 'wrongNote.createTargetedReviewSession'
   readonly questionId: string
   readonly response: CreateTargetedReviewSessionResponse
@@ -860,8 +856,7 @@ export class MockDatabase {
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
   private authoritativeContentGraphValidation:
-    | { serialized: string; valid: boolean }
-    | undefined
+    { serialized: string; valid: boolean } | undefined
   private deferredExternalStorageChange = false
   private mockMutationStorageBaseline: string | null | undefined
   private useLegacyQuestionSourcesForLearnerProjection = true
@@ -5373,9 +5368,9 @@ export class MockDatabase {
       )
       this.archivedQuestionById = new Map(
         parsed.version === 5 ||
-        parsed.version === 6 ||
-        parsed.version === 7 ||
-        parsed.version === 8
+          parsed.version === 6 ||
+          parsed.version === 7 ||
+          parsed.version === 8
           ? parsed.archivedQuestions.map((question) => [question.id, question])
           : []
       )

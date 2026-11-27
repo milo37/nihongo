@@ -185,13 +185,11 @@ export const closeBrowserApi = async (
       disconnectDatabase: async () => undefined
     })
   } catch (error: unknown) {
-    if (
-      !(
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ERR_SERVER_NOT_RUNNING'
-      )
-    )
+    if (!(
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'ERR_SERVER_NOT_RUNNING'
+    ))
       throw error
   }
 }
@@ -431,9 +429,8 @@ export const loadBrowserTags = async (
 }
 
 export const runReal = async (): Promise<void> => {
-  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
-    './runAdminApiIntegration.js'
-  )
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } =
+    await import('./runAdminApiIntegration.js')
   cleanupDatabaseHarness = cleanupIsolatedDatabase
   const harness = await prepareIsolatedDatabase({
     seedRuns: 2,

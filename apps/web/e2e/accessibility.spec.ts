@@ -2222,8 +2222,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       const answer = document.querySelector('main input[type="radio"]')
       return Boolean(
         answer &&
-          element.compareDocumentPosition(answer) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+        element.compareDocumentPosition(answer) &
+          Node.DOCUMENT_POSITION_FOLLOWING
       )
     })
   ).toBe(true)

@@ -87,10 +87,7 @@ interface PinnedQuestion {
 type SessionOwner = { id: string; kind: 'GUEST' } | { id: string; kind: 'USER' }
 
 type FixtureSessionStatus =
-  | 'IN_PROGRESS'
-  | 'SUBMITTED'
-  | 'CANCELLED'
-  | 'EXPIRED'
+  'IN_PROGRESS' | 'SUBMITTED' | 'CANCELLED' | 'EXPIRED'
 
 let pinnedQuestion: PinnedQuestion | undefined
 

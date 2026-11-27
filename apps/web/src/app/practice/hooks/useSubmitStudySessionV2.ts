@@ -48,9 +48,8 @@ export const useSubmitStudySessionV2 = (
     },
     mutationFn: async (input: ParsedSubmitStudySessionV2Request) => {
       assertCurrentStudySubmissionV2Action(input)
-      const { submitStudySessionV2Command } = await import(
-        '@app/practice/commands/submitStudySessionV2Command'
-      )
+      const { submitStudySessionV2Command } =
+        await import('@app/practice/commands/submitStudySessionV2Command')
       assertCurrentStudySubmissionV2Action(input)
       const result = await submitStudySessionV2Command({ input, sessionId })
       assertCurrentStudySubmissionV2Action(input)

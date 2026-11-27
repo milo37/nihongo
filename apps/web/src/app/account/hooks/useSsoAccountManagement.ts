@@ -22,8 +22,7 @@ import { socialAuthNavigation } from '@nihongo/browser/libs/socialAuthNavigation
 
 type AccountFreshOutcome = z.output<typeof accountFreshOutcomeSchema>
 export type AccountIntent =
-  | { kind: 'delete' }
-  | { kind: 'unlink'; provider: SsoProviderId }
+  { kind: 'delete' } | { kind: 'unlink'; provider: SsoProviderId }
 export type AccountDialog = AccountIntent & { step: 'verify' | 'confirm' }
 export type AccountFeedback =
   | 'actionFailed'
@@ -205,9 +204,8 @@ export const useSsoAccountManagement = () => {
     ...accountMutations.start(),
     onSuccess: async (response, input) => {
       if (!__NIHONGO_PRODUCTION_BUILD__ && isMockApiMode) {
-        const { completeMockAccountSso } = await import(
-          '@api/auth/completeMockAccountSso'
-        )
+        const { completeMockAccountSso } =
+          await import('@api/auth/completeMockAccountSso')
         try {
           await accountMutationRequest(() => completeMockAccountSso(input))
         } catch (error: unknown) {

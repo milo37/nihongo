@@ -65,8 +65,10 @@ export const ssoAccountContextSchema = z
       : v.freshProofDigest !== undefined
   )
 export type SsoAccountContext = z.output<typeof ssoAccountContextSchema>
-interface SsoAccountTransaction
-  extends Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> {
+interface SsoAccountTransaction extends Omit<
+  SsoTransaction,
+  'stateDigest' | 'bindingDigest'
+> {
   context: SsoAccountContext
 }
 type AccountResult<T> = T | { code: SsoAccountErrorCode }

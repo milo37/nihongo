@@ -23,8 +23,7 @@ export interface HistoricalQuestionSummaryRecord {
   readonly tags: readonly HistoricalQuestionTagRecord[]
 }
 
-export interface HistoricalReviewedQuestionRecord
-  extends HistoricalQuestionSummaryRecord {
+export interface HistoricalReviewedQuestionRecord extends HistoricalQuestionSummaryRecord {
   readonly correctOptionId: string | null
   readonly difficulty: 'EASY' | 'NORMAL' | 'HARD'
   readonly explanationJa: string | null
@@ -55,8 +54,10 @@ export interface WrongNoteReadRecord {
   readonly wrongCount: number
 }
 
-export interface WrongNoteDetailRecord
-  extends Omit<WrongNoteReadRecord, 'question'> {
+export interface WrongNoteDetailRecord extends Omit<
+  WrongNoteReadRecord,
+  'question'
+> {
   readonly question: HistoricalReviewedQuestionRecord
 }
 

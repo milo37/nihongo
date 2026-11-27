@@ -19,8 +19,10 @@ type OwnedUserMemoResult =
       readonly memo: UserMemoReadRecord | null
     }
 
-export interface ReviewEventHistoryRecord
-  extends Omit<ReviewEventHistoryItem, 'occurredAt'> {
+export interface ReviewEventHistoryRecord extends Omit<
+  ReviewEventHistoryItem,
+  'occurredAt'
+> {
   readonly occurredAt: Date
 }
 
