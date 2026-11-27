@@ -163,16 +163,15 @@ export const useQuestionDetail = ({
   )
   const commandStale = Boolean(
     pending &&
-      commandSnapshot &&
-      (detail.data?.question.rowVersion !==
-        commandSnapshot.questionRowVersion ||
-        selected?.questionVersionId !== commandSnapshot.versionId ||
-        selected?.rowVersion !== commandSnapshot.versionRowVersion ||
-        (pending === 'ARCHIVE' &&
-          (detail.data?.question.openCandidateVersionId !==
-            commandSnapshot.openCandidateVersionId ||
-            (candidate?.rowVersion ?? null) !==
-              commandSnapshot.openCandidateRowVersion)))
+    commandSnapshot &&
+    (detail.data?.question.rowVersion !== commandSnapshot.questionRowVersion ||
+      selected?.questionVersionId !== commandSnapshot.versionId ||
+      selected?.rowVersion !== commandSnapshot.versionRowVersion ||
+      (pending === 'ARCHIVE' &&
+        (detail.data?.question.openCandidateVersionId !==
+          commandSnapshot.openCandidateVersionId ||
+          (candidate?.rowVersion ?? null) !==
+            commandSnapshot.openCandidateRowVersion)))
   )
   const locked =
     workflow.locked ||

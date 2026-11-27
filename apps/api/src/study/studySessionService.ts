@@ -34,8 +34,7 @@ export interface StudySessionService {
     payload: VersionedStudySessionPayload
     practiceContractVersion: 2
     issuedGuestCredential:
-      | import('../auth/guestPrincipalService.js').PreparedGuestCredential
-      | null
+      import('../auth/guestPrincipalService.js').PreparedGuestCredential | null
   }>
   get: (
     sessionId: string,

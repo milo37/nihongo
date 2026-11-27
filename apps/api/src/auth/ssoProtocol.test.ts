@@ -49,14 +49,12 @@ const fixture = () => {
       }).toString()
       return url.href
     }),
-    exchange: vi.fn(
-      async (): Promise<SsoExchangedIdentity | null> => ({
-        provider: 'google' as const,
-        accountId: 'provider-subject',
-        email: 'contact@example.test',
-        name: '학습자'
-      })
-    )
+    exchange: vi.fn(async (): Promise<SsoExchangedIdentity | null> => ({
+      provider: 'google' as const,
+      accountId: 'provider-subject',
+      email: 'contact@example.test',
+      name: '학습자'
+    }))
   } satisfies SsoProvider
   const service = createSsoLoginService({ provider, store })
   return { provider, service, store, transactions }

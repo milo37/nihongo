@@ -16,9 +16,7 @@ export type PublicationOperation =
   | 'retireQuestionVersionBatch'
   | 'archiveAdminQuestion'
 export type AdminQuestionDomainOperation =
-  | ContentOperation
-  | LifecycleOperation
-  | PublicationOperation
+  ContentOperation | LifecycleOperation | PublicationOperation
 export type QuestionVersionStatus =
   | 'DRAFT'
   | 'IN_REVIEW'
@@ -63,9 +61,7 @@ export interface VersionTargetRow {
   versionCreatedByActorId: string | null
   versionCreatedByRoleSnapshot: 'ADMIN' | null
   versionCreatedByLabelSnapshot:
-    | 'ACTIVE_ADMIN'
-    | 'DELETED_ADMIN'
-    | 'SYSTEM_SEED'
+    'ACTIVE_ADMIN' | 'DELETED_ADMIN' | 'SYSTEM_SEED'
   latestApproverUserId: string | null
   latestApproverActorId: string | null
   latestApproverRole: 'ADMIN' | null

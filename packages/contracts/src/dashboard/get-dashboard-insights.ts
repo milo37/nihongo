@@ -996,9 +996,13 @@ export const getDashboardInsightsResponseSchema = z
                 BigInt(weakness.incorrectCount) * 10_000n >=
                   BigInt(weakness.attemptedCount) * 4_000n
             )
-            .reduce<z.output<
-              typeof dashboardWeaknessSchema
-            > | null>((best, weakness) => (best === null || compareWeaknesses(weakness, best) < 0 ? weakness : best), null)
+            .reduce<z.output<typeof dashboardWeaknessSchema> | null>(
+              (best, weakness) =>
+                best === null || compareWeaknesses(weakness, best) < 0
+                  ? weakness
+                  : best,
+              null
+            )
           if (
             !exactLowAccuracy ||
             !matchingWeakness ||

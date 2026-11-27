@@ -100,10 +100,7 @@ export { armOperation } from './adminQuestionCommandEvidence.js'
 interface TransitionConfig {
   action: 'REQUESTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'APPROVAL_WITHDRAWN'
   command:
-    | 'REVIEW_REQUEST'
-    | 'CHANGE_REQUEST'
-    | 'APPROVAL'
-    | 'APPROVAL_WITHDRAWAL'
+    'REVIEW_REQUEST' | 'CHANGE_REQUEST' | 'APPROVAL' | 'APPROVAL_WITHDRAWAL'
   fromStates: readonly QuestionVersionStatus[]
   toState: 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED'
   authorOnly: boolean

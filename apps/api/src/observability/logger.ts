@@ -22,11 +22,7 @@ interface LogContext {
 
 interface OperationalLogMetadata {
   readonly deploymentEnvironment:
-    | 'LOCAL'
-    | 'TEST'
-    | 'DEVELOPMENT'
-    | 'STAGING'
-    | 'PRODUCTION'
+    'LOCAL' | 'TEST' | 'DEVELOPMENT' | 'STAGING' | 'PRODUCTION'
   readonly releaseId: string
 }
 
