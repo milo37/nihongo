@@ -1,0 +1,15 @@
+/* The learner app's stylesheet, without Tailwind (#1186 C11): fixed copies of
+   the theme values and the reset Tailwind compiled for it, the shared
+   component rules, then the shared rules. Same cascade order as styles.css. */
+@layer properties;
+@layer theme, base, components, utilities;
+@import './styles/learner/theme.css';
+@import './styles/learner/preflight.css';
+@import './styles/button.css';
+@import './styles/field.css';
+@import './styles/dialog.css';
+@import './styles/feedback.css';
+@import './styles/layout.css';
+@import './styles/learner/sr-only.css';
+@import './styles/rules.css';
+@import './styles/learner/properties.css';

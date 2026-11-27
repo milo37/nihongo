@@ -1,7 +1,7 @@
 /* Learner stylesheet. The import order is the cascade order: shared
-   package (Tailwind and admin-shared components), then 1-foundation to
-   5-motion. The folder map is in README.md. */
-@import '@nihongo/browser/styles.css';
+   package (reset and shared components, no Tailwind since #1186 C11), then
+   1-foundation to 5-motion. The folder map is in README.md. */
+@import '@nihongo/browser/learner.css';
 @import './1-foundation/tokens.css';
 @import './1-foundation/typography.css';
 @import './2-layout/app-shell.css';
