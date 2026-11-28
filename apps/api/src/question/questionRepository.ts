@@ -142,7 +142,7 @@ export const createPrismaQuestionRepository = (
               level: true,
               subject: true,
               questionType: true,
-              passage: true,
+              readingPassage: { select: { text: true } },
               questionText: true,
               difficulty: true,
               options: {
@@ -179,7 +179,7 @@ export const createPrismaQuestionRepository = (
         level: version.level,
         subject: version.subject,
         questionType: version.questionType,
-        passage: version.passage,
+        passage: version.readingPassage?.text ?? null,
         questionText: version.questionText,
         difficulty: version.difficulty,
         options: version.options,

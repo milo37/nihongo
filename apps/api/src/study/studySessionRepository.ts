@@ -294,10 +294,10 @@ export const loadStudySessionRecord = async (
             level: true,
             subject: true,
             questionType: true,
-            passage: true,
             passageId: true,
             readingPassage: {
               select: {
+                text: true,
                 furigana: {
                   select: { origin: true, textMd5: true, segments: true }
                 }
@@ -347,8 +347,9 @@ export const loadStudySessionRecord = async (
           'StudySessionQuestion references a missing question version.'
         )
       }
+      const passage = version.readingPassage?.text ?? null
       const passageFurigana = toPassageFurigana(
-        version.passage,
+        passage,
         version.readingPassage?.furigana
       )
       return {
@@ -360,10 +361,10 @@ export const loadStudySessionRecord = async (
           level: version.level,
           subject: version.subject,
           questionType: version.questionType,
-          passage: version.passage,
+          passage,
           passageId: version.passageId,
           passageFurigana,
-          passageAudio: passageAudioFor(version.passage, passageFurigana),
+          passageAudio: passageAudioFor(passage, passageFurigana),
           questionText: version.questionText,
           difficulty: version.difficulty,
           options: toOptions(optionsByVersionId.get(version.id) ?? []),

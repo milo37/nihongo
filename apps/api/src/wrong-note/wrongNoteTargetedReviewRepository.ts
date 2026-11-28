@@ -160,7 +160,8 @@ export const createTargetedReviewQuestionLockQuery = (questionId: string) =>
       version."level",
       version."subject",
       version."questionType",
-      version."passage",
+      (SELECT passage_row."text" FROM "ReadingPassage" AS passage_row
+         WHERE passage_row."id" = version."passageId") AS "passage",
       version."questionText",
       version."difficulty"
     FROM "Question" AS question

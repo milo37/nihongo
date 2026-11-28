@@ -152,7 +152,8 @@ const STATE_SQL = `SELECT version."contentFingerprint" AS "fingerprint",
     version."explanationKo",
     version."explanationJa",
     version."questionText",
-    version."passage",
+    (SELECT passage_row."text" FROM "ReadingPassage" AS passage_row
+         WHERE passage_row."id" = version."passageId") AS "passage",
     COALESCE((
       SELECT array_agg(option."text" ORDER BY option."ordinal", option."id")
       FROM "QuestionOption" AS option

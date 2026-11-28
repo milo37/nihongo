@@ -801,7 +801,10 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                  "subject" = $3::"QuestionSubject",
                  "questionType" = $4::"QuestionType",
                  "difficulty" = $5::"QuestionDifficulty",
-                 "passage" = $6, "questionText" = $7,
+                 "passageId" = resolve_reading_passage("questionId",
+                   $2::"JlptLevel", $3::"QuestionSubject", $6::text,
+                   "id"),
+                 "questionText" = $7,
                  "explanationKo" = $8, "explanationJa" = $9,
                  "correctOptionId" = $10, "rowVersion" = $11,
                  "updatedAt" = $12

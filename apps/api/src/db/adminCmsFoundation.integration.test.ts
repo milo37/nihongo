@@ -1449,13 +1449,15 @@ describe('Persistence foundation', () => {
       await client.query(
         `INSERT INTO "QuestionVersion" (
           "id", "questionId", "versionNumber", "level", "subject",
-          "questionType", "passage", "questionText", "correctOptionId",
+          "questionType", "passageId", "questionText", "correctOptionId",
           "explanationKo", "explanationJa", "difficulty",
           "contentFingerprint", "createdByUserId", "createdByActorId",
           "createdByRoleSnapshot", "createdByLabelSnapshot",
           "createdAt", "updatedAt"
         ) VALUES (
-          $1, $2, 2, $3, $4, $5, $6, $7, $8,
+          $1, $2, 2, $3, $4, $5,
+          resolve_reading_passage($2::uuid, $3::"JlptLevel",
+            $4::"QuestionSubject", $6::text), $7, $8,
           'SYSTEM_SEED aggregate v2 정상 lifecycle', NULL, $9, repeat('0', 64),
           $10, $10, 'ADMIN', 'ACTIVE_ADMIN', $11, $11
         )`,

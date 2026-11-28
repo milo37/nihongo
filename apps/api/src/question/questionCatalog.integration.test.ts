@@ -39,6 +39,7 @@ import {
 import { md5 } from '../content/furiganaPassageList.js'
 import { toPassageFurigana } from './passageFurigana.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
+import { resolveReadingPassageId } from './readingPassageWrite.js'
 import {
   createPrismaRushKanjiPairsRepository,
   createRushKanjiPairsReader
@@ -70,10 +71,6 @@ const database = createDatabaseRuntime(
   isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
-)
-const readingPassageMigrationFile = new URL(
-  '../../prisma/migrations/20261127090000_reading_passage/migration.sql',
-  import.meta.url
 )
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
@@ -395,36 +392,16 @@ describe('question catalog PostgreSQL integration', () => {
         VALUES ('N5', 'READING', 'app-write', md5('app-write'))
       `
     ).rejects.toThrow(/permission denied/u)
-    const migration = await readFile(readingPassageMigrationFile, 'utf8')
-    const backfill = migration
-      .slice(
-        migration.indexOf('-- backfill:start'),
-        migration.indexOf('-- backfill:end')
-      )
-      .split(/;\n/u)
-      .filter((sql) => sql.replace(/^--.*$/gmu, '').trim() !== '')
-    type Counts = {
-      withPassage: number
-      linked: number
-      texts: number
-      passages: number
-      broken: number
-    }
+    type Counts = { linked: number; passages: number; broken: number }
     const counts = async (
       transaction: Prisma.TransactionClient
     ): Promise<Counts> => {
       const [row] = await transaction.$queryRaw<Counts[]>`
         SELECT
-          count(*) FILTER (WHERE "passage" IS NOT NULL)::integer
-            AS "withPassage",
           count(*) FILTER (WHERE "passageId" IS NOT NULL)::integer AS "linked",
-          count(DISTINCT ("level", "subject", "passage")) FILTER (
-            WHERE "passage" IS NOT NULL
-          )::integer AS "texts",
           (SELECT count(*)::integer FROM "ReadingPassage") AS "passages",
           count(*) FILTER (
-            WHERE ("passage" IS NULL) <> ("passageId" IS NULL)
-              OR ("passageId" IS NULL) <> ("passageOrder" IS NULL)
+            WHERE ("passageId" IS NULL) <> ("passageOrder" IS NULL)
           )::integer AS "broken"
         FROM "QuestionVersion"
       `
@@ -454,7 +431,7 @@ describe('question catalog PostgreSQL integration', () => {
           })}::jsonb
         )
       `
-      const createVersion = (
+      const createVersion = async (
         questionId: string,
         versionNumber: number,
         passage: string
@@ -468,7 +445,12 @@ describe('question catalog PostgreSQL integration', () => {
             level: 'N3',
             subject: 'READING',
             questionType: 'SHORT_READING',
-            passage,
+            passageId: await resolveReadingPassageId(transaction, {
+              questionId,
+              level: 'N3',
+              subject: 'READING',
+              passage
+            }),
             questionText: `#986 ${questionId} ${versionNumber}`,
             explanationKo: '같은 지문 묶음',
             difficulty: 'EASY'
@@ -479,69 +461,11 @@ describe('question catalog PostgreSQL integration', () => {
     }
     const rollback = new Error('reading passage probe rolled back')
 
-    // 1) The migration's own backfill SQL on versions without a link, as
-    // before the migration: every passage version is linked, one row per
-    // text, in import order. Table changes come first, before any row
-    // write queues the deferred content checks.
-    await expect(
-      fixtureDatabase.client.$transaction(
-        async (transaction) => {
-          const seeded = await counts(transaction)
-          expect(seeded.withPassage).toBeGreaterThan(0)
-          expect(seeded).toMatchObject({
-            linked: seeded.withPassage,
-            passages: seeded.texts,
-            broken: 0
-          })
-          await transaction.$executeRawUnsafe(
-            'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_link_passage"'
-          )
-          await transaction.$executeRawUnsafe(
-            'ALTER TABLE "QuestionVersion" DROP CONSTRAINT "QuestionVersion_passage_link_check"'
-          )
-          await transaction.$executeRawUnsafe(
-            'UPDATE "QuestionVersion" SET "passageId" = NULL, "passageOrder" = NULL'
-          )
-          await transaction.$executeRawUnsafe('DELETE FROM "ReadingPassage"')
-          const { first, second, text, createVersion } =
-            await createProbe(transaction)
-          const secondVersion = await createVersion(second, 1, text)
-          const firstVersion = await createVersion(first, 1, text)
-          const before = await counts(transaction)
-          expect(before).toMatchObject({
-            withPassage: seeded.withPassage + 2,
-            texts: seeded.texts + 1,
-            linked: 0,
-            passages: 0
-          })
-
-          for (const sql of backfill) {
-            await transaction.$executeRawUnsafe(sql)
-          }
-          expect(await counts(transaction)).toEqual({
-            ...before,
-            linked: before.withPassage,
-            passages: before.texts,
-            broken: 0
-          })
-          const placed = await transaction.questionVersion.findMany({
-            where: { id: { in: [firstVersion.id, secondVersion.id] } },
-            select: { id: true, passageId: true, passageOrder: true }
-          })
-          expect(
-            Object.fromEntries(placed.map((row) => [row.id, row.passageOrder]))
-          ).toEqual({ [firstVersion.id]: 1, [secondVersion.id]: 2 })
-          expect(new Set(placed.map((row) => row.passageId)).size).toBe(1)
-          throw rollback
-        },
-        { timeout: 60_000 }
-      )
-    ).rejects.toBe(rollback)
-
-    // 2) After the migration the trigger links every write: a question new
-    // to a passage takes the next place, a new version keeps its question's
-    // place, a caller cannot move the link, and a changed text links to its
-    // own row while the old row keeps its text.
+    // #1220: writers name the passage row (resolve_reading_passage); the
+    // trigger keeps the place: a question new to a passage takes the next
+    // place, a new version keeps its question's place, a caller cannot set
+    // the place, and a changed text gets its own row while the old row keeps
+    // its text.
     await expect(
       fixtureDatabase.client.$transaction(
         async (transaction) => {
@@ -570,12 +494,13 @@ describe('question catalog PostgreSQL integration', () => {
           >`
             SELECT version."questionId", version."versionNumber",
               version."level", version."subject", version."questionType",
-              version."passage", version."passageId",
+              passage."text" AS "passage", version."passageId",
               version."passageOrder"::integer AS "passageOrder"
             FROM "QuestionVersion" AS version
+            JOIN "ReadingPassage" AS passage
+              ON passage."id" = version."passageId"
             JOIN "Question" AS question
               ON question."currentPublishedVersionId" = version."id"
-            WHERE version."passage" IS NOT NULL
             ORDER BY version."id"
             LIMIT 1
           `
@@ -588,7 +513,12 @@ describe('question catalog PostgreSQL integration', () => {
               level: published!.level,
               subject: published!.subject,
               questionType: published!.questionType,
-              passage: published!.passage,
+              passageId: await resolveReadingPassageId(transaction, {
+                questionId: published!.questionId,
+                level: published!.level,
+                subject: published!.subject,
+                passage: published!.passage
+              }),
               questionText: '#986 새 버전',
               explanationKo: '같은 자리',
               difficulty: 'EASY'
@@ -602,7 +532,7 @@ describe('question catalog PostgreSQL integration', () => {
           expect(
             await transaction.questionVersion.update({
               where: { id: draft.id },
-              data: { passageId: null, passageOrder: 9 },
+              data: { passageOrder: 9 },
               select: { passageId: true, passageOrder: true }
             })
           ).toEqual({
@@ -611,7 +541,15 @@ describe('question catalog PostgreSQL integration', () => {
           })
           const edited = await transaction.questionVersion.update({
             where: { id: draft.id },
-            data: { passage: `${published!.passage} 고침` },
+            data: {
+              passageId: await resolveReadingPassageId(transaction, {
+                questionId: published!.questionId,
+                level: published!.level,
+                subject: published!.subject,
+                passage: `${published!.passage} 고침`,
+                editedVersionId: draft.id
+              })
+            },
             select: { passageId: true, passageOrder: true }
           })
           expect(edited.passageId).not.toBe(published!.passageId)
@@ -642,7 +580,7 @@ describe('question catalog PostgreSQL integration', () => {
           data: { id, createdByLabelSnapshot: 'SYSTEM_SEED' }
         })
       }
-      const version = (
+      const version = async (
         questionId: string,
         versionNumber: number,
         passage: string
@@ -656,7 +594,12 @@ describe('question catalog PostgreSQL integration', () => {
             level: 'N3',
             subject: 'READING',
             questionType: 'SHORT_READING',
-            passage,
+            passageId: await resolveReadingPassageId(transaction, {
+              questionId,
+              level: 'N3',
+              subject: 'READING',
+              passage
+            }),
             questionText: `#1196 ${questionId} ${versionNumber}`,
             explanationKo: '공유 지문 묶음',
             difficulty: 'EASY'
@@ -904,9 +847,9 @@ describe('question catalog PostgreSQL integration', () => {
             const version = await transaction.questionVersion.findFirstOrThrow({
               where: { passageId },
               select: {
-                passage: true,
                 readingPassage: {
                   select: {
+                    text: true,
                     furigana: {
                       select: { origin: true, textMd5: true, segments: true }
                     }
@@ -915,7 +858,7 @@ describe('question catalog PostgreSQL integration', () => {
               }
             })
             return toPassageFurigana(
-              version.passage,
+              version.readingPassage?.text ?? null,
               version.readingPassage?.furigana
             )
           }
@@ -1386,7 +1329,7 @@ describe('question catalog PostgreSQL integration', () => {
               SET
                 "subject" = 'READING',
                 "questionType" = 'SHORT_READING',
-                "passage" = NULL
+                "passageId" = NULL
               WHERE "id" = ${seed.versionId}::uuid
             `
           }),
@@ -1414,7 +1357,7 @@ describe('question catalog PostgreSQL integration', () => {
             level: 'N5',
             subject: 'READING',
             questionType: 'SHORT_READING',
-            passage: null,
+            passageId: null,
             questionText: '지문이 없는 독해 문제',
             explanationKo: '독해 지문은 필수입니다.',
             difficulty: 'EASY'
@@ -1639,7 +1582,7 @@ describe('question catalog PostgreSQL integration', () => {
               "level",
               "subject",
               "questionType",
-              "passage",
+              "passageId",
               "questionText",
               "explanationKo",
               "explanationJa",
@@ -1653,7 +1596,7 @@ describe('question catalog PostgreSQL integration', () => {
               ${v1Before.level}::"JlptLevel",
               ${v1Before.subject}::"QuestionSubject",
               ${v1Before.questionType}::"QuestionType",
-              ${v1Before.passage},
+              ${v1Before.passageId}::uuid,
               ${`${v1Before.questionText} (v2)`},
               ${v1Before.explanationKo},
               ${v1Before.explanationJa},
@@ -1716,7 +1659,7 @@ describe('question catalog PostgreSQL integration', () => {
             level: v1Before.level,
             subject: v1Before.subject,
             questionType: v1Before.questionType,
-            passage: v1Before.passage,
+            passageId: v1Before.passageId,
             questionText: v1Before.questionText + ' (v2)',
             explanationKo: v1Before.explanationKo,
             explanationJa: v1Before.explanationJa,

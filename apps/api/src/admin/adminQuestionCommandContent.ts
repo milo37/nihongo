@@ -176,7 +176,9 @@ export const loadVersionTarget = async (
        version."createdByLabelSnapshot" AS "versionCreatedByLabelSnapshot",
        version."contentFingerprint",
        version."level", version."subject", version."questionType",
-       version."difficulty", version."passage", version."questionText",
+       version."difficulty", (SELECT passage_row."text" FROM "ReadingPassage" AS passage_row
+         WHERE passage_row."id" = version."passageId") AS "passage",
+       version."questionText",
        version."explanationKo", version."explanationJa",
        version."correctOptionId",
        EXISTS (
@@ -221,7 +223,8 @@ export const assertPassageEditAllowed = async (
   const rows = await client.$queryRawUnsafe<
     Array<{ passage: string | null; sharedWith: number }>
   >(
-    `SELECT source."passage",
+    `SELECT (SELECT passage_row."text" FROM "ReadingPassage" AS passage_row
+         WHERE passage_row."id" = source."passageId") AS "passage",
        (SELECT count(DISTINCT other."questionId")::integer
         FROM "QuestionVersion" AS other
         JOIN "Question" AS question ON question."id" = other."questionId"
@@ -606,13 +609,15 @@ export const createVersionContent = async (
   await transaction.$executeRawUnsafe(
     `INSERT INTO "QuestionVersion" (
        "id", "questionId", "versionNumber", "level", "subject",
-       "questionType", "passage", "questionText", "correctOptionId",
+       "questionType", "passageId", "questionText", "correctOptionId",
        "explanationKo", "explanationJa", "difficulty", "contentFingerprint",
        "createdByUserId", "createdByActorId", "createdByRoleSnapshot",
        "createdByLabelSnapshot", "createdAt", "updatedAt"
      ) VALUES (
        $1, $2, $3, $4::"JlptLevel", $5::"QuestionSubject",
-       $6::"QuestionType", $7, $8, $9, $10, $11,
+       $6::"QuestionType",
+       resolve_reading_passage($2::uuid, $4::"JlptLevel",
+         $5::"QuestionSubject", $7::text), $8, $9, $10, $11,
        $12::"QuestionDifficulty", repeat('0', 64), $13, $13, 'ADMIN',
        'ACTIVE_ADMIN', $14, $14
      )`,

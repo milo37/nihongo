@@ -144,7 +144,7 @@ const insertVersion = async (fixture: VersionFixture): Promise<void> => {
   await adminClient.query(
     `INSERT INTO "QuestionVersion" (
        "id", "questionId", "versionNumber", "status", "level", "subject",
-       "questionType", "passage", "questionText", "correctOptionId",
+       "questionType", "passageId", "questionText", "correctOptionId",
        "explanationKo", "explanationJa", "difficulty", "sourceType",
        "rowVersion", "createdByUserId", "createdByActorId",
        "createdByRoleSnapshot", "createdByLabelSnapshot", "retirementKind",

@@ -218,10 +218,17 @@ const FORWARD_FUNCTIONS = [
   'protect_evidence_history',
   'reject_unfinished_operation',
   'validate_question_version_content',
-  'validate_session_write'
+  'validate_session_write',
+  // #1220: the fingerprint reads the passage row's text.
+  'question_version_fingerprint'
 ] as const
 
 const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
+  [
+    'version_row."passage"',
+    `(SELECT passage."text" FROM "ReadingPassage" AS passage
+        WHERE passage."id" = version_row."passageId")`
+  ],
   [
     "'Phase 7 operation intent belongs to another transaction.'",
     "'Operation intent belongs to another transaction.'"
@@ -425,6 +432,66 @@ const ADDED_PASSAGE_LINK_TRIGGER = 'QuestionVersion_link_passage'
 const ADDED_PASSAGE_GROUP_TRIGGER = 'QuestionVersion_passage_group_publication'
 const ADDED_PASSAGE_GROUP_FUNCTION = 'validate_passage_group_publication'
 const ADDED_PASSAGE_LINK_FUNCTION = 'link_question_version_passage'
+/**
+ * #1220: the copied passage text column goes; writers resolve the passage
+ * row with the added function, and the fingerprint trigger watches the link.
+ */
+const DROPPED_PASSAGE_COLUMN = 'passage'
+const ADDED_PASSAGE_RESOLVE_FUNCTION = 'resolve_reading_passage'
+const FINGERPRINT_TRIGGER = 'QuestionVersion_refresh_fingerprint'
+const isDroppedPassageColumn = (row: Record<string, unknown>): boolean =>
+  row.table === 'QuestionVersion' && row.name === DROPPED_PASSAGE_COLUMN
+// The two content checks read "passageId"; the text's own blank check moved
+// to "ReadingPassage_text_check". Only these exact definitions map back.
+const CONTENT_TYPE_CHECK = 'QuestionVersion_content_type_check'
+const NONBLANK_CHECK = 'QuestionVersion_nonblank_content_check'
+const PASSAGE_FREE_NONBLANK_CHECK = `CHECKbtrim"questionText"<>''::textANDbtrim"explanationKo"<>''::textAND"explanationJa"ISNULLORbtrim"explanationJa"<>''::text`
+const withBaselinePassageChecks = (
+  row: Record<string, unknown>
+): Record<string, unknown> => {
+  if (row.table !== 'QuestionVersion') return row
+  const definition = String(row.definition)
+  if (row.name === CONTENT_TYPE_CHECK) {
+    return {
+      ...row,
+      definition: definition
+        .replaceAll('"passageId"ISNOTNULL', 'passageISNOTNULL')
+        .replaceAll('"passageId"ISNULL', 'passageISNULL')
+    }
+  }
+  return row.name === NONBLANK_CHECK &&
+    definition === PASSAGE_FREE_NONBLANK_CHECK
+    ? {
+        ...row,
+        definition: `${definition}ANDpassageISNULLORbtrimpassage<>''::text`
+      }
+    : row
+}
+/** Column places close up over the dropped column on both sides alike. */
+const withQuestionVersionColumnRanks = (
+  rows: SchemaCatalog['columns']
+): SchemaCatalog['columns'] => {
+  const ranks = new Map(
+    rows
+      .filter((row) => row.table === 'QuestionVersion')
+      .sort((left, right) => Number(left.position) - Number(right.position))
+      .map((row, index) => [row.name, index + 1])
+  )
+  return rows.map((row) =>
+    row.table === 'QuestionVersion'
+      ? { ...row, position: ranks.get(row.name) }
+      : row
+  )
+}
+const withBaselineFingerprintTrigger = (
+  row: Record<string, unknown>
+): Record<string, unknown> =>
+  row.name === FINGERPRINT_TRIGGER && typeof row.definition === 'string'
+    ? {
+        ...row,
+        definition: row.definition.replace('"passageId"', 'passage')
+      }
+    : row
 const isAddedReadingPassage = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_READING_PASSAGE_TABLE ||
   (row.table === 'QuestionVersion' &&
@@ -525,29 +592,32 @@ export const withoutForwardChanges = (
       name !== ADDED_PUSH_SUBSCRIPTION_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
-  columns: catalog.columns
-    .filter(
-      (row) =>
-        row.table !== DROPPED_TABLE &&
-        row.table !== ADDED_TABLE &&
-        !(
-          row.table === 'QuestionVersionTag' &&
-          DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
-        ) &&
-        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
-        !isAddedSignIn(row) &&
-        !isAddedRetention(row) &&
-        !isAddedConsent(row) &&
-        !isAddedStudyGoal(row) &&
-        !isAddedStamp(row) &&
-        !isAddedRushBest(row) &&
-        !isAddedRushKanjiWord(row) &&
-        !isAddedReadingPassage(row) &&
-        !isAddedFurigana(row) &&
-        !isAddedPushSubscription(row) &&
-        !isRetiredVerification(row)
-    )
-    .map(withBaselineTargetLevelAcl),
+  columns: withQuestionVersionColumnRanks(
+    catalog.columns
+      .filter(
+        (row) =>
+          row.table !== DROPPED_TABLE &&
+          row.table !== ADDED_TABLE &&
+          !(
+            row.table === 'QuestionVersionTag' &&
+            DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
+          ) &&
+          !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
+          !isAddedSignIn(row) &&
+          !isAddedRetention(row) &&
+          !isAddedConsent(row) &&
+          !isAddedStudyGoal(row) &&
+          !isAddedStamp(row) &&
+          !isAddedRushBest(row) &&
+          !isAddedRushKanjiWord(row) &&
+          !isAddedReadingPassage(row) &&
+          !isDroppedPassageColumn(row) &&
+          !isAddedFurigana(row) &&
+          !isAddedPushSubscription(row) &&
+          !isRetiredVerification(row)
+      )
+      .map(withBaselineTargetLevelAcl)
+  ),
   constraints: catalog.constraints
     .filter(
       (row) =>
@@ -568,7 +638,8 @@ export const withoutForwardChanges = (
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
-    .map(withBaselineErasureStatus),
+    .map(withBaselineErasureStatus)
+    .map(withBaselinePassageChecks),
   indexes: catalog.indexes.filter(
     (row) =>
       !isDroppedTagSnapshot(row) &&
@@ -586,15 +657,17 @@ export const withoutForwardChanges = (
       !isAddedPushSubscription(row) &&
       !isRetiredVerification(row)
   ),
-  triggers: catalog.triggers.filter(
-    (row) =>
-      row.table !== DROPPED_TABLE &&
-      row.table !== ADDED_TABLE &&
-      !isRetiredVerification(row) &&
-      row.name !== ADDED_PASSAGE_LINK_TRIGGER &&
-      row.name !== ADDED_PASSAGE_GROUP_TRIGGER &&
-      !DROPPED_TRIGGERS.has(String(row.name))
-  ),
+  triggers: catalog.triggers
+    .filter(
+      (row) =>
+        row.table !== DROPPED_TABLE &&
+        row.table !== ADDED_TABLE &&
+        !isRetiredVerification(row) &&
+        row.name !== ADDED_PASSAGE_LINK_TRIGGER &&
+        row.name !== ADDED_PASSAGE_GROUP_TRIGGER &&
+        !DROPPED_TRIGGERS.has(String(row.name))
+    )
+    .map(withBaselineFingerprintTrigger),
   functions: catalog.functions
     .filter(
       ({ name }) =>
@@ -603,6 +676,7 @@ export const withoutForwardChanges = (
         name !== ADDED_REAPPLY_FUNCTION &&
         name !== ADDED_PASSAGE_LINK_FUNCTION &&
         name !== ADDED_PASSAGE_GROUP_FUNCTION &&
+        name !== ADDED_PASSAGE_RESOLVE_FUNCTION &&
         name !== RETIRED_VERIFICATION_FUNCTION
     )
     .map((row) =>

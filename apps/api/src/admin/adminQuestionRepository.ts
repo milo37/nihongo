@@ -424,7 +424,7 @@ const versionSummaryScalarSelect = {
 
 const versionScalarSelect = {
   ...versionSummaryScalarSelect,
-  passage: true,
+  readingPassage: { select: { text: true } },
   correctOptionId: true,
   explanationKo: true,
   explanationJa: true
@@ -650,7 +650,7 @@ const mapVersionSummary = (
 
 const mapVersion = (version: SelectedVersion): AdminVersionRecord => ({
   ...mapVersionSummary(version),
-  passage: version.passage,
+  passage: version.readingPassage?.text ?? null,
   correctOptionId: version.correctOptionId,
   explanationKo: version.explanationKo,
   explanationJa: version.explanationJa,

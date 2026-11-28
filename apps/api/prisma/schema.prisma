@@ -564,9 +564,9 @@ model QuestionVersion {
   level                      JlptLevel
   subject                    QuestionSubject
   questionType               QuestionType
-  passage                    String?
   // #986: the "ReadingPassage" row of the passage text and the question's
-  // place under it; the migration's trigger sets both.
+  // place under it. #1220: writers set passageId with
+  // resolve_reading_passage(); the trigger sets passageOrder.
   passageId                  String?                @db.Uuid
   passageOrder               Int?                   @db.SmallInt
   questionText               String
