@@ -9,7 +9,8 @@ import {
 } from './readiness.js'
 import {
   createPostgresStartupOptions,
-  getPostgresSchema
+  getPostgresSchema,
+  toNodePostgresConnectionString
 } from './databaseOptions.js'
 
 export interface DatabaseRuntime {
@@ -37,7 +38,7 @@ const createPrismaClient = (
   const schema = getPostgresSchema(connectionString)
   const adapter = new PrismaPg(
     {
-      connectionString,
+      connectionString: toNodePostgresConnectionString(connectionString),
       connectionTimeoutMillis: 3_000,
       idleTimeoutMillis: 30_000,
       max: 10,

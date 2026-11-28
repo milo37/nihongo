@@ -29,6 +29,7 @@ import {
   updateQuestionVersionResponseSchema
 } from '@nihongo/contracts/admin/content-operations'
 import { listAdminMembersResponseSchema } from '@nihongo/contracts/admin/members'
+import { createReportResponseSchema } from '@nihongo/contracts/report/reports'
 import {
   assertAndAttachLedger,
   ledgerEntriesFor,
@@ -817,6 +818,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
           await canonicalJson(await validationResponse, 200)
         ).valid
       ).toBe(true)
+      // The verdict heading takes focus once validation lands (JLP-796).
+      await expect(
+        winner.getByRole('heading', { name: '검사 결과 검사 통과' })
+      ).toBeFocused()
       const applyResponse = waitForResponse(
         winner,
         'POST',
@@ -832,6 +837,21 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const applied = adminImportApplyResponseSchema.parse(
         await canonicalJson(appliedResponse, 201)
       )
+      // Apply result on screen; focus returns to the page title, not the
+      // validation heading from the earlier frame (JLP-796).
+      await expect(
+        winner.getByText(
+          `${applied.createdCount}개 문제를 초안으로 만들었습니다. 문제 관리에서 검토해 주세요.`,
+          { exact: true }
+        )
+      ).toBeVisible()
+      await expect(
+        winner.getByRole('heading', {
+          level: 1,
+          name: '문제 초안 가져오기',
+          exact: true
+        })
+      ).toBeFocused()
       const stored = await browserJson(
         winner,
         `/api/v1/admin/question-imports/${encodeURIComponent(importId)}`
@@ -887,6 +907,78 @@ test('administrator member list renders the real masked member page', async ({
     }
     // Fixture addresses are test-<actor>-<suffix>@example.test; only masked text may render.
     await expect(grid.getByText(/test-[a-z]+-.+@example\.test/)).toHaveCount(0)
+    await waitForLedgerToQuiesce(ledger)
+  } finally {
+    await context.close()
+  }
+})
+
+test('administrator replies to and closes a learner report and sees the success toast (JLP-796)', async ({
+  browser
+}) => {
+  const { learner, reviewer } = readFixture()
+  const learnerContext = await browser.newContext({
+    baseURL: publicOrigin,
+    locale: 'ko-KR'
+  })
+  let reportId: string
+  try {
+    const page = await learnerContext.newPage()
+    await login(page, learner, trackRequestLedger(learnerContext))
+    const created = await browserJson(page, '/api/v1/reports', {
+      kind: 'APP_ERROR',
+      location: 'e2e#jlp-796',
+      description: 'Admin report processing browser check'
+    })
+    expect(created.status).toBe(201)
+    reportId = createReportResponseSchema.parse(created.body).reportId
+  } finally {
+    await learnerContext.close()
+  }
+  const context = await browser.newContext({
+    baseURL: publicOrigin,
+    locale: 'ko-KR'
+  })
+  const ledger = trackRequestLedger(context)
+  try {
+    const page = await context.newPage()
+    await login(page, reviewer, ledger)
+    const detail = waitForResponse(
+      page,
+      'GET',
+      `/api/v1/admin/reports/${reportId}`
+    )
+    await page.goto(`/admin/reports/${reportId}`)
+    expect((await detail).status()).toBe(200)
+    const panel = page.getByRole('region', { name: '처리', exact: true })
+    await panel
+      .getByLabel('제보자에게 보낼 답변')
+      .fill('확인했습니다. 고쳤어요.')
+    const replied = waitForResponse(
+      page,
+      'POST',
+      `/api/v1/admin/reports/${reportId}/reply-and-close`
+    )
+    await panel
+      .getByRole('button', { name: '답변하고 종결', exact: true })
+      .click()
+    expect((await replied).status()).toBe(200)
+    // Success is a toast that never takes focus; focus moves to the panel title.
+    await expect(
+      page
+        .getByRole('region', { name: '알림' })
+        // The title carries a hidden '완료:' prefix, so match the visible part.
+        .getByText('답변을 보내고 종결했습니다.')
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: '처리', exact: true })
+    ).toBeFocused()
+    await expect(
+      panel.getByText('종결된 제보는 더 처리할 수 없습니다.', { exact: true })
+    ).toBeVisible()
+    await expect(
+      panel.getByRole('button', { name: '답변하고 종결', exact: true })
+    ).toHaveCount(0)
     await waitForLedgerToQuiesce(ledger)
   } finally {
     await context.close()

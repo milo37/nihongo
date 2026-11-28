@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import {
   createPostgresStartupOptions,
-  getPostgresSchema
+  getPostgresSchema,
+  toNodePostgresConnectionString
 } from './databaseOptions.js'
 
 export type OperatorEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
@@ -76,7 +77,7 @@ export const createOperatorDatabaseClient = (
   url.searchParams.delete('schema')
   url.searchParams.delete('options')
   const client = new Client({
-    connectionString: url.toString(),
+    connectionString: toNodePostgresConnectionString(url.toString()),
     options: createPostgresStartupOptions(schema, 'nihongo_migration'),
     connectionTimeoutMillis: 5000,
     query_timeout: 15000,

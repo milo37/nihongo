@@ -43,3 +43,22 @@ export const createPostgresStartupOptions = (
     .filter((option): option is string => option !== undefined)
     .join(' ')
 }
+
+// pg 8 treats these sslmode values as verify-full; its next major gives them
+// the libpq meaning (require = encrypt without checking the certificate).
+const NODE_POSTGRES_VERIFY_FULL_ALIASES =
+  /([?&])sslmode=(prefer|require|verify-ca)(?=&|$)/giu
+
+/**
+ * #1355: pins the TLS check node-postgres does today. The stored URLs keep
+ * sslmode=require (Prisma migrate reads them too); only what node-postgres
+ * receives says verify-full, so a pg upgrade cannot drop the check.
+ */
+export const toNodePostgresConnectionString = (
+  connectionString: string
+): string => {
+  return connectionString.replace(
+    NODE_POSTGRES_VERIFY_FULL_ALIASES,
+    '$1sslmode=verify-full'
+  )
+}

@@ -84,8 +84,9 @@ recreated postgres could come back on another one (checked locally: with a
 container started first it came back on `.3`), which would make the row stale.
 
 The API and the `capability` service mount the postgres certificate and set
-`NODE_EXTRA_CA_CERTS`: node-postgres treats `sslmode=require` as
-`verify-full`, so without it they reject the self-signed certificate
+`NODE_EXTRA_CA_CERTS`: the API hands node-postgres `sslmode=verify-full`
+even when the stored URL says `require` (#1355, so a pg upgrade cannot drop
+the check), so without it they reject the self-signed certificate
 (`DEPTH_ZERO_SELF_SIGNED_CERT`). Prisma migrate (step 4) is not affected. New
 certificates carry `subjectAltName=DNS:postgres`. Caution: a certificate made
 before this change (no SAN) is kept on the data volume, and Node may then
