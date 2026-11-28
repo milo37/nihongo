@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, RefObject } from 'react'
 import type {
   AdminImportValidationResponse,
   ValidateQuestionImportRequest
@@ -84,9 +84,28 @@ export const useQuestionImport = ({
   const fileInput = useRef<HTMLInputElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const resultHeading = useRef<HTMLHeadingElement>(null)
+  // One pending focus move at a time: a newer move (or apply starting)
+  // cancels the older frame, so the validation heading never takes focus
+  // back after apply has begun (JLP-796).
+  const focusFrame = useRef<number | null>(null)
+  const cancelFocusFrame = (): void => {
+    if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current)
+    focusFrame.current = null
+  }
+  const focusNextFrame = (
+    target: RefObject<HTMLHeadingElement | null>,
+    revision: number
+  ): void => {
+    cancelFocusFrame()
+    focusFrame.current = requestAnimationFrame(() => {
+      focusFrame.current = null
+      if (selectionRevision.current === revision) target.current?.focus()
+    })
+  }
   useEffect(
     () => () => {
       selectionRevision.current += 1
+      cancelFocusFrame()
     },
     []
   )
@@ -146,10 +165,7 @@ export const useQuestionImport = ({
       if (selectionRevision.current !== revision) return
       assertActor()
       setValidated({ request: input, result, revision })
-      requestAnimationFrame(() => {
-        if (selectionRevision.current === revision)
-          resultHeading.current?.focus()
-      })
+      focusNextFrame(resultHeading, revision)
     } catch {
       /* The current mutation exposes the canonical error. */
     } finally {
@@ -171,6 +187,7 @@ export const useQuestionImport = ({
     )
       return
     operationInFlight.current = true
+    cancelFocusFrame()
     const revision = selectionRevision.current
     const digest = validated.result.validationDigest
     const importId = importIds.current.get(digest) ?? crypto.randomUUID()
@@ -186,9 +203,7 @@ export const useQuestionImport = ({
       assertActor()
       setCreatedCount(result.createdCount)
       setAppliedDigests((previous) => new Set([...previous, digest]))
-      requestAnimationFrame(() => {
-        if (selectionRevision.current === revision) heading.current?.focus()
-      })
+      focusNextFrame(heading, revision)
     } catch (error) {
       if (selectionRevision.current !== revision) return
       if (
@@ -207,9 +222,7 @@ export const useQuestionImport = ({
           setRecovery(null)
           setCreatedCount(recovered.createdCount)
           setAppliedDigests((previous) => new Set([...previous, digest]))
-          requestAnimationFrame(() => {
-            if (selectionRevision.current === revision) heading.current?.focus()
-          })
+          focusNextFrame(heading, revision)
         } catch (recoveryError) {
           if (selectionRevision.current !== revision) return
           setRecovery(
