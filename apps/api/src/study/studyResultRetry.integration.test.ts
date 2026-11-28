@@ -21,6 +21,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { resolveReadingPassageId } from '../question/readingPassageWrite.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
@@ -756,7 +757,12 @@ describe('study result retry integration', () => {
             level: 'N1',
             subject: 'READING',
             questionType: 'SHORT_READING',
-            passage: 'Slice 5 historical pin v1 passage.',
+            passageId: await resolveReadingPassageId(transaction, {
+              questionId,
+              level: 'N1',
+              subject: 'READING',
+              passage: 'Slice 5 historical pin v1 passage.'
+            }),
             questionText: 'Slice 5 historical pin v1 question.',
             explanationKo: '재출제 historical pin을 검증하는 원본 설명입니다.',
             difficulty: 'HARD',
@@ -873,7 +879,12 @@ describe('study result retry integration', () => {
             level: 'N1',
             subject: 'READING',
             questionType: 'SHORT_READING',
-            passage: 'Slice 5 historical pin v2 passage.',
+            passageId: await resolveReadingPassageId(transaction, {
+              questionId,
+              level: 'N1',
+              subject: 'READING',
+              passage: 'Slice 5 historical pin v2 passage.'
+            }),
             questionText: 'Slice 5 historical pin v2 question.',
             explanationKo: '새 current version과 historical pin을 구분합니다.',
             difficulty: 'HARD',

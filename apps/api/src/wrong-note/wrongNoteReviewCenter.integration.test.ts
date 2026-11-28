@@ -987,7 +987,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 level: historicalVersion.level,
                 subject: historicalVersion.subject,
                 questionType: historicalVersion.questionType,
-                passage: historicalVersion.passage,
+                passageId: historicalVersion.passageId,
                 questionText: currentPreview,
                 explanationKo: historicalVersion.explanationKo,
                 explanationJa: historicalVersion.explanationJa,

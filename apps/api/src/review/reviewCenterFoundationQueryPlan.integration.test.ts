@@ -466,7 +466,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     await fixtureDatabase.client.$executeRaw(Prisma.sql`
       INSERT INTO "QuestionVersion" (
         "id", "questionId", "versionNumber", "status", "level",
-        "subject", "questionType", "passage", "questionText",
+        "subject", "questionType", "passageId", "questionText",
         "correctOptionId", "explanationKo", "explanationJa",
         "difficulty", "sourceType", "rowVersion", "createdByUserId",
         "createdByLabelSnapshot", "createdAt", "updatedAt"

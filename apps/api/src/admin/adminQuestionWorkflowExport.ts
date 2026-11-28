@@ -110,7 +110,9 @@ export const loadExportVersionPage = async (
   transaction.$queryRawUnsafe<ExportVersionRow[]>(
     `SELECT "id", "questionId", "versionNumber", "status", "rowVersion",
        "createdByUserId", "level", "subject", "questionType", "difficulty",
-       "passage", "questionText", "explanationKo", "explanationJa",
+       (SELECT passage_row."text" FROM "ReadingPassage" AS passage_row
+         WHERE passage_row."id" = "QuestionVersion"."passageId") AS "passage",
+       "questionText", "explanationKo", "explanationJa",
        "correctOptionId"
      FROM "QuestionVersion"
      WHERE "questionId" = $1

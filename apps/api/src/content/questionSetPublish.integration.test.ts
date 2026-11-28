@@ -612,13 +612,23 @@ describe.sequential(
         files: newer,
         previousFiles
       })
-    const publishedOf = async (index: number) =>
-      database.client.questionVersion.findUniqueOrThrow({
+    const publishedOf = async (index: number) => {
+      const version = await database.client.questionVersion.findUniqueOrThrow({
         where: {
           id: (await questionOf(index)).currentPublishedVersionId as string
         },
-        select: { questionText: true, passage: true, explanationJa: true }
+        select: {
+          questionText: true,
+          readingPassage: { select: { text: true } },
+          explanationJa: true
+        }
       })
+      return {
+        questionText: version.questionText,
+        passage: version.readingPassage?.text ?? null,
+        explanationJa: version.explanationJa
+      }
+    }
 
     it('stops on newer text without the previous set, as before', async () => {
       const newer = newerSet(6, (content) => ({

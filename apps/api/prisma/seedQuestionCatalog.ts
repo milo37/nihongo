@@ -1,6 +1,7 @@
 import { writeSeedDiagnostic } from './seedDiagnostics.js'
 import { createHash } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client.js'
+import { resolveReadingPassageId } from '../src/question/readingPassageWrite.js'
 import {
   buildQuestionAggregateSeed,
   SEED_TIMESTAMP,
@@ -56,7 +57,7 @@ const toComparableVersion = (
   level: version.level,
   subject: version.subject,
   questionType: version.questionType,
-  passage: version.passage,
+  passage: version.readingPassage?.text ?? null,
   questionText: version.questionText,
   correctOptionId: version.correctOptionId,
   explanationKo: version.explanationKo,
@@ -128,7 +129,8 @@ const getSeededQuestion = (
         where: { versionNumber: 1 },
         include: {
           options: { orderBy: { ordinal: 'asc' } },
-          tags: { include: { tag: true } }
+          tags: { include: { tag: true } },
+          readingPassage: { select: { text: true } }
         }
       }
     }
@@ -204,6 +206,12 @@ const insertQuestionSeed = async (
       updatedAt: SEED_TIMESTAMP
     }
   })
+  const passageId = await resolveReadingPassageId(transaction, {
+    questionId: seed.questionId,
+    level: seed.level,
+    subject: seed.subject,
+    passage: seed.passage
+  })
   await transaction.questionVersion.create({
     data: {
       id: seed.versionId,
@@ -213,7 +221,7 @@ const insertQuestionSeed = async (
       level: seed.level,
       subject: seed.subject,
       questionType: seed.questionType,
-      passage: seed.passage,
+      passageId,
       questionText: seed.questionText,
       explanationKo: seed.explanationKo,
       explanationJa: seed.explanationJa,

@@ -421,13 +421,15 @@ export const createVersionContent = async (
   await transaction.$executeRawUnsafe(
     `INSERT INTO "QuestionVersion" (
        "id", "questionId", "versionNumber", "level", "subject",
-       "questionType", "passage", "questionText", "correctOptionId",
+       "questionType", "passageId", "questionText", "correctOptionId",
        "explanationKo", "explanationJa", "difficulty", "contentFingerprint",
        "createdByUserId", "createdByActorId", "createdByRoleSnapshot",
        "createdByLabelSnapshot", "createdAt", "updatedAt"
      ) VALUES (
        $1, $2, 1, $3::"JlptLevel", $4::"QuestionSubject",
-       $5::"QuestionType", $6, $7, $8, $9, $10,
+       $5::"QuestionType",
+       resolve_reading_passage($2::uuid, $3::"JlptLevel",
+         $4::"QuestionSubject", $6::text), $7, $8, $9, $10,
        $11::"QuestionDifficulty", repeat('0', 64), $12, $12, 'ADMIN',
        'ACTIVE_ADMIN', $13, $13
      )`,

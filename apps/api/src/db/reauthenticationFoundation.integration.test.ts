@@ -1110,6 +1110,8 @@ describe('Reauthentication DB foundation', () => {
       'create_sso_transaction_v2',
       'require_database_capability',
       'require_runtime_ready',
+      // #1220: admin version writes name the passage row.
+      'resolve_reading_passage',
       'resolve_sso_identity',
       'user_erasure_confirmed'
     ])
