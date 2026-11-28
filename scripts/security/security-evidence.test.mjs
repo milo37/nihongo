@@ -195,8 +195,9 @@ const createCurrentAcceptanceAttachments = (mode, index) => {
     ]
   if (mode === 'real' && index === 1)
     return [createRequestLedgerAttachment('admin-cms-real-request-ledger')]
-  // The real admin member list check attaches no evidence.
-  if (mode === 'real' && index === 2) return []
+  // The real admin member list and report processing checks attach no
+  // evidence.
+  if (mode === 'real' && (index === 2 || index === 3)) return []
   return [
     createRequestLedgerAttachment(`dashboard-${mode}-request-ledger`),
     createPerformanceAttachment(mode)
@@ -302,7 +303,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   })
   const requestLedgerAttachments = createJourneyAttachments('real')
   reporter.onBegin()
-  for (let index = 0; index < 6; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     reporter.onTestEnd(
       {
         location: {
@@ -339,12 +340,12 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     createJourneyAttachmentNames('real').toSorted()
   )
   assert.deepEqual(value.counts, {
-    passed: 6,
+    passed: 7,
     failed: 0,
     skipped: 0,
     timedOut: 0,
     interrupted: 0,
-    total: 6
+    total: 7
   })
   const manifest = await verifyArtifactDirectory({
     directory,
@@ -459,9 +460,9 @@ test('all six safe suites retain exact current counts and approved attachments',
   const labels = []
   for (const mode of ['real', 'mock']) {
     for (const [suite, count] of [
-      ['admin-dashboard', mode === 'real' ? 4 : 1],
+      ['admin-dashboard', mode === 'real' ? 5 : 1],
       ['accessibility', mode === 'real' ? 4 : 3],
-      ['journey', mode === 'real' ? 6 : 5]
+      ['journey', mode === 'real' ? 7 : 5]
     ]) {
       const label = `${suite}-${mode}`
       labels.push(label)
@@ -666,7 +667,7 @@ test('dashboard reporter retains exact ledger and performance evidence', async (
     label: 'admin-dashboard-real'
   })
   reporter.onBegin()
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
     reporter.onTestEnd(
       {
         location: { file: `/private/spec-${index}.ts`, line: index + 1 },
@@ -686,7 +687,7 @@ test('dashboard reporter retains exact ledger and performance evidence', async (
     await readFile(path.join(directory, 'admin-dashboard-real.json'), 'utf8')
   )
   assert.equal(value.schemaVersion, 2)
-  assert.equal(value.tests.length, 4)
+  assert.equal(value.tests.length, 5)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
     [
@@ -978,7 +979,7 @@ test('current dashboard summaries reject missing, duplicate, forged and obsolete
       outputDirectory: directory,
       label
     })
-    const count = mode === 'real' ? 4 : 1
+    const count = mode === 'real' ? 5 : 1
     reporter.onBegin()
     for (let index = 0; index < count; index += 1) {
       reporter.onTestEnd(
@@ -1037,12 +1038,12 @@ test('current dashboard summaries reject missing, duplicate, forged and obsolete
       [
         'old test count',
         (candidate) => {
-          candidate.tests = Array.from({ length: 5 }, (_, index) => ({
+          candidate.tests = Array.from({ length: 3 }, (_, index) => ({
             ...candidate.tests[0],
             testId: index.toString(16).padStart(64, '0')
           }))
-          candidate.counts.passed = 5
-          candidate.counts.total = 5
+          candidate.counts.passed = 3
+          candidate.counts.total = 3
         }
       ],
       [
@@ -1392,9 +1393,9 @@ test('real-only browser evidence requires all three exact suites', async () => {
   const labels = ['admin-dashboard-real', 'accessibility-real', 'journey-real']
   try {
     for (const [suite, count] of [
-      ['admin-dashboard', 4],
+      ['admin-dashboard', 5],
       ['accessibility', 4],
-      ['journey', 6]
+      ['journey', 7]
     ]) {
       const label = `${suite}-real`
       const reporter = new PlaywrightEvidenceReporter({
@@ -1485,8 +1486,9 @@ for (const mode of ['real', 'mock']) {
     async () => {
       const directory = await mkdtemp(path.join(tmpdir(), 'journey-five-'))
       const label = 'journey-' + mode
-      // Real adds the guest result move after sign-in (JLP-823).
-      const expectedCount = mode === 'real' ? 6 : 5
+      // Real adds the guest result move after sign-in (JLP-823) and the
+      // guest daily limit card (JLP-796).
+      const expectedCount = mode === 'real' ? 7 : 5
       const makeSummary = (count = expectedCount) => ({
         schemaVersion: 2,
         kind: 'nihongo.playwright-safe-summary',

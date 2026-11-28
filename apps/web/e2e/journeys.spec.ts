@@ -38,6 +38,7 @@ import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-c
 import { ssoAccountCapabilitiesSchema } from '@nihongo/contracts/auth/sso-account-management'
 import { getWrongNoteResponseSchema } from '@nihongo/contracts/wrong-note/get-wrong-note'
 import { importGuestResultResponseSchema } from '@nihongo/contracts/study/import-guest-result'
+import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
@@ -1411,6 +1412,48 @@ if (mode === 'real')
       total: number
     }
     expect(listed.total).toBeGreaterThanOrEqual(moved.wrongAnswerCount)
+  })
+
+// The mock never counts guest sets across reloads; the real server does.
+// Registered only for real so the mock evidence keeps its exact test count.
+if (mode === 'real')
+  test("guest who used today's sets gets the limit card with Google login (JLP-796)", async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    await prepareJourney(page, '203.0.113.247')
+    for (let set = 1; set <= GUEST_DAILY_SESSION_LIMIT; set += 1) {
+      await page.goto('/practice')
+      await settleJourneyPage(page)
+      const created = waitForApiResponse(page, 'POST', '/api/v1/study-sessions')
+      await page.locator('main button[type="submit"]:visible').first().click()
+      const sessionId = createStudySessionV2ResponseSchema.parse(
+        await (await created).json()
+      ).session.id
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${sessionId}`, 'u')
+      )
+    }
+    const allowance = waitForApiResponse(page, 'GET', '/api/v1/guest-allowance')
+    await page.goto('/practice')
+    expect((await allowance).status()).toBe(200)
+    await settleJourneyPage(page)
+    const card = page.getByRole('region', {
+      name: `오늘 ${GUEST_DAILY_SESSION_LIMIT}번을 다 풀었어요`
+    })
+    await expect(card).toBeVisible()
+    await expect(
+      card.getByRole('button', { name: 'Google로 로그인' })
+    ).toBeEnabled()
+    await expect(
+      card.getByText(`내일 0시에 다시 ${GUEST_DAILY_SESSION_LIMIT}번`, {
+        exact: true
+      })
+    ).toBeVisible()
+    // No way to start a fourth set from the setup screen.
+    await expect(
+      page.locator('main button[type="submit"]:visible')
+    ).toHaveCount(0)
   })
 
 test('USER completes one setup-to-dashboard journey with an exact mutation ledger', async ({

@@ -51,12 +51,14 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
 }
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'admin-dashboard-mock': 1,
-  'admin-dashboard-real': 4,
+  // Real adds the report reply-and-close check (JLP-796).
+  'admin-dashboard-real': 5,
   'accessibility-mock': 3,
   'accessibility-real': 4,
   'journey-mock': 5,
-  // Real only: the guest result move after sign-in (JLP-823).
-  'journey-real': 6
+  // Real only: the guest result move after sign-in (JLP-823) and the guest
+  // daily limit card (JLP-796).
+  'journey-real': 7
 }
 const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],

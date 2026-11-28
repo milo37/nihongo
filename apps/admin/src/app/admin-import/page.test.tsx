@@ -237,6 +237,51 @@ it('validates exact items then explicitly applies the same digest and blocks dup
   fireEvent.click(applyButton())
   expect(applies()).toHaveLength(1)
 })
+it('apply start cancels the pending validation focus so the result heading never takes focus back (JLP-796)', async () => {
+  route()
+  await upload()
+  // Hold animation frames so apply can start before the validation frame runs.
+  const frames = new Map<number, FrameRequestCallback>()
+  let nextFrame = 0
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    nextFrame += 1
+    frames.set(nextFrame, callback)
+    return nextFrame
+  })
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+    frames.delete(id)
+  })
+  const flushFrames = () =>
+    act(() => {
+      const pending = [...frames.values()]
+      frames.clear()
+      for (const callback of pending) callback(performance.now())
+    })
+  let finishApply: (value: AdminImportApplyResponse) => void = () => undefined
+  apply = () =>
+    new Promise((resolve) => {
+      finishApply = resolve
+    })
+  await userEvent.click(validateButton())
+  const validHeading = await screen.findByRole('heading', {
+    name: resultHeading('import.valid')
+  })
+  expect(frames.size).toBe(1)
+  const start = applyButton()
+  await userEvent.click(start)
+  await waitFor(() => expect(applies()).toHaveLength(1))
+  expect(frames.size).toBe(0)
+  flushFrames()
+  expect(validHeading).not.toHaveFocus()
+  expect(start).toHaveFocus()
+  await act(async () => finishApply(applied))
+  expect(
+    await screen.findByText(t('import.applied', { formattedCount: '1' }))
+  ).toBeVisible()
+  await waitFor(() => expect(frames.size).toBe(1))
+  flushFrames()
+  expect(screen.getByRole('heading', { name: t('import.title') })).toHaveFocus()
+})
 it('shows item/field validation issues using localized codes without raw server text or apply', async () => {
   validate = async () => ({
     ...validated,
